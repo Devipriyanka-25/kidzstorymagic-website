@@ -1,0 +1,264 @@
+/**
+ * StoryGenerationStep.jsx
+ * 
+ * Purpose: Story Generation workflow - combines image upload and story generation
+ * Features:
+ * - Image upload validation
+ * - AI story generation from images
+ * - Story preview
+ * - Save as draft
+ * - Regenerate functionality
+ */
+
+'use client';
+
+import { useState, useEffect } from 'react';
+import ImageUploadComponent from './ImageUploadComponent';
+import StoryPreviewComponent from './StoryPreviewComponent';
+import { storyAPI } from '@/utils/api';
+
+export default function StoryGenerationStep({ 
+  projectId,
+  theme,
+  childName,
+  onStoryGenerated,
+}) {
+  const [uploadedImages, setUploadedImages] = useState([]);
+  const [generatedStory, setGeneratedStory] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [step, setStep] = useState('upload'); // 'upload' | 'generating' | 'preview'
+  const [regenerateCount, setRegenerateCount] = useState(0);
+
+  const MIN_IMAGES = 2;
+
+  /**
+   * Handle image selection from upload component
+   */
+  const handleImagesSelected = (images) => {
+    setUploadedImages(images);
+    setError('');
+  };
+
+  /**
+   * Generate story from uploaded images
+   */
+  const generateStory = async () => {
+    if (uploadedImages.length < MIN_IMAGES) {
+      setError(`Please upload at least ${MIN_IMAGES} images to generate a story`);
+      return;
+    }
+
+    setLoading(true);
+    setError('');
+    setStep('generating');
+
+    try {
+      // Prepare image data
+      const imageData = uploadedImages.map(img => ({
+        id: img.id,
+        url: img.preview,
+        name: img.name,
+      }));
+
+      // Call API to generate story
+      const response = await storyAPI.generateStoryFromImages({
+        projectId,
+        childName,
+        theme,
+        images: imageData,
+        regenerationCount: regenerateCount,
+      });
+
+      // Format generated story
+      const story = {
+        title: response.data.title || `${childName}'s Story`,
+        pages: response.data.pages || [],
+        theme: response.data.theme || theme,
+        generatedAt: new Date().toISOString(),
+      };
+
+      setGeneratedStory(story);
+      setStep('preview');
+
+      // Notify parent component
+      if (onStoryGenerated) {
+        onStoryGenerated(story);
+      }
+    } catch (err) {
+      console.error('Story generation error:', err);
+      setError(
+        err.response?.data?.error ||
+        err.message ||
+        'Failed to generate story. Please try again.'
+      );
+      setStep('upload');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  /**
+   * Regenerate story with different selection of images
+   */
+  const regenerateStory = async () => {
+    setRegenerateCount(regenerateCount + 1);
+    setStep('upload'); // Go back to upload step to allow re-uploading if needed
+    await generateStory();
+  };
+
+  /**
+   * Save current story as draft
+   */
+  const saveDraft = async () => {
+    try {
+      setLoading(true);
+      
+      const response = await storyAPI.saveDraft({
+        projectId,
+        story: generatedStory,
+        images: uploadedImages,
+        status: 'draft',
+      });
+
+      // Show success message
+      alert('✅ Story saved as draft successfully!');
+      
+      // Optionally redirect or close
+      if (onStoryGenerated) {
+        onStoryGenerated({
+          ...generatedStory,
+          draftId: response.data.id,
+          status: 'draft',
+        });
+      }
+    } catch (err) {
+      console.error('Draft save error:', err);
+      alert('❌ Failed to save draft. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  /**
+   * Go back to upload step
+   */
+  const backToUpload = () => {
+    setStep('upload');
+    setGeneratedStory(null);
+  };
+
+  return (
+    <div className="w-full min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 py-8 px-4">
+      {/* Progress Indicator */}
+      <div className="max-w-6xl mx-auto mb-8">
+        <div className="flex items-center justify-center gap-4">
+          {/* Step 1 */}
+          <div className={`flex flex-col items-center ${step === 'upload' ? 'text-blue-600' : 'text-gray-500'}`}>
+            <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-white ${
+              step === 'upload' ? 'bg-blue-600' : 'bg-gray-400'
+            }`}>
+              1
+            </div>
+            <p className="text-xs mt-1 font-medium">Upload Images</p>
+          </div>
+          
+          <div className={`flex-1 h-1 ${['generating', 'preview'].includes(step) ? 'bg-blue-600' : 'bg-gray-300'}`} />
+          
+          {/* Step 2 */}
+          <div className={`flex flex-col items-center ${step === 'generating' ? 'text-blue-600' : 'text-gray-500'}`}>
+            <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-white ${
+              ['generating', 'preview'].includes(step) ? 'bg-blue-600' : 'bg-gray-400'
+            }`}>
+              2
+            </div>
+            <p className="text-xs mt-1 font-medium">Generate Story</p>
+          </div>
+          
+          <div className={`flex-1 h-1 ${step === 'preview' ? 'bg-blue-600' : 'bg-gray-300'}`} />
+          
+          {/* Step 3 */}
+          <div className={`flex flex-col items-center ${step === 'preview' ? 'text-blue-600' : 'text-gray-500'}`}>
+            <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-white ${
+              step === 'preview' ? 'bg-blue-600' : 'bg-gray-400'
+            }`}>
+              3
+            </div>
+            <p className="text-xs mt-1 font-medium">Preview</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Step 1: Image Upload */}
+      {step === 'upload' && (
+        <div className="max-w-6xl mx-auto">
+          <ImageUploadComponent 
+            onImagesSelected={handleImagesSelected}
+            maxImages={10}
+          />
+
+          {/* Error Alert */}
+          {error && (
+            <div className="mt-4 p-4 bg-red-50 border border-red-200 rounded-lg max-w-4xl mx-auto">
+              <p className="text-red-700">⚠️ {error}</p>
+            </div>
+          )}
+
+          {/* Generate Button */}
+          {uploadedImages.length > 0 && (
+            <div className="mt-6 flex justify-center">
+              <button
+                onClick={generateStory}
+                disabled={loading || uploadedImages.length < 5}
+                className={`px-8 py-3 rounded-lg font-semibold text-white transition-all transform hover:scale-105 ${
+                  loading || uploadedImages.length < 5
+                    ? 'bg-gray-400 cursor-not-allowed opacity-50'
+                    : 'bg-green-600 hover:bg-green-700'
+                }`}
+              >
+                {loading ? '⏳ Generating Story...' : '✨ Generate Story'}
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Step 2: Generating */}
+      {step === 'generating' && (
+        <div className="max-w-4xl mx-auto flex items-center justify-center min-h-96">
+          <div className="text-center">
+            <div className="text-6xl mb-4 animate-bounce">✨</div>
+            <h2 className="text-3xl font-bold text-gray-900 mb-2">
+              Creating Your Story...
+            </h2>
+            <p className="text-gray-600 mb-6">
+              AI is analyzing your images and crafting a magical story for {childName}
+            </p>
+            
+            {/* Loading Animation */}
+            <div className="flex justify-center gap-2">
+              {[0, 1, 2].map(i => (
+                <div
+                  key={i}
+                  className="w-3 h-3 bg-blue-600 rounded-full animate-bounce"
+                  style={{ animationDelay: `${i * 0.2}s` }}
+                />
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Step 3: Story Preview */}
+      {step === 'preview' && generatedStory && (
+        <StoryPreviewComponent
+          story={generatedStory}
+          theme={theme}
+          onClose={backToUpload}
+          onRegenerate={regenerateStory}
+          onSaveDraft={saveDraft}
+        />
+      )}
+    </div>
+  );
+}

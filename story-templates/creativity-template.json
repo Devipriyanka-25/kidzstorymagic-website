@@ -1,0 +1,74 @@
+{
+  "theme": "creativity",
+  "title": "The Imagination Adventure",
+  "ageRange": "3-8",
+  "moral": "Your imagination is limitless—let it take you anywhere",
+  "description": "An enchanting story about the power of creativity and imagination",
+  "templates": {
+    "10": {
+      "pageCount": 10,
+      "pages": [
+        {
+          "pageNumber": 1,
+          "title": "A Rainy Day",
+          "text": "It was raining outside, and {childName} couldn't play in {setting}. But {childName} wasn't sad—they had an idea. 'Let's imagine!' said {childName}.",
+          "illustrationPrompt": "Child at window looking out at rain. Child's face transforming from disappointed to excited. Rain visible through window. Cozy indoor scene. Big imagination lightbulb thought bubble. Style: thoughtful, inspiring"
+        },
+        {
+          "pageNumber": 2,
+          "title": "A Blank Canvas",
+          "text": "{childName} grabbed paper, markers, and paints. '{friendName}, help me! We can create anything we want!' {friendName} jumped up excitedly.",
+          "illustrationPrompt": "Child gathering art supplies - papers, markers, paint, brushes. {friendName} rushing over eagerly. Art supplies scattered around in creative chaos. Bright, colorful art materials. Style: energetic creative moment"
+        },
+        {
+          "pageNumber": 3,
+          "title": "Building an Imagination",
+          "text": "They drew and painted wild, wonderful things. Castles made of clouds. Dragons friendly and kind. Forests with magical trees that danced.",
+          "illustrationPrompt": "Desk covered with colorful artwork. Drawings showing: floating castles, smiling dragons, dancing trees. Multiple artworks in progress. {petName} watching or participating. Colorful chaos of creativity. Style: vibrant, imaginative art supplies scene"
+        },
+        {
+          "pageNumber": 4,
+          "title": "Bringing Stories to Life",
+          "text": "But {childName} didn't stop at drawing. They started to act out their stories! '{friendName}, you be the dragon! I'll be the adventurer!'",
+          "illustrationPrompt": "Children acting out their story. One child in 'dragon' pose, other in 'adventurer' stance. Living room transformed with drawings hung up. {petName} participating in costume play. Playful, energetic scene. Style: kids in imaginative play"
+        },
+        {
+          "pageNumber": 5,
+          "title": "The Hidden Kingdom",
+          "text": "Suddenly, the living room became the Hidden Kingdom! The couch was a mountain. The blankets became a magical palace. {petName} was King of the Creatures.",
+          "illustrationPrompt": "Living room transformed in child's eyes - couch as mountain, blankets as castle architecture, pillows as landscape. Overhead view or transformation view showing the before/after. {petName} with crown. Style: imaginary transformation illustration"
+        },
+        {
+          "pageNumber": 6,
+          "title": "Challenges of the Kingdom",
+          "text": "In their realm, they faced pretend dragons and solved riddles. They discovered hidden treasure under the table. Every problem had a creative solution!",
+          "illustrationPrompt": "Action scenes of playtime - 'fighting' dragon (with pillows), 'finding' treasure (decorated box), working through challenges together. Both children in imaginative costumes. Playful action. Style: dynamic adventure scenes"
+        },
+        {
+          "pageNumber": 7,
+          "title": "More Stories, More Worlds",
+          "text": "One adventure wasn't enough! They created a space station from chairs. A deep ocean from blankets. Jungle expeditions from the hallway.",
+          "illustrationPrompt": "Multiple quick scenes showing transformations: chair spaceship, blanket ocean, hallway jungle. Same space reimagined in different ways. Children's excitement visible. {petName} participating in each scenario. Style: montage of imaginative transformations"
+        },
+        {
+          "pageNumber": 8,
+          "title": "The Creative Power",
+          "text": "'Look what we created!' said {friendName}. '{childName}, our imagination can turn anything into an adventure!' {childName} nodded with pure joy.",
+          "illustrationPrompt": "Both children in center of their created worlds. Surrounded by evidence of imagination: drawings, set-up play areas, props. Expressions of wonder and realization. Light and warmth suggesting magic. Style: celebratory creative moment"
+        },
+        {
+          "pageNumber": 9,
+          "title": "When the Rain Stopped",
+          "text": "The rain stopped, but they didn't want to stop playing! 'We can take our adventure outside!' they realized.",
+          "illustrationPrompt": "Children looking out at sun breaking through clouds. Window showing clearing sky. But children still excited about newly realized possibilities. Transition from indoor to outdoor potential. Style: hopeful, expansive"
+        },
+        {
+          "pageNumber": 10,
+          "title": "Imagination Everywhere",
+          "text": "{childName} learned that imagination isn't just for rainy days—it's always there! A regular place becomes magical. A simple day becomes an adventure. All you need is creativity!",
+          "illustrationPrompt": "Child standing in {setting} with arms outstretched. Everything around them shimmering with imaginative potential - regular things (tree, rock, path) glowing with magical possibility. {friendName} and {petName} beside them. Rainbow colors, sparkles. Style: inspiring, empowering conclusion"
+        }
+      ]
+    }
+  }
+}

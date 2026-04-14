@@ -1,0 +1,74 @@
+{
+  "theme": "kindness",
+  "title": "The Kindness Circle",
+  "ageRange": "3-8",
+  "moral": "Small acts of kindness create big circles of happiness",
+  "description": "A warm story about how kindness spreads from person to person",
+  "templates": {
+    "10": {
+      "pageCount": 10,
+      "pages": [
+        {
+          "pageNumber": 1,
+          "title": "A Simple Act",
+          "text": "One sunny morning in {setting}, {childName} noticed {friendName} sitting alone. So {childName} walked over and gave {friendName} a bright smile and a wave.",
+          "illustrationPrompt": "Child approaching another child with a genuine, warm smile. Sunny bright colors. {setting} in background. Warm, welcoming atmosphere. Style: wholesome, simple kindness"
+        },
+        {
+          "pageNumber": 2,
+          "title": "Spreading Smiles",
+          "text": "{friendName}'s whole face lit up! They were so happy to be noticed. {friendName} thanked {childName} and they played together all day.",
+          "illustrationPrompt": "Happy child's face transforming from lonely/sad to beaming with joy. Both children playing happily together. {petName} joining in the fun. Bright, joyful scene. Style: emotional uplift illustration"
+        },
+        {
+          "pageNumber": 3,
+          "title": "Paying It Forward",
+          "text": "When {friendName} went home, they saw their neighbor looking sad. '{childName} was so kind to me!' thought {friendName}, 'I can do the same!'",
+          "illustrationPrompt": "Older neighbor looking worried or sad. {friendName} watching with realization/empathy. Lightbulb moment showing the ripple effect of kindness. Transition scene. Style: showing cause and effect"
+        },
+        {
+          "pageNumber": 4,
+          "title": "Helping Each Other",
+          "text": "{friendName} offered to help their elderly neighbor water the garden and pick vegetables. The neighbor had been having a difficult week feeling lonely. As they worked together in the warm sunshine, they talked and laughed. 'Thank you so much for being here with me,' said the neighbor with a grateful smile. Soon the neighbor was smiling and feeling much better!",
+          "illustrationPrompt": "Child and elderly neighbor in garden watering flowers and picking vegetables together. Both smiling and connecting. Garden coming to life with bright colors. Neighbor's lonely expression transforming to joy. Close relationship being formed. Style: heartwarming activity"
+        },
+        {
+          "pageNumber": 5,
+          "title": "Working Together",
+          "text": "Word spread quickly about {friendName}'s kindness. The neighbor told {childName}'s teacher about how {friendName} had brightened their whole week. The teacher was so moved by this act of pure kindness that tears of joy filled her eyes. She realized how powerful simple acts of caring could be. 'This is exactly what our school and community need,' said the teacher with inspiration.",
+          "illustrationPrompt": "Teacher listening to neighbor's story with emotion and appreciation. Eyes brightening with realization. Neighbor warmly sharing the story. Heart symbols or warmth in the illustration. School building visible in background. Showing the power of sharing kindness stories. Style: touching community moment connecting generations"
+        },
+        {
+          "pageNumber": 6,
+          "title": "A Kindness Day",
+          "text": "Inspired by {friendName}'s example, the teacher decided to organize a school-wide kindness day. 'Let's all do something special for someone else!' she announced excitedly to the class. The children's faces lit up with enthusiasm and ideas. They started planning ways to show kindness - helping teachers, supporting classmates, visiting elderly community members. Everyone wanted to be part of spreading joy and making their community better.",
+          "illustrationPrompt": "Teacher addressing enthusiastic and diverse class of children. Children and teacher with raised hands and excited expressions. Chalkboard showing 'Kindness Day' with hearts. Colorful, energetic classroom full of hope. Children imagining kind acts together. Style: community building, enthusiasm, collaboration"
+        },
+        {
+          "pageNumber": 7,
+          "title": "Kindness Spreading",
+          "text": "On kindness day, children gave flowers and thank-you cards to the school janitor and helpers. They helped younger kids who felt shy during recess. They held doors open, offered compliments, and spent time with the loneliest student. They wrote beautiful thank-you notes to their parents and grandparents. Kindness was blooming everywhere like flowers in a beautiful garden! Everyone felt the warm, happy energy spreading throughout the school.",
+          "illustrationPrompt": "Multiple scenes showing different kindness acts - giving flowers to janitor, helping younger children, writing letters, holding doors, hugging lonely students. Diverse children of all ages helping each other. Colorful, active scenes connected like a web. Flowers and light radiating from acts of kindness. Style: action-packed kindness montage showing ripple effect"
+        },
+        {
+          "pageNumber": 8,
+          "title": "The Town Notices",
+          "text": "News of the school's kindness day spread throughout the entire town. Neighbors started helping neighbors. The local news even filmed a story about how one child's simple act of kindness had inspired an entire community. People in shops, offices, and homes began treating each other with more compassion and care. It was truly like magic! The whole town transformed into a place where kindness was celebrated and valued.",
+          "illustrationPrompt": "Wider community scenes - people helping neighbors across multiple locations. Market vendors giving extra food, neighbors planting gardens together, community members together at town events. Warm, glowing atmosphere with news camera capturing the moment. Style: expanding circles showing ripple effect throughout community"
+        },
+        {
+          "pageNumber": 9,
+          "title": "Coming Full Circle",
+          "text": "{childName} and {friendName} met again in {setting} where their friendship had begun. They smiled at each other, remembering how it all started with one small smile and one helping hand. They saw other children around them showing kindness too - sharing toys, helping friends, being nice to everyone. Their simple act had created something beautiful and lasting that kept growing and growing.",
+          "illustrationPrompt": "Both children back in original setting, older now with visible growth. Smiling knowingly at each other with deep connection. Can show other children and people in background engaged in kind acts. Hearts and sparkles connecting them. Circle of kindness visible. Style: reflective, gratifying moment showing lasting impact"
+        },
+        {
+          "pageNumber": 10,
+          "title": "The Kindness Circle",
+          "text": "A simple smile can brighten someone's whole day. A helping hand can change someone's life. A warm word can give someone hope when they need it most. These small acts of kindness grow into something truly beautiful and powerful. Kindness circles never end—they just keep growing and growing, touching more hearts with every act, spreading joy everywhere they go. Will you start your own kindness circle today?",
+          "illustrationPrompt": "Circular illustration showing chain of diverse kindness - people of all ages holding hands in circle, or visual representation of kindness spreading outward in expanding ripples. {childName} and {friendName} at center smiling. Rays of light and rainbow colors. Hearts and flowers radiating outward. Style: inspiring, inclusive, unifying conclusion showing endless possibilities"
+        }
+      ]
+    }
+  }
+}

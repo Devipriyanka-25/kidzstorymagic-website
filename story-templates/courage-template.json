@@ -1,0 +1,74 @@
+{
+  "theme": "courage",
+  "title": "The Brave Heart",
+  "ageRange": "3-8",
+  "moral": "Courage isn't about not being scared—it's about doing the right thing anyway",
+  "description": "An inspiring story about overcoming fears and discovering inner strength",
+  "templates": {
+    "10": {
+      "pageCount": 10,
+      "pages": [
+        {
+          "pageNumber": 1,
+          "title": "Scared of the Dark",
+          "text": "{childName} was always a little scared of the dark. But tonight was different—{friendName} needed help!",
+          "illustrationPrompt": "Child standing at the edge of darkness, looking nervous but determined. Behind them a lit room, ahead is mysterious darkness. Concerned but brave expression. Style: slightly dramatic, age-appropriate spooky"
+        },
+        {
+          "pageNumber": 2,
+          "title": "The Problem",
+          "text": "{friendName}'s {petName} had wandered into the dark woods near {setting} and they couldn't find it. '{childName}, will you help me?' asked {friendName} with tears in their eyes.",
+          "illustrationPrompt": "Friend looking upset and worried. {petName} lost in dark woods visible in distance. Emotional moment showing the problem. Both children standing at the edge of light and darkness. Style: empathetic, showing the challenge"
+        },
+        {
+          "pageNumber": 3,
+          "title": "Takes a Deep Breath",
+          "text": "{childName} took a deep breath. Even though they were scared, they loved {friendName}. 'Let's find your {petName}. I'll go with you.'",
+          "illustrationPrompt": "Child taking a deep breath, eyes closed for a moment. Can show determination building. Hands clenching in resolve. {friendName} watching with hope. Style: moment of inner strength building"
+        },
+        {
+          "pageNumber": 4,
+          "title": "Into the Woods",
+          "text": "They stepped into the woods together. The darkness felt thick, but {childName} held {friendName}'s hand tightly. 'We've got this!' whispered {childName}.",
+          "illustrationPrompt": "Two children walking into forest holding hands. Trees tall around them. Shadows but some moonlight filtering through. Path ahead. Showing solidarity and support. Style: brave but realistic"
+        },
+        {
+          "pageNumber": 5,
+          "title": "Strange Sounds",
+          "text": "A branch snapped. 'What was that?' gasped {friendName}. {childName}'s heart was pounding, but they didn't give up. 'It's okay. Let's keep looking.'",
+          "illustrationPrompt": "Both children reacting to sound in dark forest. Scared expressions but not giving up. Silhouette of something moving (later revealed as harmless). Shadows and tree branches. Tension building. Style: spooky but age-appropriate"
+        },
+        {
+          "pageNumber": 6,
+          "title": "Not So Scary After All",
+          "text": "Suddenly, they saw it—just a deer walking through the trees! Not scary at all. They both laughed with relief.",
+          "illustrationPrompt": "Gentle deer in clearing with moonlight. Both children laughing, relief and joy on faces. Realization moment that scary things aren't always dangerous. Warm, relieving scene. Style: comforting, funny"
+        },
+        {
+          "pageNumber": 7,
+          "title": "Following the Sound",
+          "text": "Then they heard a familiar sound. 'Is that...?' 'Yes! It's {petName}!' They followed the sound and found {petName} in a small clearing.",
+          "illustrationPrompt": "Finding {petName} in clearing. {petName} happy and safe. Children rushing toward it joyfully. Moonlight illuminating the scene. Relief and happiness filling the scene. Style: joyful reunion"
+        },
+        {
+          "pageNumber": 8,
+          "title": "The Hero",
+          "text": "{friendName} hugged {childName} tight. 'You're so brave! You were scared but you did it anyway. That's true courage!'",
+          "illustrationPrompt": "Children hugging with {petName} between them. All happy and safe. Can show both crying happy tears. Stars or moonlight above. Sense of accomplishment. Style: emotional, rewarding"
+        },
+        {
+          "pageNumber": 9,
+          "title": "Walking Back Home",
+          "text": "Walking back through the woods didn't feel scary anymore. They laughed and talked the whole way. '{childName}, will you always be this brave?' asked {friendName}.",
+          "illustrationPrompt": "Walking back with {petName}, both children smiling. Woods now seeming less scary. Warm light ahead showing the way home. Companionship and confidence. Style: triumphant, transformative"
+        },
+        {
+          "pageNumber": 10,
+          "title": "Courage Lives Inside",
+          "text": "{childName} smiled. 'I think courage was inside me all along. I just needed to take that first brave step.' And {friendName} knew that was true.",
+          "illustrationPrompt": "Child standing tall, sunlight/starlight shining. Hand on chest, over heart. Looking peaceful and confident. {friendName} and {petName} beside them. Scene showing growth and inner strength. Style: inspiring, empowering conclusion"
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,322 @@
+{
+  "theme": "behavioural",
+  "age_range": "3-8",
+  "description": "Stories addressing behavioral challenges with positive solutions and emotional growth",
+  "templates": {
+    "10": {
+      "page_count": 10,
+      "pages": [
+        {
+          "page_number": 1,
+          "title": "An Angry Day",
+          "text": "{childName} woke up feeling grouchy and angry. Everything annoyed them, and they snapped at everyone. It felt like a dark cloud followed them."
+        },
+        {
+          "page_number": 2,
+          "title": "What's Happening Inside?",
+          "text": "{childName}'s parent gently asked, 'What's making you so angry?' This simple question helped {childName} pause and think about their feelings."
+        },
+        {
+          "page_number": 3,
+          "title": "Naming the Emotion",
+          "text": "{childName} realized: 'I'm angry because I feel left out.' Naming the real feeling was the first step. Anger is often a cover for other emotions."
+        },
+        {
+          "page_number": 4,
+          "title": "Calm Down Breathing",
+          "text": "{childName}'s parent taught them: 'Let's breathe together. In through the nose, out through the mouth.' Slow breathing made the anger shrink."
+        },
+        {
+          "page_number": 5,
+          "title": "Taking a Break",
+          "text": "{childName} went to their quiet space, a special corner with soft pillows. Sometimes, we all need a break to let our feelings settle."
+        },
+        {
+          "page_number": 6,
+          "title": "Apologizing",
+          "text": "When {childName} felt calmer, they realized they had been mean. They apologized to their sibling: 'I'm sorry I snapped. I wasn't mad at you.'"
+        },
+        {
+          "page_number": 7,
+          "title": "Understanding Triggers",
+          "text": "{childName} and their parent talked about what makes them angry. Understanding triggers helped them plan better responses."
+        },
+        {
+          "page_number": 8,
+          "title": "Healthy Expression",
+          "text": "{childName} learned healthy ways to express big feelings - through art, writing, movement, or talking. Feelings are meant to be expressed, not hidden."
+        },
+        {
+          "page_number": 9,
+          "title": "Making It Right",
+          "text": "{childName} spent time playing with their sibling, showing through actions that they cared. Actions speak louder than words."
+        },
+        {
+          "page_number": 10,
+          "title": "Growth and Grace",
+          "text": "{childName} learned that having big feelings is normal. What matters is learning to handle them with grace. Everyone has bad days, but we can always do better tomorrow."
+        }
+      ]
+    },
+    "20": {
+      "page_count": 20,
+      "pages": [
+        {
+          "page_number": 1,
+          "title": "The Pattern",
+          "text": "{childName} kept having the same argument with their sibling. Every day, the same thing happened: frustration, yelling, tears."
+        },
+        {
+          "page_number": 2,
+          "title": "Time for a Talk",
+          "text": "Their parent sat with {childName} in a calm moment. 'I've noticed something happening. Let's talk about it together.'"
+        },
+        {
+          "page_number": 3,
+          "title": "Understanding the Root",
+          "text": "As they talked, {childName} recognized that they were usually upset when tired or hungry. These small things affected their big feelings."
+        },
+        {
+          "page_number": 4,
+          "title": "Learning Emotional Vocabulary",
+          "text": "{childName} learned words to describe feelings beyond just 'happy' and 'sad'. Frustrated, disappointed, overwhelmed - having words helped."
+        },
+        {
+          "page_number": 5,
+          "title": "The Calm-Down Kit",
+          "text": "They created a 'calm-down kit' together: bubbles, a stress ball, a favorite book. These tools could help {childName} manage big feelings."
+        },
+        {
+          "page_number": 6,
+          "title": "The Warning Signs",
+          "text": "{childName} began to notice the signs: their face got hot, their fists clenched, their voice got loud. Recognizing warning signs meant they could act before the explosion."
+        },
+        {
+          "page_number": 7,
+          "title": "The Pause Technique",
+          "text": "When {childName} felt anger rising, they learned to pause: count to five, take deep breaths, and think before reacting. The pause was powerful."
+        },
+        {
+          "page_number": 8,
+          "title": "Using Words Instead",
+          "text": "Instead of yelling, {childName} practiced saying: 'I'm frustrated,' 'I need help,' 'I feel sad.' Words were stronger than yelling."
+        },
+        {
+          "page_number": 9,
+          "title": "What Helps Me",
+          "text": "{childName} discovered that different things helped different days: sometimes moving, sometimes quiet, sometimes talking. They built their own coping toolkit."
+        },
+        {
+          "page_number": 10,
+          "title": "Apologizing Growth",
+          "text": "{childName} practiced apologizing - sincerely, not quickly. They explained what they did wrong and how they'd do better. Real apologies create real change."
+        },
+        {
+          "page_number": 11,
+          "title": "Physical Activity Helps",
+          "text": "When {childName} played sports or danced, they felt lighter. Physical movement helped process big feelings and clear the mind."
+        },
+        {
+          "page_number": 12,
+          "title": "Creative Expression",
+          "text": "{childName} drew pictures about their feelings. Art didn't judge - it just expressed. Colors and shapes said things words sometimes couldn't."
+        },
+        {
+          "page_number": 13,
+          "title": "Helping Others Helps Self",
+          "text": "When {childName}'s sibling was upset, {childName} used their own coping tools to help. Teaching others reinforced their own learning."
+        },
+        {
+          "page_number": 14,
+          "title": "Patience with Progress",
+          "text": "{childName} didn't become perfect overnight. Some days, they still struggled. But they were better than before, and they kept trying."
+        },
+        {
+          "page_number": 15,
+          "title": "Self-Compassion",
+          "text": "When {childName} made a mistake, they learned to say: 'I'm learning. I'm doing my best. Tomorrow can be different.' Self-compassion was as important as apologies."
+        },
+        {
+          "page_number": 16,
+          "title": "Connection Creates Safety",
+          "text": "{childName} realized they had big feelings because they cared deeply about things. That caring was a strength, not a weakness."
+        },
+        {
+          "page_number": 17,
+          "title": "Family Support",
+          "text": "{childName}'s whole family learned new ways to respond too. When {childName} struggled, instead of matching their anger, family stayed calm and supportive."
+        },
+        {
+          "page_number": 18,
+          "title": "Celebration of Progress",
+          "text": "After a week without major outbursts, {childName}'s family celebrated. Recognition of progress, no matter how small, inspired continued growth."
+        },
+        {
+          "page_number": 19,
+          "title": "The New Understanding",
+          "text": "{childName} understood that feelings aren't good or bad - they're just information. The question was: 'What does this feeling tell me? What do I need?'"
+        },
+        {
+          "page_number": 20,
+          "title": "A Calmer, Stronger {childName}",
+          "text": "{childName} had become someone who could manage big feelings with grace. Not perfect, but better. And every day brought new opportunities to keep learning."
+        }
+      ]
+    },
+    "30": {
+      "page_count": 30,
+      "pages": [
+        {
+          "page_number": 1,
+          "title": "The Difficult Morning",
+          "text": "{childName} didn't want to go to school. The thought made them anxious and upset. When their parent insisted, {childName} had a full meltdown."
+        },
+        {
+          "page_number": 2,
+          "title": "After the Storm",
+          "text": "When {childName} finally calmed down, they felt ashamed. They hated how they acted, but they didn't know how to stop."
+        },
+        {
+          "page_number": 3,
+          "title": "A Concerned Parent",
+          "text": "{childName}'s parent didn't punish. Instead, they said, 'I see you're struggling. Let's figure this out together. I'm on your team.'"
+        },
+        {
+          "page_number": 4,
+          "title": "Getting to the Root",
+          "text": "Through gentle questioning, they discovered the real problem: {childName} was worried about something at school. Worry had become anger."
+        },
+        {
+          "page_number": 5,
+          "title": "Validation First",
+          "text": "{childName}'s parent said, 'Your worry makes sense. That's scary. And I'm glad you told me.' Being heard and understood was healing."
+        },
+        {
+          "page_number": 6,
+          "title": "Problem-Solving Together",
+          "text": "Instead of just telling {childName} to 'be brave,' they brainstormed solutions together. {childName} felt empowered to help solve their own problem."
+        },
+        {
+          "page_number": 7,
+          "title": "Learning About Emotions",
+          "text": "{childName}'s parent explained the emotion wheel: there are many feelings, and they're all connected. Anger often hides fear or sadness."
+        },
+        {
+          "page_number": 8,
+          "title": "The Nervous System",
+          "text": "They learned that when scared, {childName}'s body goes into 'fight-or-flight mode.' That's why the anger exploded. It wasn't {childName}'s fault - it was their body reacting."
+        },
+        {
+          "page_number": 9,
+          "title": "Finding the Reset Button",
+          "text": "{childName}'s parent taught them ways to 'reset' their nervous system: deep breathing, cold water on the face, gentle movement, specific songs."
+        },
+        {
+          "page_number": 10,
+          "title": "Practice in Safe Moments",
+          "text": "They didn't wait for a crisis. They practiced these tools during calm moments. {childName}'s brain learned the pattern."
+        },
+        {
+          "page_number": 11,
+          "title": "Recognizing Early Signals",
+          "text": "{childName} started noticing early warning signs: a knot in their stomach, tightness in their chest, a certain tone in their voice. Early recognition meant earlier intervention."
+        },
+        {
+          "page_number": 12,
+          "title": "Building the Toolbox",
+          "text": "{childName} and their parent created a personalized toolbox: breathing exercises, movement activities, creative outlets, comfort items, supportive phrases."
+        },
+        {
+          "page_number": 13,
+          "title": "The Brave Conversation",
+          "text": "{childName} practiced what to say to their teacher about their worry. Communicating the problem made it seem less scary and helped adults understand."
+        },
+        {
+          "page_number": 14,
+          "title": "Support at School",
+          "text": "Working with the teacher, they created a plan. If {childName} felt overwhelmed, there was a safe space to go. Knowing help was available was comforting."
+        },
+        {
+          "page_number": 15,
+          "title": "Celebrating Brave Moments",
+          "text": "When {childName} went to school without a meltdown, their parent celebrated. Not with rewards, but with genuine recognition: 'You did it! You were so brave!'"
+        },
+        {
+          "page_number": 16,
+          "title": "The Setback",
+          "text": "One day, {childName} had another meltdown. {childName} felt like they'd failed. But their parent reminded them: 'Progress isn't a straight line. You're still learning.'"
+        },
+        {
+          "page_number": 17,
+          "title": "Self-Compassion Practice",
+          "text": "{childName} learned to talk to themselves kindly: 'I had a hard moment. That's okay. I can try again. I'm doing my best.' Kindness to self matter."
+        },
+        {
+          "page_number": 18,
+          "title": "Understanding Triggers",
+          "text": "Over time, {childName} and their parent identified specific triggers: lack of sleep, hunger, changes in routine, big transitions. Knowledge was power."
+        },
+        {
+          "page_number": 19,
+          "title": "Proactive Strategies",
+          "text": "When they knew a trigger was coming, they used strategies ahead of time: extra sleep before a big day, a favorite snack, a pep talk, comfort item nearby."
+        },
+        {
+          "page_number": 20,
+          "title": "Expressing Big Feelings Safely",
+          "text": "{childName} learned healthy outlets: journaling, art, physical activity, talking. There were safe ways to let big feelings out without hurting anyone."
+        },
+        {
+          "page_number": 21,
+          "title": "Body Awareness",
+          "text": "{childName} practiced checking in with their body: 'Are my shoulders tight? Is my jaw clenched? Am I breathing shallow?' Body awareness helped them reset."
+        },
+        {
+          "page_number": 22,
+          "title": "Helping a Friend",
+          "text": "When a friend struggled with big feelings, {childName} recognized it and offered help based on what they'd learned. Teaching solidified their own understanding."
+        },
+        {
+          "page_number": 23,
+          "title": "Family Meeting",
+          "text": "{childName}'s family had regular check-ins. Everyone shared feelings, challenges, and victories. Open communication prevented problems from building up."
+        },
+        {
+          "page_number": 24,
+          "title": "Gratitude for Support",
+          "text": "{childName} realized they had people who believed in them even when they struggled. Gratitude for their support team strengthened connections."
+        },
+        {
+          "page_number": 25,
+          "title": "Progress Over Perfection",
+          "text": "Months later, {childName} realized they were handling situations that once triggered meltdowns. Progress was real, even if they still had hard days."
+        },
+        {
+          "page_number": 26,
+          "title": "The Inner Strength",
+          "text": "{childName} realized they weren't broken or bad. They were learning to understand and manage their powerful emotions. That took real strength."
+        },
+        {
+          "page_number": 27,
+          "title": "Modeling for Others",
+          "text": "Other kids saw {childName}'s growth and asked how. {childName} shared what they'd learned, helping others feel less alone in their struggles."
+        },
+        {
+          "page_number": 28,
+          "title": "The Ongoing Journey",
+          "text": "{childName} understood that managing emotions is a lifelong skill. But now they had tools, support, and confidence in their ability to learn."
+        },
+        {
+          "page_number": 29,
+          "title": "A Message of Hope",
+          "text": "If you have big feelings and big reactions, know this: you're not alone, you're not bad, and you can learn to manage them with help and practice."
+        },
+        {
+          "page_number": 30,
+          "title": "The New {childName}",
+          "text": "{childName} became someone who understands themselves better, handles challenges with more grace, and knows exactly who to turn to when things get hard. You can be that too!"
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,74 @@
+{
+  "theme": "adventure",
+  "title": "The Great Adventure",
+  "ageRange": "3-8",
+  "moral": "Every journey starts with a single brave step",
+  "description": "An exciting adventure story where the child embarks on a thrilling quest",
+  "templates": {
+    "10": {
+      "pageCount": 10,
+      "pages": [
+        {
+          "pageNumber": 1,
+          "title": "The Discovery",
+          "text": "{childName} found an old treasure map in {setting}! It showed the path to a magical place filled with wonder and excitement.",
+          "illustrationPrompt": "Cartoon young child with wide excited eyes holding an aged parchment map, sitting in {setting}. Warm, bright colors. Style: child-friendly animation"
+        },
+        {
+          "pageNumber": 2,
+          "title": "Preparing for the Quest",
+          "text": "{childName} packed a magical backpack with snacks, water, and a compass. This adventure would be amazing!",
+          "illustrationPrompt": "Child packing colorful items into a backpack. Items floating around include: sandwich, water bottle, compass, torch. Warm daylight through a window. Style: whimsical children's book illustration"
+        },
+        {
+          "pageNumber": 3,
+          "title": "The Enchanted Forest",
+          "text": "The first stop was an enchanted forest. Tall trees sparkled with magical lights, and friendly creatures peeked out from behind bushes.",
+          "illustrationPrompt": "Mystical forest with glowing trees, floating lights like fireflies, cute woodland animals (rabbits, deer, squirrels) peeking from behind trees and bushes. Magical glow effect. Style: storybook fantasy"
+        },
+        {
+          "pageNumber": 4,
+          "title": "Making a Friend",
+          "text": "A wise owl named {friendName} landed on {childName}'s shoulder. 'I can help you find the way,' hooted {friendName}.",
+          "illustrationPrompt": "Friendly cartoon owl with big expressive eyes perched on child's shoulder. Child smiling with relief and joy. Forest background with warm evening light. Style: warm, friendly children's illustration"
+        },
+        {
+          "pageNumber": 5,
+          "title": "The Crystal Bridge",
+          "text": "They came to a sparkling crystal bridge over a river. It looked magical but {childName} felt a little nervous.",
+          "illustrationPrompt": "Shimmering crystal bridge made of blue and purple gems spanning a gentle river. Crystal catching sunlight in rainbow colors. Child standing at the start of bridge looking thoughtful. Style: magical, glowing fantasy illustration"
+        },
+        {
+          "pageNumber": 6,
+          "title": "Finding Courage",
+          "text": "{friendName} flew ahead, and {childName} took a deep breath. 'I can do this!' said {childName}. Step by step, they crossed the bridge.",
+          "illustrationPrompt": "Child taking determined steps across crystal bridge, owl flying encouragingly ahead. Child's face showing determination and growing confidence. Rainbow light from crystals surrounding them. Style: empowering, positive children's book"
+        },
+        {
+          "pageNumber": 7,
+          "title": "The Hidden Valley",
+          "text": "On the other side, a beautiful hidden valley appeared. Colorful flowers bloomed, and a gentle waterfall sparkled in the sunlight.",
+          "illustrationPrompt": "Lush valley with cascading waterfalls, wildflowers in bright colors (blues, purples, yellows, pinks), soft clouds, rainbow mist from waterfall. Serene, magical atmosphere. Style: dreamy storybook landscape"
+        },
+        {
+          "pageNumber": 8,
+          "title": "The Treasure",
+          "text": "At the valley's center lay the treasure: not gold or jewels, but a golden chest filled with wonderful memories waiting to be made!",
+          "illustrationPrompt": "Golden chest open with soft glowing light inside. Around it: heart shapes, stars, books, musical notes, paintbrushes symbolizing memories and experiences. Valley backdrop. Style: warm, meaningful illustration"
+        },
+        {
+          "pageNumber": 9,
+          "title": "The Greatest Gift",
+          "text": "{childName} realized that the true treasure was the adventure itself—and the friendship with {friendName}!",
+          "illustrationPrompt": "Child and owl sitting together on a hilltop overlooking the valley. Both looking peaceful and happy. Sunset colors in sky. Child and{friendName} with friendship hearts between them. Style: emotional, touching concluding illustration"
+        },
+        {
+          "pageNumber": 10,
+          "title": "Home with Stories",
+          "text": "As the sun set, {childName} walked home, forever changed by the adventure. 'Tomorrow is a new adventure waiting!' whispered {friendName}.",
+          "illustrationPrompt": "Child walking toward home as sun sets behind mountains. {friendName} flying nearby. Stars beginning to appear in twilight sky. Child's face glowing with happiness and wonder. Path leading to cozy home. Style: warm, hopeful ending illustration"
+        }
+      ]
+    }
+  }
+}

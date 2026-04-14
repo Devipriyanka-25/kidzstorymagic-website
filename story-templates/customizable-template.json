@@ -1,0 +1,322 @@
+{
+  "theme": "customizable",
+  "age_range": "3-12",
+  "description": "Flexible template for creating custom stories with user-defined keywords and storylines",
+  "templates": {
+    "10": {
+      "page_count": 10,
+      "pages": [
+        {
+          "page_number": 1,
+          "title": "The Beginning",
+          "text": "{childName} was happily living their life when something amazing happened. Little did {childName} know, this day would change everything!"
+        },
+        {
+          "page_number": 2,
+          "title": "A Curious Discovery",
+          "text": "{childName} discovered something amazing about {interest}. It was something they had never noticed before!"
+        },
+        {
+          "page_number": 3,
+          "title": "Getting Involved",
+          "text": "With curiosity burning bright, {childName} decided to explore further. The adventure was just beginning!"
+        },
+        {
+          "page_number": 4,
+          "title": "Unexpected Help",
+          "text": "Someone unexpected offered help. Together, they were stronger, braver, and more capable than {childName} ever imagined!"
+        },
+        {
+          "page_number": 5,
+          "title": "Moving Forward",
+          "text": "{childName} worked hard and learned new things. Every challenge became an opportunity to grow stronger."
+        },
+        {
+          "page_number": 6,
+          "title": "A Change of Heart",
+          "text": "Something shifted in {childName}'s understanding. They saw the world differently now."
+        },
+        {
+          "page_number": 7,
+          "title": "Standing Tall",
+          "text": "{childName} realized they had more strength within them than they ever knew. It was time to stand tall and believe in themselves!"
+        },
+        {
+          "page_number": 8,
+          "title": "Success!",
+          "text": "All the effort, learning, and courage led to success! {childName} had achieved something remarkable!"
+        },
+        {
+          "page_number": 9,
+          "title": "Sharing the Victory",
+          "text": "{childName} celebrated with everyone who believed in them. Sharing joy with others made it twice as sweet."
+        },
+        {
+          "page_number": 10,
+          "title": "The New {childName}",
+          "text": "{childName} had grown in ways they couldn't have imagined. The adventure had ended, but the growth would last forever!"
+        }
+      ]
+    },
+    "20": {
+      "page_count": 20,
+      "pages": [
+        {
+          "page_number": 1,
+          "title": "Page 1: The Beginning",
+          "text": "{childName} was young years old when their story began. Life was about to become extraordinary!"
+        },
+        {
+          "page_number": 2,
+          "title": "Page 2: From Dreams to Reality",
+          "text": "{childName} had always dreamed about {interest}. Today felt different - like dreams might become real!"
+        },
+        {
+          "page_number": 3,
+          "title": "Page 3: The First Step",
+          "text": "Taking the first step was scary, but {childName} found courage deep inside. They moved forward one step at a time."
+        },
+        {
+          "page_number": 4,
+          "title": "Page 4: Learning and Growing",
+          "text": "With each challenge, {childName} learned something new. Growing meant stretching beyond what was comfortable."
+        },
+        {
+          "page_number": 5,
+          "title": "Page 5: A Helping Hand",
+          "text": "Someone unexpected became an ally. Together, they discovered they could accomplish more than either could alone."
+        },
+        {
+          "page_number": 6,
+          "title": "Page 6: Obstacles and Perseverance",
+          "text": "something amazing presented a real obstacle. But {childName} refused to give up. They found another way, then another!"
+        },
+        {
+          "page_number": 7,
+          "title": "Page 7: The Difficult Moment",
+          "text": "TThey
+        },
+        {
+          "page_number": 8,
+          "title": "Page 8: Secret Strength",
+          "text": "{childName} discovered a strength they didn't know they had. It had been inside them all along, just waiting to be found!"
+        },
+        {
+          "page_number": 9,
+          "title": "Page 9: Progress and Pride",
+          "text": "Looking back, {childName} saw how far they'd come. Every effort, every attempt, every small victory led to this moment!"
+        },
+        {
+          "page_number": 10,
+          "title": "Page 10: A Turning Point",
+          "text": "Everything shifted. {childName} broke through to a new level. Success felt closer than ever before!"
+        },
+        {
+          "page_number": 11,
+          "title": "Page 11: The Victory Approaches",
+          "text": "{childName} was so close to their goal. They could feel it. All their work was about to pay off!"
+        },
+        {
+          "page_number": 12,
+          "title": "Page 12: The Final Challenge",
+          "text": "One last obstacle stood between {childName} and their goal. But they were ready. They had been preparing for this!"
+        },
+        {
+          "page_number": 13,
+          "title": "Page 13: Courage Embodied",
+          "text": "{childName} took a deep breath and faced the final challenge with all the courage they'd gathered. They gave it their all!"
+        },
+        {
+          "page_number": 14,
+          "title": "Page 14: And {childName} Succeeded!",
+          "text": "It happened! Through determination and heart, {childName} achieved their goal! They had done the impossible!"
+        },
+        {
+          "page_number": 15,
+          "title": "Page 15: The Celebration",
+          "text": "Everyone who believed in {childName} celebrated with them. The joy was infectious and filled every heart present!"
+        },
+        {
+          "page_number": 16,
+          "title": "Page 16: Reflecting on the Journey",
+          "text": "{childName} thought about everything that happened. The journey was more valuable than the destination."
+        },
+        {
+          "page_number": 17,
+          "title": "Page 17: Gratitude Flows",
+          "text": "{childName} felt deep gratitude for everyone who supported them. They realized that no success is achieved alone."
+        },
+        {
+          "page_number": 18,
+          "title": "Page 18: New Confidence",
+          "text": "{childName} walked with new confidence. They had proven something to themselves that no one could take away."
+        },
+        {
+          "page_number": 19,
+          "title": "Page 19: The Next Adventure Calls",
+          "text": "With this success behind them, {childName} felt ready for whatever came next. Life was full of possibilities!"
+        },
+        {
+          "page_number": 20,
+          "title": "Page 20: The Story Continues",
+          "text": "This was just one chapter in {childName}'s amazing story. The best adventures were still ahead!"
+        }
+      ]
+    },
+    "30": {
+      "page_count": 30,
+      "pages": [
+        {
+          "page_number": 1,
+          "title": "The Opening",
+          "text": "Once upon a time, there was a young-year-old named {childName}. This is their extraordinary story!"
+        },
+        {
+          "page_number": 2,
+          "title": "The World Around {childName}",
+          "text": "{childName} lived in a world full of possibilities. Their greatest passion was {interest}."
+        },
+        {
+          "page_number": 3,
+          "title": "A Spark of Inspiration",
+          "text": "One day, {childName} felt inspired to pursue something amazing. Something inside them said 'now is the time!'"
+        },
+        {
+          "page_number": 4,
+          "title": "The Decision",
+          "text": "{childName} made a decision that would change their life. They chose to be brave and take action."
+        },
+        {
+          "page_number": 5,
+          "title": "The First Attempt",
+          "text": "{childName}'s first attempt wasn't perfect, but it was a start. They learned something valuable!"
+        },
+        {
+          "page_number": 6,
+          "title": "Finding Support",
+          "text": "{childName} discovered allies who believed in them. Having support made all the difference!"
+        },
+        {
+          "page_number": 7,
+          "title": "Building Skills",
+          "text": "With each attempt, {childName} built new skills. Learning was exciting and challenging at the same time."
+        },
+        {
+          "page_number": 8,
+          "title": "Overcoming Doubt",
+          "text": "Doubt tried to creep in, but {childName} fought it with determination. They knew what they wanted!"
+        },
+        {
+          "page_number": 9,
+          "title": "A Moment of Connection",
+          "text": "{childName} connected with others who shared their passion. Together, they formed a community of dreamers!"
+        },
+        {
+          "page_number": 10,
+          "title": "The Unexpected Challenge",
+          "text": "An unexpected obstacle appeared. something amazing blocked {childName}'s path forward."
+        },
+        {
+          "page_number": 11,
+          "title": "Problem-Solving Mode",
+          "text": "{childName} put on their problem-solving hat. There had to be a way through, around, or over this challenge!"
+        },
+        {
+          "page_number": 12,
+          "title": "Persistence Pays Off",
+          "text": "After many attempts, {childName} found a breakthrough! Persistence had paid off in an unexpected way."
+        },
+        {
+          "page_number": 13,
+          "title": "A New Perspective",
+          "text": "{childName} saw everything from a new angle. What looked impossible before now seemed achievable!"
+        },
+        {
+          "page_number": 14,
+          "title": "Strengthening Through Challenge",
+          "text": "Challenges had made {childName} stronger. They was becoming the person they knew they could be."
+        },
+        {
+          "page_number": 15,
+          "title": "Celebrating Small Wins",
+          "text": "{childName} learned to celebrate every small victory. These accumulating wins built momentum!"
+        },
+        {
+          "page_number": 16,
+          "title": "Midpoint Reflection",
+          "text": "Halfway through tThey
+        },
+        {
+          "page_number": 17,
+          "title": "Renewed Inspiration",
+          "text": "With tThey
+        },
+        {
+          "page_number": 18,
+          "title": "The Inner Voice",
+          "text": "{childName} listened to their inner voice. It whispered: 'You are stronger than you know. You are ready.'"
+        },
+        {
+          "page_number": 19,
+          "title": "The Turning Point",
+          "text": "Everything came together. All the learning, growing, and persevering led to this crucial turning point!"
+        },
+        {
+          "page_number": 20,
+          "title": "Rising to the Occasion",
+          "text": "{childName} rose to the occasion with grace and determination. This was their moment!"
+        },
+        {
+          "page_number": 21,
+          "title": "The Race to the Finish",
+          "text": "{childName} could see the finish line! With everything they had, they raced toward their goal!"
+        },
+        {
+          "page_number": 22,
+          "title": "The Final Push",
+          "text": "One last push - {childName} gave it everything. Every ounce of strength, determination, and heart!"
+        },
+        {
+          "page_number": 23,
+          "title": "And Then... Success!",
+          "text": "{childName} did it! They achieved their goal! The moment felt magical and absolutely perfect!"
+        },
+        {
+          "page_number": 24,
+          "title": "The Celebration",
+          "text": "Everyone celebrated {childName}'s amazing achievement! The joy was pure and genuine!"
+        },
+        {
+          "page_number": 25,
+          "title": "A Changed {childName}",
+          "text": "{childName} realized they had changed through this journey. They had become more than they ever dreamed!"
+        },
+        {
+          "page_number": 26,
+          "title": "Gratitude Overflows",
+          "text": "{childName} felt overwhelmed with gratitude for every person and experience that brought them here."
+        },
+        {
+          "page_number": 27,
+          "title": "The Wisdom Gained",
+          "text": "{childName} had learned so much more than just {interest}. They had learned about themselves!"
+        },
+        {
+          "page_number": 28,
+          "title": "Inspiration for Others",
+          "text": "{childName}'s journey inspired others. Their courage gave permission for others to dream too!"
+        },
+        {
+          "page_number": 29,
+          "title": "Forever Changed",
+          "text": "{childName} would carry this experience forever. It had shaped who they were becoming!"
+        },
+        {
+          "page_number": 30,
+          "title": "The Story Lives On",
+          "text": "This is {childName}'s story - a story of courage, determination, and boundless possibility. May we all have the courage to write our own amazing stories!"
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,74 @@
+{
+  "theme": "friendship",
+  "title": "Friends Forever",
+  "ageRange": "3-8",
+  "moral": "True friendship is about caring and helping each other",
+  "description": "A touching story about friendship, kindness, and supporting friends through challenges",
+  "templates": {
+    "10": {
+      "pageCount": 10,
+      "pages": [
+        {
+          "pageNumber": 1,
+          "title": "A New Friend",
+          "text": "{childName} was playing in {setting} when they saw {friendName} sitting alone. '{friendName}, would you like to play with me?' asked {childName}.",
+          "illustrationPrompt": "Two children of diverse backgrounds meeting in {setting}. One extending a hand kindly to the other. Sunny, welcoming atmosphere. Warm colors. Style: inclusive, friendly children's illustration"
+        },
+        {
+          "pageNumber": 2,
+          "title": "Playing Together",
+          "text": "{friendName}'s face lit up with joy. They played games, laughed, and shared stories. What a wonderful day!",
+          "illustrationPrompt": "Two children playing together - running, playing catch, or building with blocks. Both smiling, happy expressions. Bright playground or park setting. Primary colors. Style: joyful, active children's book"
+        },
+        {
+          "pageNumber": 3,
+          "title": "Sharing is Caring",
+          "text": "{childName} had brought cookies from home. 'Here, {friendName}, try one my {petName} and I baked them!' They sat sharing snacks and smiles.",
+          "illustrationPrompt": "Two children sitting together, sharing cookies. Basket or container of fresh baked cookies visible. {petName} nearby or in the scene. Cozy, warm atmosphere with golden hour lighting. Style: wholesome family-friendly illustration"
+        },
+        {
+          "pageNumber": 4,
+          "title": "When Things Get Hard",
+          "text": "One day, {friendName} didn't come to play. {childName} wondered what happened and went to check on their new friend's house. When {childName} arrived, they found {friendName} sitting sadly on the porch with tears in their eyes. '{friendName}, what's wrong?' asked {childName} with concern. 'I lost something very special to me,' said {friendName} quietly.",
+          "illustrationPrompt": "Child looking sad or concerned, sitting on porch. Another child approaching with caring expression. Gray, quieter tones suggesting concern mixed with warmth. Showing empathy and connection. Style: gentle, empathetic illustration"
+        },
+        {
+          "pageNumber": 5,
+          "title": "Helping Each Other",
+          "text": "{childName} found {friendName} sad because they had lost their favorite toy from their grandmother. {childName} put an arm around their friend and said, 'Don't worry! I'll help you look for it.' Together they retraced {friendName}'s steps from earlier that day. They searched the park, the sidewalk, and even checked behind the garden shed. {childName} was determined to help their friend feel better.",
+          "illustrationPrompt": "Child comforting upset friend with arm around shoulder. Two children searching together - looking under park benches, in bushes, exploring different locations. Compassionate expressions on both faces. Supportive body language. Showing teamwork and care. Style: caring, supportive illustration"
+        },
+        {
+          "pageNumber": 6,
+          "title": "Working Together",
+          "text": "Together, {childName} and {friendName} searched everywhere with determination and hope. {petName} joined the search, sniffing around corners and under bushes. They looked in the garden, behind the house, in the park, and down the street. 'We make a great team!' said {childName} encouragingly. Hours passed, but neither friend gave up or lost hope.",
+          "illustrationPrompt": "Child, friend, and {petName} searching together - lifting cushions, looking in bushes, exploring the yard and streets. All working as a team with focused expressions. Action-filled scene. Sunlight showing time passing. Style: cooperative, adventurous illustration"
+        },
+        {
+          "pageNumber": 7,
+          "title": "Found It!",
+          "text": "'Wait! Look over there!' cried {childName} suddenly. There in the sandbox where they had played together the very first day was {friendName}'s beloved toy! It had rolled away during their first game and been hiding in the sand the whole time. Both children rushed over with big smiles on their faces. {petName} barked happily, as if celebrating the discovery.",
+          "illustrationPrompt": "Joyful moment of discovery - children finding the toy in sandbox. Surprised and happy expressions on both faces. {petName} celebrating with tail wagging. Moment of triumph. Bright, warm colors with sunlight. Style: celebratory children's book illustration"
+        },
+        {
+          "pageNumber": 8,
+          "title": "True Friends Forever",
+          "text": "They hugged with overwhelming joy and gratitude. '{childName}, thank you so much for not giving up on me!' said {friendName} with happy tears. 'That's what true friends do - we help each other and never give up,' replied {childName} with a big smile. {petName} jumped between them, excited to share in their happiness. In that moment, they knew their friendship was special and would last forever.",
+          "illustrationPrompt": "Two children hugging warmly. Both beaming with happiness and gratitude. {petName} jumping between them with joy. Sunny day, warm golden light. Hearts or sparkles around them. Background showing the toy and sandbox. Style: heartwarming friend connection"
+        },
+        {
+          "pageNumber": 9,
+          "title": "More Adventures Await",
+          "text": "From that day on, {childName} and {friendName} did everything together. They had playdates, tea parties, explored the neighborhood, and created wonderful memories. Every time they faced a challenge, they remembered how they helped each other find the lost toy. They knew that with teamwork and kindness, there was nothing they couldn't do. Their friendship grew stronger with each passing day.",
+          "illustrationPrompt": "Both children holding hands, walking into sunset. Showing multiple scenes of them together - playing, helping each other, imagining, exploring. Creating memories together. Hopeful, forward-looking composition. Montage-style multiple activities. Style: optimistic, future-oriented illustration"
+        },
+        {
+          "pageNumber": 10,
+          "title": "Forever Friends",
+          "text": "And that's the greatest secret of friendship: caring for each other, helping without hesitation, and being there through both good times and challenges. True friends celebrate each other's joys and comfort each other during sad times. {childName} and {friendName} had discovered something precious - a friendship that would last a lifetime. The end.",
+          "illustrationPrompt": "Children sitting together under a tree, both at peace and content. {petName} curled up nearby. Warm sunset or starry night sky. Both looking peaceful and grateful. Showing the depth of their friendship. Style: peaceful, meaningful conclusion with sense of timelessness"
+        }
+      ]
+    }
+  }
+}

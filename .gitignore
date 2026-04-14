@@ -1,0 +1,85 @@
+# Dependencies
+node_modules/
+npm-debug.log
+yarn-error.log
+package-lock.json
+yarn.lock
+
+# Environment
+.env
+.env.local
+.env.*.local
+.env.production
+
+# Build outputs
+dist/
+build/
+.next/
+.nuxt/
+coverage/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+*.sublime-project
+*.sublime-workspace
+
+# OS
+.DS_Store
+Thumbs.db
+.env.local.php
+
+# Testing
+.nyc_output/
+.jest/
+*.lcov
+
+# Files
+*.log
+*.pem
+*.pub
+
+# Uploads
+backend/uploads/*
+!backend/uploads/.gitkeep
+
+# Generated files
+backend/pdfs/*
+!backend/pdfs/.gitkeep
+
+# Sensitive files
+.credentials
+auth.json
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+
+# Temporary
+tmp/
+temp/
+
+# Docker
+.dockerignore
+docker-compose.override.yml
+
+# CI/CD
+.github/workflows/*.local.yml
+
+# Frontend specific
+frontend/.next/
+frontend/out/
+frontend/public/uploads/
+
+# Backend specific
+backend/dist/
+backend/.env.test
+backend/coverage/
+
+# Documentation
+docs/generated/

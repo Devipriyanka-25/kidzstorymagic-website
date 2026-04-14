@@ -1,0 +1,322 @@
+{
+  "theme": "fairytale",
+  "age_range": "5-10",
+  "description": "Magical adventures with classic fairy tale elements, magic, and wonder",
+  "templates": {
+    "10": {
+      "page_count": 10,
+      "pages": [
+        {
+          "page_number": 1,
+          "title": "An Enchanted Forest",
+          "text": "Once upon a time, {childName} discovered a path that led to an enchanted forest. The trees sparkled with magical lights, and the air hummed with ancient magic."
+        },
+        {
+          "page_number": 2,
+          "title": "A Mysterious Guide",
+          "text": "A wise fairy with silver wings appeared and bowed. 'I've been waiting for you, {childName}. You are prophesied to break an ancient spell!'"
+        },
+        {
+          "page_number": 3,
+          "title": "The Quest Begins",
+          "text": "The fairy explained: To save the magical realm, {childName} must find three magical treasures hidden in impossible places. The adventure began!"
+        },
+        {
+          "page_number": 4,
+          "title": "The Dragon's Challenge",
+          "text": "{childName} met a magnificent dragon guarding the first treasure. But the dragon wasn't mean - just lonely. By offering friendship, {childName} earned the first treasure!"
+        },
+        {
+          "page_number": 5,
+          "title": "The Mermaid's Gift",
+          "text": "At a sparkling crystal lake, a mermaid surfaced. She offered the second treasure to {childName} in exchange for a promise to protect the waters."
+        },
+        {
+          "page_number": 6,
+          "title": "The Wizard's Riddle",
+          "text": "An old wizard blocked the path to the third treasure and posed a riddle. {childName} thought hard, used their wits, and solved it! The wizard crowned them with honor."
+        },
+        {
+          "page_number": 7,
+          "title": "The Dark Forest",
+          "text": "To reach the spell, {childName} had to cross the Dark Forest. It was scary, but they remembered: courage isn't the absence of fear - it's acting despite fear."
+        },
+        {
+          "page_number": 8,
+          "title": "The Final Magical Circle",
+          "text": "In the forest's center, {childName} placed the three treasures in a magical circle. The ancient spell shimmered, weakened, and began to break!"
+        },
+        {
+          "page_number": 9,
+          "title": "The Realm Awakens",
+          "text": "Light exploded across the magical realm! Colors returned, music filled the air, and all the enchanted creatures celebrated. {childName} had saved them all!"
+        },
+        {
+          "page_number": 10,
+          "title": "A Hero's Welcome Home",
+          "text": "The fairy flew {childName} back to the real world. But {childName} would never forget their adventure. They were a hero, and magic was real if you believed!"
+        }
+      ]
+    },
+    "20": {
+      "page_count": 20,
+      "pages": [
+        {
+          "page_number": 1,
+          "title": "The Hidden Door",
+          "text": "{childName} found an old door in the garden that definitely hadn't been there before. Taking a breath, they turned the golden handle and stepped through."
+        },
+        {
+          "page_number": 2,
+          "title": "Arrival in Eldoria",
+          "text": "{childName} gasped. They stood in a magnificent castle surrounded by floating islands. Welcome to Eldoria, the hidden magical kingdom!"
+        },
+        {
+          "page_number": 3,
+          "title": "The Royal Council",
+          "text": "A council of wise beings explained: a terrible darkness was spreading. Only someone from the outside world could stop it. They believed it was {childName}."
+        },
+        {
+          "page_number": 4,
+          "title": "Receiving Magic",
+          "text": "A kind enchantress gave {childName} a magical amulet. 'This will help you on your journey. Trust yourself - you are braver than you know.'"
+        },
+        {
+          "page_number": 5,
+          "title": "The First Companion",
+          "text": "{childName} met Luna, a talking fox with eyes full of ancient wisdom. 'I will journey with you,' Luna said. {childName} felt less afraid with a friend."
+        },
+        {
+          "page_number": 6,
+          "title": "Through the Emerald Mountains",
+          "text": "Together, they traveled through mountains that touched the sky. Magical creatures watched them pass, curious about the prophesied outsider child."
+        },
+        {
+          "page_number": 7,
+          "title": "The Enchanted Library",
+          "text": "In an ancient library, {childName} found a book that told their own story. It showed them they had powers they didn't know - the power of courage and heart."
+        },
+        {
+          "page_number": 8,
+          "title": "Meeting the Unicorn",
+          "text": "A unicorn appeared from a circle of light. 'I sense pure intentions in your heart, {childName}. Climb on my back - we have far to travel.'"
+        },
+        {
+          "page_number": 9,
+          "title": "The Crystal City",
+          "text": "They arrived at a city of crystal that glowed from within. But it was frozen in time. Dark magic had turned the citizens to crystal. This was the enemy's work!"
+        },
+        {
+          "page_number": 10,
+          "title": "The Shadow Realm",
+          "text": "To reach the darkness's source, {childName} had to pass through the Shadow Realm. It was dark and confusing, but always they could hear the amulet's gentle warmth."
+        },
+        {
+          "page_number": 11,
+          "title": "Facing the Darkness",
+          "text": "At last, {childName} confronted the dark force - not a monster, but a wounded soul seeking destruction because it felt forgotten and unloved."
+        },
+        {
+          "page_number": 12,
+          "title": "The Power of Compassion",
+          "text": "Instead of fighting, {childName} offered compassion. 'You deserve healing, not destruction. Let me help you.' Kindness was the most powerful magic of all."
+        },
+        {
+          "page_number": 13,
+          "title": "The Transformation",
+          "text": "As {childName} showed kindness, the darkness cracked like an egg. Beautiful light flowed out, transforming pain into healing energy."
+        },
+        {
+          "page_number": 14,
+          "title": "The Crystal City Awakens",
+          "text": "Across the kingdom, the frozen citizens began to move again. Light returned to their eyes. {childName}'s heart had saved them all!"
+        },
+        {
+          "page_number": 15,
+          "title": "The Celebration",
+          "text": "Eldoria celebrated with a festival of lights. {childName} was crowned as a guardian of magic, a bridge between worlds."
+        },
+        {
+          "page_number": 16,
+          "title": "Gifts of Magic",
+          "text": "Each magical friend gave {childName} a gift: Luna's wisdom, the unicorn's courage, the enchantress's light. These gifts would last forever."
+        },
+        {
+          "page_number": 17,
+          "title": "The Eternal Portal",
+          "text": "The council created a portal that could never be completely closed. {childName} could return to Eldoria whenever their heart needed magic and adventure."
+        },
+        {
+          "page_number": 18,
+          "title": "Promise of Return",
+          "text": "Luna hugged {childName} with her soft fox face. 'You will always be family here. You will always belong in Eldoria.'"
+        },
+        {
+          "page_number": 19,
+          "title": "Back Home",
+          "text": "{childName} stepped back through the door into their garden. But everything felt different. They carried magic in their heart now."
+        },
+        {
+          "page_number": 20,
+          "title": "Magic Lives On",
+          "text": "{childName} knew the truth: magic is real for those who believe. And the greatest magic of all is the love and courage that lives in their heart forever!"
+        }
+      ]
+    },
+    "30": {
+      "page_count": 30,
+      "pages": [
+        {
+          "page_number": 1,
+          "title": "The Starlight Library",
+          "text": "{childName} discovered a library hidden behind a bookshelf in their grandmother's house. But this wasn't an ordinary library - books floated in starlight!"
+        },
+        {
+          "page_number": 2,
+          "title": "The Book That Glowed",
+          "text": "One book emanated a warm, golden glow. When {childName} touched it, the pages flew open and—whoosh! They were pulled inside into a world of pure magic."
+        },
+        {
+          "page_number": 3,
+          "title": "The Kingdom of Starwell",
+          "text": "{childName} landed softly in a kingdom where buildings were carved from moonstone and stars danced in the sky. This was Starwell - a place between dreams and reality!"
+        },
+        {
+          "page_number": 4,
+          "title": "The Queen's Greeting",
+          "text": "A beautiful queen with starlight in her eyes greeted {childName}. 'Welcome, child of destiny. We have called for you through time and story books.'"
+        },
+        {
+          "page_number": 5,
+          "title": "The Crisis Unfolds",
+          "text": "The queen explained: a curse had stolen the kingdom's Heartstone - the source of all magic and joy. Without it, Starwell would fade forever, taking magic from all worlds with it."
+        },
+        {
+          "page_number": 6,
+          "title": "The Royal Advisors",
+          "text": "The council of magical beings introduced themselves: a dragon ambassador, a wise phoenix, a clever gnome, and a serene water spirit. They believed in {childName}."
+        },
+        {
+          "page_number": 7,
+          "title": "The Quest Unfolds",
+          "text": "The phoenix explained: the Heartstone was hidden in three places, each guarded by a test of heart. Only {childName} could retrieve it because they came from the real world."
+        },
+        {
+          "page_number": 8,
+          "title": "The First Companion",
+          "text": "Azurion, a young dragon with scales like sapphires, joined {childName}. 'I've waited for a hero like you,' Azurion said, extending a claw that felt like a promise."
+        },
+        {
+          "page_number": 9,
+          "title": "Crossing the Rainbow Bridge",
+          "text": "To reach the first test, {childName} and Azurion crossed a bridge of pure light that spanned dimensions. On the other side lay a realm of infinite gardens."
+        },
+        {
+          "page_number": 10,
+          "title": "The Garden of Memories",
+          "text": "In this garden, every flower held a memory of joy - from children's first steps to parents' sweetest moments. The first test: answer the riddle of true joy."
+        },
+        {
+          "page_number": 11,
+          "title": "The Gardian's Riddle",
+          "text": "'What brings joy without gold? What fills hearts yet weighs nothing? What grows stronger when shared?' {childName} thought deeply. 'Love,' they answered. The garden bloomed with approval!"
+        },
+        {
+          "page_number": 12,
+          "title": "The First Fragment",
+          "text": "From the garden's heart, a brilliant crystal fragment emerged - a piece of the Heartstone. Love was its essence. {childName} held it carefully."
+        },
+        {
+          "page_number": 13,
+          "title": "The Mountain of Echoes",
+          "text": "Next, they climbed the Mountain of Echoes, where every sound ever made still resonates. Azurion's courage helped {childName} face the overwhelming symphony."
+        },
+        {
+          "page_number": 14,
+          "title": "The Courage Challenge",
+          "text": "At the summit was another test: face your greatest fear. {childName}'s fear appeared - but facing it with Azurion's support, they realized it couldn't harm them."
+        },
+        {
+          "page_number": 15,
+          "title": "The Second Fragment",
+          "text": "From the mountain peak, another fragment descended - gleaming with courage and determination. Two pieces of the Heartstone now glowed in {childName}'s hands."
+        },
+        {
+          "page_number": 16,
+          "title": "The Cavern of Sorrows",
+          "text": "The third test lay deeper - in a cavern where sorrow itself lived. This place held every tear, every loss, every moment of pain from all the worlds."
+        },
+        {
+          "page_number": 17,
+          "title": "The Test of Compassion",
+          "text": "The guardian showed {childName} all the world's sorrows. Instead of running, {childName} felt them, understood them, and offered comfort. Compassion was the key."
+        },
+        {
+          "page_number": 18,
+          "title": "The Third Fragment",
+          "text": "The final piece emerged, shimmering with the colors of healing and hope. The three fragments floated together, calling to reunite."
+        },
+        {
+          "page_number": 19,
+          "title": "The Journey Home",
+          "text": "{childName} and Azurion journeyed back, carrying the three fragments - love, courage, and compassion. The very air seemed to recognize their importance."
+        },
+        {
+          "page_number": 20,
+          "title": "The Final Temple",
+          "text": "At the center of Starwell stood the temple where the Heartstone once lived. All the magical beings gathered to witness its restoration."
+        },
+        {
+          "page_number": 21,
+          "title": "The Reunion",
+          "text": "When {childName} placed the three fragments together, they fused with a brilliant light. The Heartstone was whole - and glowing brighter than ever before!"
+        },
+        {
+          "page_number": 22,
+          "title": "The Light Spreads",
+          "text": "The restored Heartstone's light spread across all of Starwell, then beyond into all the worlds. Magic surged back - stronger, purer, connected."
+        },
+        {
+          "page_number": 23,
+          "title": "The New Bond",
+          "text": "The queen bowed before {childName}. 'You have not just saved Starwell. You've taught us that love, courage, and compassion are the truest magic.'"
+        },
+        {
+          "page_number": 24,
+          "title": "Guardian of Magic",
+          "text": "{childName} was named Guardian of Magic - a being who walks between worlds, keeping the connection alive between imagination and reality."
+        },
+        {
+          "page_number": 25,
+          "title": "A Gift of Flight",
+          "text": "Azurion gifted {childName} the ability to visit Starwell whenever they wished. 'We are forever bonded,' the dragon whispered, and {childName} felt the truth of it."
+        },
+        {
+          "page_number": 26,
+          "title": "The Festival of Starlight",
+          "text": "Starwell celebrated {childName}'s victory with a festival where all manner of magical beings danced and sang. {childName}'s heart felt full beyond measure."
+        },
+        {
+          "page_number": 27,
+          "title": "Eternal Connection",
+          "text": "The queen gave {childName} a star pendant. 'When you hold this, you carry all of us with you. And we carry you in our hearts always.'"
+        },
+        {
+          "page_number": 28,
+          "title": "The Journey Back",
+          "text": "When it was time to return, {childName} hugged each friend goodbye. The book glowed, and they floated gently back to the starlight library."
+        },
+        {
+          "page_number": 29,
+          "title": "Changed Forever",
+          "text": "{childName} stepped back into their grandmother's house. Everything looked the same, but they were transformed. They had been a hero in a magical realm!"
+        },
+        {
+          "page_number": 30,
+          "title": "The Magic Continues",
+          "text": "{childName} learned that magic never truly leaves us. It lives in every act of love, in every moment of courage, in every choice to show compassion. And Starwell will always be there, waiting in their heart."
+        }
+      ]
+    }
+  }
+}
