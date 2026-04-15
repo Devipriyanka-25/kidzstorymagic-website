@@ -1,371 +1,206 @@
-# Kidz Story Magic - AI Storybook Creator Platform
+# Kidz Story Magic
 
-## 🎯 Project Overview
+Kidz Story Magic is a full-stack storybook creator for personalized children's stories. The app includes a Next.js frontend, an Express API, PostgreSQL storage, Stripe checkout, image processing, PDF generation, and optional AI image/story providers.
 
-Kidz Story Magic is a cutting-edge AI-powered platform that enables parents and educators to create personalized, engaging storybooks for children. The platform combines artificial intelligence with a user-friendly 6-step wizard to generate custom stories, complete with automatic face blur and watermarking on preview, and high-quality PDF exports for paid downloads.
+## Project Structure
 
-### Key Features
-
-✨ **6-Step Wizard Creation Process**
-- Step 1: Age Group Selection
-- Step 2: Theme Selection (6 themes)
-- Step 3: Page Count (10, 20, or 30 pages)
-- Step 4: Child Details Input
-- Step 5: Photo Upload with Processing
-- Step 6: Preview & Checkout
-
-📖 **Story Themes**
-- **Family** - Heartwarming family adventures
-- **Friends** - Making and maintaining friendships
-- **Motivational** - Courage and perseverance stories
-- **Behavioral** - Emotional learning and growth
-- **Fairytale** - Magical fantasy adventures
-- **Customizable** - User-defined story parameters
-
-🎨 **Image Processing**
-- Face detection and automatic blur
-- Diagonal watermark on preview pages
-- High-resolution processing for final PDFs
-- Support for JPEG, PNG, WebP formats
-
-💳 **Payment & Currency**
-- Stripe integration for secure payments
-- Real-time currency conversion (USD, CAD, GBP, EUR, AUD, INR)
-- Dynamic pricing based on user location
-- Amazon-style currency display
-
-📱 **Responsive Design**
-- Next.js with Tailwind CSS
-- Mobile-first approach
-- Optimized for all screen sizes
-
-## 🏗️ Project Structure
-
-```
-kidz-story-magic/
-├── frontend/                 # Next.js React application
-│   ├── app/                 # App router pages
-│   ├── components/          # React components
-│   │   └── wizard/         # 6-step wizard components
-│   ├── utils/              # API clients and stores
-│   ├── styles/             # Global styles
-│   ├── public/             # Static assets
-│   ├── package.json
-│   ├── next.config.js
-│   ├── tailwind.config.js
-│   └── .env.local.example
-│
-├── backend/                 # Express.js REST API
-│   ├── src/
-│   │   ├── index.js        # Server entry point
-│   │   ├── config/         # Configuration files
-│   │   ├── routes/         # API endpoints
-│   │   ├── models/         # Database models
-│   │   ├── controllers/    # Business logic
-│   │   ├── middleware/     # Express middleware
-│   │   └── utils/          # Helper utilities
-│   ├── uploads/            # User uploads directory
-│   ├── pdfs/               # Generated PDFs
-│   ├── package.json
-│   └── .env.example
-│
-├── story-templates/        # JSON story templates
-│   ├── family-template.json
-│   ├── friends-template.json
-│   ├── motivational-template.json
-│   ├── behavioural-template.json
-│   ├── fairytale-template.json
-│   └── customizable-template.json
-│
-├── docs/                   # Documentation
-│   ├── database-schema.sql
-│   ├── API-DOCUMENTATION.md
-│   ├── DEPLOYMENT.md
-│   └── SETUP.md
-│
-└── infrastructure/         # Deployment configs
-    ├── docker-compose.yml
-    └── .env.production
+```text
+.
+├── backend/          # Express API, PostgreSQL models, Stripe, PDF/image services
+├── frontend/         # Next.js App Router frontend
+├── docs/             # Database schema and deployment docs
+├── story-templates/  # Story template JSON files
+├── docker-compose.yml
+└── .env.example      # Root template for Docker Compose
 ```
 
-## 🗄️ Database Schema
-
-### Key Tables
-
-**Users**
-- id, name, email, password_hash, profile_picture_url, preferred_currency, location, created_at, updated_at
-
-**Story Projects**
-- id, user_id, title, age_group, theme, page_count, child_name, child_gender, child_interests, child_notes, status, created_at
-
-**Story Content**
-- id, project_id, page_number, page_title, page_text, created_at
-
-**Images**
-- id, project_id, original_filename, original_url, blurred_url, watermarked_url, high_res_url, face_detected, processing_status
-
-**Orders**
-- id, user_id, project_id, amount, currency, status, stripe_payment_intent_id, created_at
-
-**Generated PDFs**
-- id, project_id, order_id, pdf_url, file_size, page_count, is_blurred, has_watermark, created_at
-
-## 🚀 Getting Started
-
-### Prerequisites
+## Prerequisites
 
 - Node.js 18+
 - PostgreSQL 13+
-- Stripe Account
-- AWS Account (for S3 and optional Rekognition)
-- Exchange Rate API Key
+- npm
+- Stripe account for production payments
+- Optional: OpenAI, Stability, Replicate, Azure, AWS, or ExchangeRate API keys
 
-### Backend Setup
+## Local Setup
 
-1. **Navigate to backend directory**
+1. Create local env files.
+
+```bash
+cp backend/.env.example backend/.env
+cp frontend/.env.local.example frontend/.env.local
+```
+
+Fill in at least these backend values:
+
+```text
+DB_HOST=localhost
+DB_PORT=5432
+DB_NAME=kidz_story_magic
+DB_USER=postgres
+DB_PASSWORD=<local database password>
+JWT_SECRET=<32+ character random secret>
+BASE_URL=http://localhost:5000
+FRONTEND_URL=http://localhost:3000
+CORS_ORIGIN=http://localhost:3000
+```
+
+Generate a local JWT secret with:
+
+```bash
+node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+```
+
+2. Install dependencies.
+
+```bash
+cd backend && npm install
+cd ../frontend && npm install
+```
+
+3. Run database migrations.
+
 ```bash
 cd backend
+npm run db:migrate
 ```
 
-2. **Install dependencies**
+4. Start both services.
+
 ```bash
-npm install
+# Terminal 1
+cd backend
+npm run dev
+
+# Terminal 2
+cd frontend
+npm run dev
 ```
 
-3. **Create environment file**
+The API runs at `http://localhost:5000`; the frontend runs at `http://localhost:3000`.
+
+## Docker Compose
+
+For local Docker runs, copy the root env template and fill in required values:
+
 ```bash
 cp .env.example .env
-# Edit .env with your credentials
+docker compose up --build
 ```
 
-4. **Initialize database**
-```bash
-npm run db:migrate
-npm run db:seed
-```
+`DB_PASSWORD` and `JWT_SECRET` are intentionally required by `docker-compose.yml`; fake default secrets are not supplied.
 
-5. **Start development server**
-```bash
-npm run dev
-```
+## Environment Variables
 
-Server runs on `http://localhost:5000`
+Backend secrets belong in `backend/.env` locally or in the backend hosting provider's secret manager. Frontend values prefixed with `NEXT_PUBLIC_` are exposed to browsers and must not contain secrets.
 
-### Frontend Setup
+Required backend production variables:
 
-1. **Navigate to frontend directory**
-```bash
-cd frontend
-```
-
-2. **Install dependencies**
-```bash
-npm install
-```
-
-3. **Create environment file**
-```bash
-cp .env.local.example .env.local
-```
-
-4. **Start development server**
-```bash
-npm run dev
-```
-
-Application runs on `http://localhost:3000`
-
-## 📚 API Endpoints
-
-### Authentication
-- `POST /api/auth/register` - Register new user
-- `POST /api/auth/login` - User login
-- `GET /api/auth/me` - Get current user
-- `PUT /api/auth/me` - Update profile
-
-### Story Management
-- `POST /api/story/create` - Create new project
-- `GET /api/story` - List user's projects
-- `GET /api/story/:projectId` - Get project details
-- `PUT /api/story/:projectId` - Update project
-- `DELETE /api/story/:projectId` - Delete project
-- `POST /api/story/:projectId/upload-photo` - Upload photo
-- `POST /api/story/:projectId/generate-story` - Generate story
-- `GET /api/story/:projectId/content` - Get story content
-
-### Payments
-- `POST /api/payment/checkout` - Create checkout session
-- `POST /api/payment/confirm-payment` - Confirm payment
-- `GET /api/payment/order/:orderId` - Get order details
-- `GET /api/payment/user/orders` - Get user's orders
-- `GET /api/payment/pdf/:projectId` - Get PDF download link
-- `POST /api/payment/webhook` - Stripe webhook
-
-### Currency Conversion
-- `GET /api/currency/supported` - Get supported currencies
-- `GET /api/currency/rates` - Get exchange rates
-- `POST /api/currency/convert` - Convert amount
-- `POST /api/currency/pricing` - Get pricing in currency
-- `GET /api/currency/detect` - Detect user currency
-- `POST /api/currency/refresh-rates` - Refresh rates
-
-## 🎨 Story Templates
-
-Each theme includes 3 templates: 10, 20, and 30-page versions with personalized placeholders:
-
-```json
-{
-  "theme": "family",
-  "age_range": "5-8",
-  "templates": {
-    "10": {
-      "page_count": 10,
-      "pages": [
-        {
-          "page_number": 1,
-          "title": "...",
-          "text": "{{child_name}} discovered... {{child_gender == 'male' ? 'his' : 'her'}} {{interest}}..."
-        }
-      ]
-    }
-  }
-}
-```
-
-### Placeholder Variables
-- `{{child_name}}` - Child's name
-- `{{child_gender}}` - Gender (male/female)
-- `{{interest}}` - Child's interests
-- `{{age}}` - Child's age
-- `{{theme_keyword}}` - Theme type
-
-## 🖼️ Image Processing
-
-### Watermark Feature
-- Diagonal text watermark ("PREVIEW - WATERMARK")
-- 30% opacity overlay
-- Applied to all preview page images
-
-### Blur Feature
-- Gaussian blur (radius: 25)
-- Face detection and specific blur
-- Applied to preview versions only
-
-### Final PDF
-- High-resolution processing (95% quality)
-- No watermark
-- No blur
-- Professional layout with CSS styling
-
-## 💳 Pricing & Currency
-
-### Base Pricing
-- 10 pages: $9.99 USD
-- 20 pages: $12.99 USD
-- 30 pages: $14.99 USD
-
-### Supported Currencies
-- USD (US Dollar)
-- CAD (Canadian Dollar)
-- GBP (British Pound)
-- EUR (Euro)
-- AUD (Australian Dollar)
-- INR (Indian Rupee)
-
-### Dynamic Conversion
-- Real-time rates from ExchangeRate API
-- Cached for 24 hours
-- Automatic user detection via IP geolocation
-
-## 📦 PDF Generation
-
-### Features
-- A4 page format
-- Professional cover page
-- Page numbers
-- Image integration
-- Optimized for printing
-
-### Technology
-- Puppeteer for HTML to PDF conversion
-- Responsive CSS styling
-- Multi-page support
-
-## 🔐 Security
-
-- JWT authentication (7-day expiry)
-- Password hashing with bcryptjs
-- Stripe PCI compliance
-- CORS protection
-- Rate limiting (100 requests/15 min)
-- Helmet security headers
-
-## 📈 Deployment
-
-### Docker Deployment
-```bash
-docker-compose up -d
-```
-
-### Environment Variables (Production)
-```
+```text
 NODE_ENV=production
-DB_HOST=production_host
-STRIPE_SECRET_KEY=sk_live_...
-CORS_ORIGIN=https://yourdomain.com
+BASE_URL=https://api.example.com
+FRONTEND_URL=https://app.example.com
+CORS_ORIGIN=https://app.example.com
+DATABASE_URL=<postgres connection string>
+JWT_SECRET=<32+ character random secret>
+STRIPE_SECRET_KEY=<set in secret manager>
+STRIPE_PUBLISHABLE_KEY=<set in secret manager>
+STRIPE_WEBHOOK_SECRET=<set in secret manager>
 ```
 
-### Database Migration
+Required frontend production variables:
+
+```text
+NEXT_PUBLIC_API_URL=https://api.example.com/api
+NEXT_PUBLIC_APP_URL=https://app.example.com
+NEXT_PUBLIC_STRIPE_KEY=<Stripe publishable key>
+```
+
+Optional integrations are documented in [backend/.env.example](backend/.env.example).
+
+## API Summary
+
+- `POST /api/auth/register`
+- `POST /api/auth/login`
+- `POST /api/auth/forgot-password`
+- `POST /api/auth/reset-password`
+- `GET /api/auth/me`
+- `POST /api/story/create`
+- `POST /api/story/:projectId/upload-photo`
+- `POST /api/story/:projectId/generate-story`
+- `POST /api/payment/checkout`
+- `GET /api/payment/verify/:sessionId`
+- `POST /api/payment/webhook`
+- `POST /api/currency/convert`
+- `POST /api/currency/pricing`
+
+## Production Deployment
+
+1. Provision PostgreSQL and run migrations against production.
+
 ```bash
-npm run db:migrate
+cd backend
+NODE_ENV=production DATABASE_URL=<from secret manager> npm run db:migrate
 ```
 
-## 🧪 Testing
+2. Deploy the backend with `backend/` as the service root.
 
-### Backend
+Required settings:
+
+```text
+Build command: npm install
+Start command: npm start
+Health check: /api/health
+```
+
+3. Deploy the frontend with `frontend/` as the service root.
+
+Required settings:
+
+```text
+Build command: npm install && npm run build
+Start command: npm start
+```
+
+4. Configure Stripe webhook delivery to:
+
+```text
+https://api.example.com/api/payment/webhook
+```
+
+Set the webhook signing secret in `STRIPE_WEBHOOK_SECRET`.
+
+5. Confirm CORS and URLs:
+
+```text
+BASE_URL=https://api.example.com
+FRONTEND_URL=https://app.example.com
+CORS_ORIGIN=https://app.example.com
+NEXT_PUBLIC_API_URL=https://api.example.com/api
+NEXT_PUBLIC_APP_URL=https://app.example.com
+```
+
+## Deployment Checklist
+
+- [ ] No real `.env`, `.env.local`, or production env files are committed.
+- [ ] `backend/.env.example`, `frontend/.env.local.example`, and `.env.example` are up to date.
+- [ ] Production backend has `NODE_ENV=production`.
+- [ ] PostgreSQL is provisioned and migrations have run.
+- [ ] `JWT_SECRET` is unique, private, and at least 32 characters.
+- [ ] Stripe secret, publishable, and webhook keys are configured in the hosting provider.
+- [ ] `CORS_ORIGIN` only includes deployed frontend origins.
+- [ ] `BASE_URL`, `FRONTEND_URL`, and `NEXT_PUBLIC_API_URL` use HTTPS production URLs.
+- [ ] Password reset email credentials are configured, or the flow is intentionally disabled before launch.
+- [ ] Optional AI/storage provider keys are scoped only to environments that need them.
+- [ ] `/api/health` and `/api/health/db` pass after deployment.
+- [ ] Frontend login, story creation, checkout, and payment success flows are smoke-tested.
+
+## Verification Commands
+
 ```bash
-npm test
+cd backend && npm test -- --runInBand
+cd frontend && npm test -- --runInBand
+cd frontend && npm run build
 ```
 
-### Frontend
-```bash
-npm test -- --watch
-```
-
-## 📖 Documentation
-
-- [API Documentation](./docs/API-DOCUMENTATION.md)
-- [Database Schema](./docs/database-schema.sql)
-- [Deployment Guide](./docs/DEPLOYMENT.md)
-- [Setup Instructions](./docs/SETUP.md)
-
-## 🤝 Contributing
-
-1. Fork the repository
-2. Create feature branch (`git checkout -b feature/AmazingFeature`)
-3. Commit changes (`git commit -m 'Add amazing feature'`)
-4. Push to branch (`git push origin feature/AmazingFeature`)
-5. Open Pull Request
-
-## 📄 License
-
-This project is licensed under the MIT License.
-
-## 🙋 Support
-
-For support, email support@kidzstorymagic.com or open an issue in the repository.
-
-## 🎉 Future Enhancements
-
-- [ ] AI story generation (ChatGPT integration)
-- [ ] Text-to-speech for stories
-- [ ] Social sharing features
-- [ ] Parent dashboard with analytics
-- [ ] Subscription plans
-- [ ] Multiple language support
-- [ ] Mobile app (React Native)
-- [ ] AR story visualization
-
----
-
-**Created with ❤️ for children's imagination**
+More deployment details are in [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).

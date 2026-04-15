@@ -205,7 +205,7 @@ class ImageGenerationService {
    * 
    * Setup Option 1 (Cloud - Stability AI):
    * 1. Get API key from https://www.stabilityai.com/
-   * 2. Set environment: STABILITY_API_KEY=sk_...
+   * 2. Set STABILITY_API_KEY in your secret manager
    * 3. Set IMAGE_PROVIDER=STABLE_DIFFUSION
    * 
    * Setup Option 2 (Local - Automatic1111 WebUI):

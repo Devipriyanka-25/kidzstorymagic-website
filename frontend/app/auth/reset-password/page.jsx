@@ -2,12 +2,13 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
-import axios from 'axios';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { authAPI } from '@/utils/api';
 
-export default function ResetPasswordPage({ searchParams }) {
+export default function ResetPasswordPage() {
   const router = useRouter();
-  const token = searchParams?.token;
+  const searchParams = useSearchParams();
+  const token = searchParams.get('token');
   
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -51,10 +52,7 @@ export default function ResetPasswordPage({ searchParams }) {
     setIsLoading(true);
 
     try {
-      await axios.post(
-        `${process.env.NEXT_PUBLIC_API_URL}/auth/reset-password`,
-        { token, password }
-      );
+      await authAPI.resetPassword(token, password);
 
       setSuccess('Password reset successfully!');
       setTimeout(() => {

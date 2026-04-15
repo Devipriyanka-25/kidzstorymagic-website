@@ -10,6 +10,10 @@ yarn.lock
 .env.local
 .env.*.local
 .env.production
+backend/.env
+backend/.env.local
+frontend/.env
+frontend/.env.local
 
 # Build outputs
 dist/
@@ -65,7 +69,6 @@ tmp/
 temp/
 
 # Docker
-.dockerignore
 docker-compose.override.yml
 
 # CI/CD

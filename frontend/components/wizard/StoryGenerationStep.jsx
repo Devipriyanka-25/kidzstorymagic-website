@@ -30,7 +30,29 @@ export default function StoryGenerationStep({
   const [step, setStep] = useState('upload'); // 'upload' | 'generating' | 'preview'
   const [regenerateCount, setRegenerateCount] = useState(0);
 
-  const MIN_IMAGES = 2;
+  const MIN_IMAGES = 3;
+
+  const normalizeGeneratedStory = (payload) => {
+    const generated = payload?.data || payload || {};
+    const pages = Array.isArray(generated.pages)
+      ? generated.pages.map((page, index) => ({
+          ...page,
+          pageNumber: page.pageNumber || page.page_number || index + 1,
+          title: page.title || page.page_title || `Page ${index + 1}`,
+          text: page.text || page.content || page.page_text || '',
+          image: page.image || page.imageUrl || page.image_url || '',
+          imageUrl: page.imageUrl || page.image || page.image_url || '',
+        }))
+      : [];
+
+    return {
+      id: generated.id,
+      title: generated.title || `${childName}'s Story`,
+      pages,
+      theme: generated.theme || theme,
+      generatedAt: generated.generatedAt || new Date().toISOString(),
+    };
+  };
 
   /**
    * Handle image selection from upload component
@@ -43,7 +65,7 @@ export default function StoryGenerationStep({
   /**
    * Generate story from uploaded images
    */
-  const generateStory = async () => {
+  const generateStory = async (nextRegenerateCount = regenerateCount) => {
     if (uploadedImages.length < MIN_IMAGES) {
       setError(`Please upload at least ${MIN_IMAGES} images to generate a story`);
       return;
@@ -67,18 +89,13 @@ export default function StoryGenerationStep({
         childName,
         theme,
         images: imageData,
-        regenerationCount: regenerateCount,
+        regenerationCount: nextRegenerateCount,
       });
 
-      // Format generated story
-      const story = {
-        title: response.data.title || `${childName}'s Story`,
-        pages: response.data.pages || [],
-        theme: response.data.theme || theme,
-        generatedAt: new Date().toISOString(),
-      };
+      const story = normalizeGeneratedStory(response.data);
 
       setGeneratedStory(story);
+      setRegenerateCount(nextRegenerateCount);
       setStep('preview');
 
       // Notify parent component
@@ -102,9 +119,7 @@ export default function StoryGenerationStep({
    * Regenerate story with different selection of images
    */
   const regenerateStory = async () => {
-    setRegenerateCount(regenerateCount + 1);
-    setStep('upload'); // Go back to upload step to allow re-uploading if needed
-    await generateStory();
+    await generateStory(regenerateCount + 1);
   };
 
   /**
@@ -209,9 +224,9 @@ export default function StoryGenerationStep({
             <div className="mt-6 flex justify-center">
               <button
                 onClick={generateStory}
-                disabled={loading || uploadedImages.length < 5}
+                disabled={loading || uploadedImages.length < MIN_IMAGES}
                 className={`px-8 py-3 rounded-lg font-semibold text-white transition-all transform hover:scale-105 ${
-                  loading || uploadedImages.length < 5
+                  loading || uploadedImages.length < MIN_IMAGES
                     ? 'bg-gray-400 cursor-not-allowed opacity-50'
                     : 'bg-green-600 hover:bg-green-700'
                 }`}

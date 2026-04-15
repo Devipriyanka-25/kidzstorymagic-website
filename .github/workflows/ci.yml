@@ -14,6 +14,7 @@ jobs:
         image: postgres:15
         env:
           POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: kidz_story_magic
         options: >-
           --health-cmd pg_isready
           --health-interval 10s
@@ -34,15 +35,18 @@ jobs:
 
       - name: Install dependencies
         working-directory: backend
-        run: npm ci
+        run: npm install
 
       - name: Setup database
         working-directory: backend
         env:
           DB_HOST: localhost
+          DB_PORT: 5432
+          DB_NAME: kidz_story_magic
           DB_USER: postgres
           DB_PASSWORD: postgres
-        run: npm run db:setup
+          JWT_SECRET: test_secret
+        run: npm run db:migrate
 
       - name: Run tests
         working-directory: backend
@@ -68,7 +72,7 @@ jobs:
 
       - name: Install dependencies
         working-directory: frontend
-        run: npm ci
+        run: npm install
 
       - name: Run tests
         working-directory: frontend
@@ -91,7 +95,7 @@ jobs:
 
       - name: Install dependencies
         working-directory: backend
-        run: npm ci
+        run: npm install
 
       - name: Run ESLint
         working-directory: backend

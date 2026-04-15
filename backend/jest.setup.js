@@ -19,7 +19,7 @@ global.console = {
 jest.setTimeout(10000);
 
 // Mock database if needed
-jest.mock('../src/config/database', () => ({
+jest.mock('./src/config/database', () => ({
   query: jest.fn(),
   pool: {
     query: jest.fn(),

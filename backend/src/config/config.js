@@ -1,11 +1,19 @@
 // Backend configuration file
+const frontendUrl = (
+  process.env.FRONTEND_URL ||
+  process.env.NEXT_PUBLIC_APP_URL ||
+  process.env.CORS_ORIGIN ||
+  'http://localhost:3000'
+).split(',')[0].trim();
+
 module.exports = {
   app: {
     name: 'Kidz Story Magic',
     version: '1.0.0',
     environment: process.env.NODE_ENV || 'development',
     port: process.env.PORT || 5000,
-    baseUrl: process.env.BASE_URL || 'http://localhost:5000'
+    baseUrl: process.env.BASE_URL || 'http://localhost:5000',
+    frontendUrl
   },
   database: {
     // Cloud database connection string (takes precedence)
@@ -16,14 +24,14 @@ module.exports = {
     port: process.env.DB_PORT || 5432,
     name: process.env.DB_NAME || 'kidz_story_magic',
     user: process.env.DB_USER || 'postgres',
-    password: process.env.DB_PASSWORD || 'password',
+    password: process.env.DB_PASSWORD,
     pool: {
       min: 2,
       max: 10
     }
   },
   jwt: {
-    secret: process.env.JWT_SECRET || 'your-super-secret-jwt-key-change-in-production',
+    secret: process.env.JWT_SECRET,
     expiresIn: process.env.JWT_EXPIRES_IN || '7d'
   },
   stripe: {

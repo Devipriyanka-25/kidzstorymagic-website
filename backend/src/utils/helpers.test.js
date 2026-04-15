@@ -4,7 +4,7 @@ const {
   validateFileUpload,
   generateRandomString,
   formatPrice,
-} = require('../src/utils/helpers');
+} = require('./helpers');
 
 describe('Helper utilities', () => {
   describe('sendResponse', () => {

@@ -1,394 +1,140 @@
-# Deployment Guide - Kidz Story Magic
+# Deployment Guide
 
-## Overview
+This guide covers the minimum production deployment path for Kidz Story Magic.
 
-This guide covers deploying Kidz Story Magic to production environments.
+## Services
 
-## Prerequisites
+- `backend/`: Express API on port `5000`
+- `frontend/`: Next.js app on port `3000`
+- PostgreSQL database
+- Optional object storage and AI providers
 
-- Docker & Docker Compose installed
-- PostgreSQL 13+ (or use Docker)
-- Node.js 18+
-- Stripe account with API keys
-- AWS account (for S3 storage)
-- SSL certificate (for HTTPS)
+## Required Production Environment
 
-## Deployment Options
+Store real values in your hosting provider's secret manager. Do not commit production env files.
 
-### 1. Docker Deployment
+Backend:
 
-#### Build Docker Images
-
-```bash
-# Build backend image
-cd backend
-docker build -t kidz-story-api:latest .
-
-# Build frontend image
-cd ../frontend
-docker build -t kidz-story-app:latest .
-```
-
-#### Using Docker Compose
-
-```bash
-# Navigate to project root
-cd ..
-
-# Set environment variables
-export NODE_ENV=production
-export STRIPE_SECRET_KEY=sk_live_...
-export EXCHANGE_RATE_API_KEY=your_key
-
-# Start all services
-docker-compose up -d
-
-# Check logs
-docker-compose logs -f
-```
-
-### 2. DigitalOcean App Platform
-
-1. **Create App from Git**
-   - Connect GitHub repository
-   - Select branch `main` or `production`
-
-2. **Configure Services**
-
-```yaml
-services:
-  - name: backend
-    github:
-      repository: your-repo/kidz-story-magic
-      branch: main
-      directory: backend
-    http_port: 5000
-    environment_slug: node-20
-    envs:
-      - key: NODE_ENV
-        value: production
-      - key: DB_HOST
-        scope: RUN_AND_BUILD_TIME
-        value: ${db.hostname}
-
-  - name: frontend
-    github:
-      repository: your-repo/kidz-story-magic
-      branch: main
-      directory: frontend
-    http_port: 3000
-    environment_slug: node-20
-
-databases:
-  - name: db
-    engine: PG
-    version: "15"
-```
-
-3. **Deploy**
-   - Click "Deploy"
-   - Monitor logs for errors
-
-### 3. AWS Deployment
-
-#### Using Elastic Beanstalk
-
-```bash
-# Install EB CLI
-pip install awsebcli
-
-# Initialize EB
-eb init -p node.js app-name
-
-# Create environment
-eb create production-env
-
-# Deploy
-eb deploy
-```
-
-#### Using ECS & RDS
-
-1. **Create RDS PostgreSQL instance**
-   - Multi-AZ enabled
-   - Automated backups
-
-2. **Create ECR repositories**
-```bash
-aws ecr create-repository --repository-name kidz-story-api
-aws ecr create-repository --repository-name kidz-story-app
-```
-
-3. **Push Docker images**
-```bash
-# Authenticate with ECR
-aws ecr get-login-password --region us-east-1 | \
-  docker login --username AWS --password-stdin [account-id].dkr.ecr.us-east-1.amazonaws.com
-
-# Tag and push images
-docker tag kidz-story-api:latest [account-id].dkr.ecr.us-east-1.amazonaws.com/kidz-story-api:latest
-docker push [account-id].dkr.ecr.us-east-1.amazonaws.com/kidz-story-api:latest
-```
-
-4. **Create ECS cluster and services**
-   - Use CloudFormation template or AWS Console
-   - Configure load balancer
-   - Set up auto-scaling
-
-### 4. Vercel + Heroku
-
-#### Frontend on Vercel
-
-```bash
-# Install Vercel CLI
-npm i -g vercel
-
-# Deploy
-cd frontend
-vercel
-```
-
-Environment variables in Vercel Dashboard:
-```
-NEXT_PUBLIC_API_URL=https://api.yourdomain.com/api
-NEXT_PUBLIC_STRIPE_KEY=pk_live_...
-```
-
-#### Backend on Heroku
-
-```bash
-# Install Heroku CLI
-brew install heroku/brew/heroku
-
-# Login
-heroku login
-
-# Create app
-heroku create your-app-name
-
-# Add PostgreSQL
-heroku addons:create heroku-postgresql:standard-0
-
-# Set environment variables
-heroku config:set NODE_ENV=production
-heroku config:set STRIPE_SECRET_KEY=sk_live_...
-
-# Deploy
-git push heroku main
-```
-
-## Production Configuration
-
-### Environment Variables (.env.production)
-
-```bash
-# Application
+```text
 NODE_ENV=production
 PORT=5000
-BASE_URL=https://api.yourdomain.com
-
-# Database
-DB_HOST=prod-database.aws.rds.amazonaws.com
-DB_PORT=5432
-DB_NAME=kidz_story_magic
-DB_USER=postgres
-DB_PASSWORD=${SECURE_DB_PASSWORD}
-
-# JWT
-JWT_SECRET=${SECURE_JWT_SECRET}
-JWT_EXPIRES_IN=7d
-
-# Stripe
-STRIPE_SECRET_KEY=sk_live_${STRIPE_KEY}
-STRIPE_WEBHOOK_SECRET=whsec_${WEBHOOK_SECRET}
-
-# AWS S3
-AWS_REGION=us-east-1
-AWS_ACCESS_KEY_ID=${AWS_KEY}
-AWS_SECRET_ACCESS_KEY=${AWS_SECRET}
-AWS_S3_BUCKET=kidz-story-magic-prod
-
-# Exchange Rate
-EXCHANGE_RATE_API_KEY=${EXCHANGE_API_KEY}
-
-# Email
-EMAIL_USER=${EMAIL_USER}
-EMAIL_PASSWORD=${EMAIL_PASSWORD}
-
-# CORS
-CORS_ORIGIN=https://yourdomain.com
-
-# Logging
-LOG_LEVEL=info
+BASE_URL=https://api.example.com
+FRONTEND_URL=https://app.example.com
+CORS_ORIGIN=https://app.example.com
+DATABASE_URL=<postgres connection string>
+JWT_SECRET=<32+ character random secret>
+STRIPE_SECRET_KEY=<Stripe secret key>
+STRIPE_PUBLISHABLE_KEY=<Stripe publishable key>
+STRIPE_WEBHOOK_SECRET=<Stripe webhook signing secret>
+EMAIL_SERVICE=gmail
+EMAIL_FROM=noreply@example.com
+EMAIL_USER=<mailbox user>
+EMAIL_PASSWORD=<mailbox app password>
 ```
 
-## SSL/TLS Setup
+Frontend:
 
-### Using Let's Encrypt with Nginx
-
-```nginx
-server {
-    listen 443 ssl http2;
-    server_name api.yourdomain.com;
-
-    ssl_certificate /etc/letsencrypt/live/api.yourdomain.com/fullchain.pem;
-    ssl_certificate_key /etc/letsencrypt/live/api.yourdomain.com/privkey.pem;
-
-    location / {
-        proxy_pass http://localhost:5000;
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection 'upgrade';
-        proxy_set_header Host $host;
-        proxy_cache_bypass $http_upgrade;
-    }
-}
+```text
+NEXT_PUBLIC_API_URL=https://api.example.com/api
+NEXT_PUBLIC_APP_URL=https://app.example.com
+NEXT_PUBLIC_STRIPE_KEY=<Stripe publishable key>
+NEXT_PUBLIC_DEBUG_MODE=false
 ```
 
-### Auto-renewal with Certbot
+Optional backend variables are listed in [../backend/.env.example](../backend/.env.example).
+
+## Database
+
+Run migrations after provisioning Postgres and before opening the app to users:
 
 ```bash
-certbot renew --quiet --no-self-upgrade
+cd backend
+NODE_ENV=production DATABASE_URL=<from secret manager> npm run db:migrate
 ```
 
-## Database Migration
+The backend supports either `DATABASE_URL` or individual `DB_*` values. Prefer `DATABASE_URL` for hosted databases.
 
-### Running Migrations in Production
+## Backend Deployment
+
+Use `backend/` as the service root.
+
+```text
+Install command: npm install
+Build command: npm run build
+Start command: npm start
+Health check: /api/health
+```
+
+Production startup validates required env vars and exits if secrets are missing, too weak, or still placeholder values.
+
+## Frontend Deployment
+
+Use `frontend/` as the service root.
+
+```text
+Install command: npm install
+Build command: npm run build
+Start command: npm start
+```
+
+Only expose `NEXT_PUBLIC_*` values that are safe for browsers.
+
+## Docker Compose
+
+For local container validation:
 
 ```bash
-# Connect to production database
-psql -h prod-database.aws.rds.amazonaws.com \
-     -U postgres \
-     -d kidz_story_magic \
-     -f docs/database-schema.sql
-
-# Or using psql CLI
-psql postgresql://user:password@host:5432/dbname < schema.sql
+cp .env.example .env
+docker compose up --build
 ```
 
-## Backup Strategy
+Fill `DB_PASSWORD` and `JWT_SECRET` before running. Compose intentionally does not provide fake secret defaults.
 
-### PostgreSQL Backups
+## Stripe Webhook
+
+Configure the Stripe webhook URL to:
+
+```text
+https://api.example.com/api/payment/webhook
+```
+
+Set the resulting webhook signing secret as `STRIPE_WEBHOOK_SECRET`.
+
+## Smoke Test
+
+After deployment:
 
 ```bash
-# Manual backup
-pg_dump postgresql://user:pass@host:5432/db > backup.sql
-
-# Automated daily backup
-0 2 * * * pg_dump postgresql://user:pass@host:5432/db > /backups/db_$(date +\%Y\%m\%d).sql
+curl https://api.example.com/api/health
+curl https://api.example.com/api/health/db
 ```
 
-### S3 Backups
+Then verify in the browser:
 
-```bash
-# Backup uploads to S3
-aws s3 sync ./uploads s3://kidz-story-magic-backups/uploads/ --sse AES256
-```
+- Sign up
+- Log in
+- Request password reset
+- Create a story project
+- Upload a photo
+- Generate story preview
+- Start checkout
+- Return to the success page
 
-## Monitoring
+## Rollback
 
-### CloudWatch Metrics
+Use your platform's previous deployment or image rollback. After rollback, confirm:
 
-```javascript
-// In backend code
-const AWS = require('aws-sdk');
-const cloudwatch = new AWS.CloudWatch();
+- API health is green
+- Frontend points at the rolled-back compatible API
+- Database migrations are backward compatible with the deployed code
 
-cloudwatch.putMetricData({
-  Namespace: 'KidzStoryMagic',
-  MetricData: [
-    {
-      MetricName: 'StoriesGenerated',
-      Value: count,
-      Unit: 'Count'
-    }
-  ]
-}, callback);
-```
+## Final Checklist
 
-### Health Checks
-
-```bash
-# Add health check endpoint
-curl https://api.yourdomain.com/api/health
-```
-
-## Performance Optimization
-
-### Caching Strategy
-
-- CDN for static assets (CloudFront)
-- Redis for session storage
-- Database query caching
-
-### Image Optimization
-
-- Compress PDFs before storage
-- Use WebP for preview images
-- Lazy load story content
-
-## Security Checklist
-
-- [ ] Enable HTTPS/SSL
-- [ ] Set secure JWT secret
-- [ ] Enable CORS only for your domain
-- [ ] Use environment variables for secrets
-- [ ] Enable database encryption
-- [ ] Set up WAF rules
-- [ ] Enable API rate limiting
-- [ ] Configure backup retention
-- [ ] Set up monitoring alerts
-- [ ] Regular security audits
-
-## Rollback Procedure
-
-### Docker Rollback
-
-```bash
-# List previous versions
-docker images | grep kidz-story
-
-# Rollback to previous version
-docker-compose down
-docker-compose pull
-docker-compose up -d
-```
-
-### Git Rollback
-
-```bash
-# Revert to previous commit
-git revert HEAD
-git push origin main
-```
-
-## Troubleshooting
-
-### Database Connection Issues
-
-```bash
-# Test database connection
-psql -h host -U user -d dbname -c "SELECT 1"
-```
-
-### Memory Issues
-
-```bash
-# Increase Node.js heap
-NODE_OPTIONS=--max-old-space-size=4096 npm start
-```
-
-### PDF Generation Fails
-
-```bash
-# Check Puppeteer/Chromium
-npm list puppeteer
-```
-
-## Support
-
-For deployment assistance, contact: deployment@kidzstorymagic.com
-
----
-
-**Last Updated**: January 2024
+- [ ] Production secrets are set in the deployment platform, not committed files.
+- [ ] `DATABASE_URL` or all required `DB_*` values are configured.
+- [ ] `JWT_SECRET` is unique and at least 32 characters.
+- [ ] `BASE_URL`, `FRONTEND_URL`, `CORS_ORIGIN`, and `NEXT_PUBLIC_API_URL` use production HTTPS URLs.
+- [ ] Stripe keys and webhook secret are configured for the same Stripe mode.
+- [ ] Database migrations have run.
+- [ ] `/api/health` and `/api/health/db` pass.
+- [ ] Auth, password reset, story generation, checkout, and success-page flows pass smoke testing.

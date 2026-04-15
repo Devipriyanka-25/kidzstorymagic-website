@@ -9,8 +9,9 @@
  * - Page structure formatting
  */
 
-const fetch = require('node-fetch');
 const { v4: uuidv4 } = require('uuid');
+
+const fetchApi = (...args) => fetch(...args);
 
 // OpenAI API configuration
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
@@ -31,7 +32,7 @@ const analyzeImageContent = async (imageUrl, childName) => {
       };
     }
 
-    const response = await fetch(`${OPENAI_API_URL}/chat/completions`, {
+    const response = await fetchApi(`${OPENAI_API_URL}/chat/completions`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${OPENAI_API_KEY}`,
@@ -158,7 +159,7 @@ Format the response as a JSON object with:
 ${regenerationCount > 0 ? `This is regeneration attempt ${regenerationCount}. Create a different story outline but keep the same theme and characters.` : ''}
     `;
 
-    const response = await fetch(`${OPENAI_API_URL}/chat/completions`, {
+    const response = await fetchApi(`${OPENAI_API_URL}/chat/completions`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${OPENAI_API_KEY}`,

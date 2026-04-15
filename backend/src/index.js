@@ -11,6 +11,9 @@ const path = require('path');
 // Load environment variables
 dotenv.config({ path: path.join(__dirname, '../.env') });
 
+const { validateProductionEnvironment } = require('./utils/envValidator');
+validateProductionEnvironment();
+
 const config = require('./config/config');
 const pool = require('./config/database');
 
@@ -22,12 +25,34 @@ const paymentRoutes = require('./routes/payment.routes');
 const currencyRoutes = require('./routes/currency.routes');
 const photoUploadRoutes = require('./routes/photoUpload');
 const docsRoutes = require('./routes/docs.routes');
+const storyGenerationRoutes = require('./routes/story-generation.routes');
 
 const app = express();
 
 // CORS middleware - MUST be FIRST before any other middleware
+const defaultCorsOrigins = [
+  'http://localhost:3000',
+  'http://localhost:3001',
+  'http://localhost:3002',
+  'http://127.0.0.1:3000',
+  'http://127.0.0.1:3001',
+  'http://127.0.0.1:3002'
+];
+
+const configuredCorsOrigins = String(config.cors.origin || '')
+  .split(',')
+  .map((origin) => origin.trim())
+  .filter(Boolean);
+
+const allowedCorsOrigins = [...new Set([...defaultCorsOrigins, ...configuredCorsOrigins])];
+
 const corsOptions = {
-  origin: ['http://localhost:3000', 'http://localhost:3001', 'http://localhost:3002', 'http://127.0.0.1:3000', 'http://127.0.0.1:3001', 'http://127.0.0.1:3002'],
+  origin: (origin, callback) => {
+    if (!origin || allowedCorsOrigins.includes(origin)) {
+      return callback(null, true);
+    }
+    return callback(null, false);
+  },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
@@ -49,6 +74,9 @@ const limiter = rateLimit({
 });
 app.use(limiter);
 
+// Stripe webhook needs the raw body for signature verification.
+app.use('/api/payment/webhook', express.raw({ type: 'application/json', limit: '50mb' }));
+
 // Body parsing middleware
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
@@ -59,12 +87,31 @@ app.use(compression());
 // Logging middleware
 app.use(morgan('combined'));
 
+const redactSensitiveFields = (value) => {
+  if (Buffer.isBuffer(value)) {
+    return '[BINARY BODY]';
+  }
+
+  if (!value || typeof value !== 'object') {
+    return value;
+  }
+
+  return Object.fromEntries(
+    Object.entries(value).map(([key, entryValue]) => {
+      if (/password|token|secret|authorization|key/i.test(key)) {
+        return [key, '[REDACTED]'];
+      }
+      return [key, entryValue];
+    })
+  );
+};
+
 // Request body logging middleware for debugging
 app.use((req, res, next) => {
   if (req.method === 'POST' || req.method === 'PUT' || req.method === 'PATCH') {
     console.log(`[${req.method}] ${req.path}`, {
-      headers: req.headers,
-      body: req.body,
+      contentType: req.headers['content-type'],
+      body: redactSensitiveFields(req.body),
       timestamp: new Date().toISOString()
     });
   }
@@ -111,8 +158,9 @@ app.get('/api/health/db', async (req, res) => {
 // API Routes
 app.use('/api/docs', docsRoutes);
 app.use('/api/auth', authRoutes);
-app.use('/api/story', storyRoutes);
 app.use('/api/story', photoUploadRoutes); // Photo upload under /api/story/{projectId}/...
+app.use('/api/story', storyRoutes);
+app.use('/api/story', storyGenerationRoutes);
 app.use('/api/drafts', draftRoutes);
 app.use('/api/payment', paymentRoutes);
 app.use('/api/currency', currencyRoutes);

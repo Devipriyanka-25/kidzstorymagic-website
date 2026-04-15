@@ -12,7 +12,7 @@
 
 const express = require('express');
 const router = express.Router();
-const { authenticateJWT } = require('../middleware/auth');
+const { verifyToken } = require('../middleware/auth');
 const { 
   generateStoryFromImages,
   selectImagesForStory,
@@ -25,7 +25,7 @@ const {
  * POST /api/story/generate-from-images
  * Generate story from uploaded images
  */
-router.post('/generate-from-images', authenticateJWT, async (req, res) => {
+router.post('/generate-from-images', verifyToken, async (req, res) => {
   try {
     console.log('[STORY-GEN] Generating story from images');
     
@@ -82,7 +82,7 @@ router.post('/generate-from-images', authenticateJWT, async (req, res) => {
  * POST /api/story/save-draft
  * Save generated story as draft
  */
-router.post('/save-draft', authenticateJWT, async (req, res) => {
+router.post('/save-draft', verifyToken, async (req, res) => {
   try {
     console.log('[STORY-DRAFT] Saving story as draft');
     
@@ -121,7 +121,7 @@ router.post('/save-draft', authenticateJWT, async (req, res) => {
  * POST /api/story/:storyId/regenerate
  * Regenerate story with different image selection
  */
-router.post('/:storyId/regenerate', authenticateJWT, async (req, res) => {
+router.post('/:storyId/regenerate', verifyToken, async (req, res) => {
   try {
     console.log('[STORY-REGEN] Regenerating story');
     
@@ -161,7 +161,7 @@ router.post('/:storyId/regenerate', authenticateJWT, async (req, res) => {
  * GET /api/story/:storyId
  * Get story details
  */
-router.get('/:storyId', authenticateJWT, async (req, res) => {
+router.get('/:storyId', verifyToken, async (req, res) => {
   try {
     const { storyId } = req.params;
     const userId = req.user.id;

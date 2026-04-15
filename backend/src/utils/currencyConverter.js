@@ -116,10 +116,17 @@ class CurrencyConverter {
   static async convertCurrency(amount, fromCurrency, toCurrency) {
     try {
       if (fromCurrency === toCurrency) {
-        return { amount: amount, currency: toCurrency, rate: 1 };
+        return {
+          original: amount,
+          originalCurrency: fromCurrency,
+          converted: amount,
+          currency: toCurrency,
+          rate: '1.0000',
+          timestamp: new Date().toISOString()
+        };
       }
 
-      const rate = await this.getExchangeRate(fromCurrency, toCurrency);
+      const rate = parseFloat(await this.getExchangeRate(fromCurrency, toCurrency));
       const convertedAmount = (amount * rate).toFixed(2);
 
       return {

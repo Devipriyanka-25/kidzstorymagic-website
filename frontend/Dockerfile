@@ -1,0 +1,24 @@
+FROM node:20-bookworm-slim
+
+WORKDIR /app
+
+COPY package*.json ./
+RUN npm install
+
+COPY . .
+
+ARG NEXT_PUBLIC_API_URL=http://localhost:5000/api
+ARG NEXT_PUBLIC_STRIPE_KEY
+ARG NEXT_PUBLIC_APP_URL=http://localhost:3000
+
+ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
+ENV NEXT_PUBLIC_STRIPE_KEY=$NEXT_PUBLIC_STRIPE_KEY
+ENV NEXT_PUBLIC_APP_URL=$NEXT_PUBLIC_APP_URL
+ENV NODE_ENV=production
+ENV PORT=3000
+
+RUN npm run build
+
+EXPOSE 3000
+
+CMD ["npm", "run", "start", "--", "--hostname", "0.0.0.0"]

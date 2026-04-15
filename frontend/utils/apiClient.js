@@ -1,9 +1,7 @@
 // Frontend Interceptor for API Calls
 import axios from 'axios';
 
-const API_BASE_URL = process.env.NODE_ENV === 'production'
-  ? 'https://api.kidzstorymagic.com/api'
-  : process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
 
 const apiClient = axios.create({
   baseURL: API_BASE_URL,
@@ -56,7 +54,12 @@ export const endpoints = {
   auth: {
     register: (data) => apiClient.post('/auth/register', data),
     login: (data) => apiClient.post('/auth/login', data),
-    logout: () => apiClient.post('/auth/logout'),
+    logout: () => {
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('authToken');
+      }
+      return Promise.resolve();
+    },
     me: () => apiClient.get('/auth/me'),
     updateProfile: (data) => apiClient.put('/auth/me', data),
     forgotPassword: (email) => apiClient.post('/auth/forgot-password', { email }),
@@ -75,25 +78,23 @@ export const endpoints = {
       formData,
       { headers: { 'Content-Type': 'multipart/form-data' } }
     ),
-    generate: (projectId) => apiClient.post(`/story/${projectId}/generate`, {})
+    generate: (projectId) => apiClient.post(`/story/${projectId}/generate-story`, {})
   },
 
   // Payments
   payment: {
     checkout: (data) => apiClient.post('/payment/checkout', data),
-    confirmPayment: (data) => apiClient.post('/payment/confirm', data),
+    confirmPayment: (data) => apiClient.post('/payment/confirm-payment', data),
     getOrder: (orderId) => apiClient.get(`/payment/order/${orderId}`),
-    listOrders: (params) => apiClient.get('/payment/orders', { params })
+    listOrders: (params) => apiClient.get('/payment/user/orders', { params })
   },
 
   // Currency
   currency: {
     supported: () => apiClient.get('/currency/supported'),
     rates: (params) => apiClient.get('/currency/rates', { params }),
-    convert: (from, to, amount) => apiClient.get('/currency/convert', {
-      params: { from, to, amount }
-    }),
-    pricing: (currency) => apiClient.get(`/currency/pricing/${currency}`),
+    convert: (from, to, amount) => apiClient.post('/currency/convert', { from, to, amount }),
+    pricing: (currency) => apiClient.post('/currency/pricing', { currency }),
     detect: () => apiClient.get('/currency/detect')
   }
 };

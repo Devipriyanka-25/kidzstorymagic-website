@@ -6,7 +6,7 @@ const verifyToken = (req, res, next) => {
   try {
     const token =
       req.headers.authorization?.split(' ')[1] ||
-      req.cookies.authToken;
+      req.cookies?.authToken;
 
     if (!token) {
       return res.status(401).json({
@@ -33,7 +33,7 @@ const optionalToken = (req, res, next) => {
   try {
     const token =
       req.headers.authorization?.split(' ')[1] ||
-      req.cookies.authToken;
+      req.cookies?.authToken;
 
     if (token) {
       const decoded = jwt.verify(token, config.jwt.secret);

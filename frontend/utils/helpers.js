@@ -38,6 +38,14 @@ export const validatePassword = (password) => {
 };
 
 export const getPasswordStrength = (password) => {
+  if (password.length < 8) {
+    return {
+      score: 0,
+      label: 'Weak',
+      color: 'red',
+    };
+  }
+
   let strength = 0;
   if (password.length >= 8) strength++;
   if (/[A-Z]/.test(password)) strength++;
@@ -45,11 +53,13 @@ export const getPasswordStrength = (password) => {
   if (/\d/.test(password)) strength++;
   if (/[!@#$%^&*]/.test(password)) strength++;
 
-  const levels = ['Weak', 'Fair', 'Good', 'Strong', 'Very Strong'];
+  const levels = ['Weak', 'Fair', 'Good', 'Strong', 'Very Strong', 'Very Strong'];
+  const colors = ['red', 'orange', 'yellow', 'green', 'emerald', 'emerald'];
+
   return {
     score: strength,
     label: levels[strength] || 'Weak',
-    color: ['red', 'orange', 'yellow', 'green', 'emerald'][strength] || 'red',
+    color: colors[strength] || 'red',
   };
 };
 

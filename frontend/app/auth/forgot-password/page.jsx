@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
-import axios from 'axios';
+import { authAPI } from '@/utils/api';
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState('');
@@ -17,11 +17,7 @@ export default function ForgotPasswordPage() {
     setIsLoading(true);
 
     try {
-      // Call forgot password API
-      await axios.post(
-        `${process.env.NEXT_PUBLIC_API_URL}/auth/forgot-password`,
-        { email }
-      );
+      await authAPI.forgotPassword(email);
 
       setSuccess('Check your email for password reset instructions');
       setEmail('');

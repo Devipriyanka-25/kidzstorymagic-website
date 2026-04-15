@@ -11,12 +11,16 @@ const path = require('path');
 
 // Initialize stripe only if key is valid
 let stripe = null;
+const isLikelyStripeSecretKey = (value) =>
+  /^sk_(test|live)_.+/i.test(value || '') &&
+  !/(placeholder|change[-_ ]?me|your[-_ ]|example|\.\.\.)/i.test(value);
+
 try {
   const stripeKey = config.stripe.secretKey;
-  if (stripeKey && stripeKey !== 'sk_test_your_stripe_key_here') {
+  if (isLikelyStripeSecretKey(stripeKey)) {
     stripe = require('stripe')(stripeKey);
   } else {
-    console.warn('[PAYMENT] Stripe key not configured or is placeholder. Stripe features will be disabled.');
+    console.warn('[PAYMENT] Stripe key is not configured. Stripe features will use development fallbacks where available.');
   }
 } catch (err) {
   console.error('[PAYMENT] Failed to initialize Stripe:', err.message);
@@ -27,7 +31,7 @@ const router = express.Router();
 // Create checkout session
 router.post('/checkout', verifyToken, async (req, res) => {
   try {
-    console.log('[CHECKOUT] Request received:', { userId: req.userId, body: req.body });
+    console.log('[CHECKOUT] Request received:', { userId: req.userId, projectId: req.body.projectId, currency: req.body.currency });
     
     const { projectId, currency } = req.body;
 
@@ -59,6 +63,7 @@ router.post('/checkout', verifyToken, async (req, res) => {
 
     // Create Stripe session (or mock if not configured)
     let session;
+    const frontendUrl = config.app.frontendUrl.replace(/\/$/, '');
     
     if (stripe) {
       console.log('[CHECKOUT] Creating Stripe session...');
@@ -78,8 +83,8 @@ router.post('/checkout', verifyToken, async (req, res) => {
           }
         ],
         mode: 'payment',
-        success_url: `${config.app.baseUrl}/success?session_id={CHECKOUT_SESSION_ID}`,
-        cancel_url: `${config.app.baseUrl}/cancel`,
+        success_url: `${frontendUrl}/success?session_id={CHECKOUT_SESSION_ID}`,
+        cancel_url: `${frontendUrl}/cancel`,
         metadata: {
           projectId: projectId.toString(),
           userId: req.userId.toString(),
@@ -90,9 +95,10 @@ router.post('/checkout', verifyToken, async (req, res) => {
     } else {
       // Create mock session for development/testing
       console.warn('[CHECKOUT] Stripe not configured, creating mock session for development');
+      const mockSessionId = `mock_session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
       session = {
-        id: `mock_session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-        url: null,
+        id: mockSessionId,
+        url: `${frontendUrl}/success?session_id=${mockSessionId}`,
         payment_status: 'unpaid'
       };
       console.log('[CHECKOUT] Mock session created:', session.id);
@@ -360,6 +366,10 @@ router.post('/webhook', express.raw({type: 'application/json'}), async (req, res
   const sig = req.headers['stripe-signature'];
 
   try {
+    if (!stripe || !config.stripe.webhookSecret) {
+      return res.status(503).json({ error: 'Stripe webhook is not configured' });
+    }
+
     const event = stripe.webhooks.constructEvent(
       req.body,
       sig,

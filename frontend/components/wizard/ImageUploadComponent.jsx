@@ -82,7 +82,7 @@ const compressImage = async (file, quality = 0.7) => {
 };
 
 export default function ImageUploadComponent({ onImagesSelected, maxImages = 10 }) {
-  const MIN_IMAGES = 2;
+  const MIN_IMAGES = 3;
   const SIZE_LIMIT = 5 * 1024 * 1024; // 5MB
   const fileInputRef = useRef(null);
   
@@ -357,7 +357,7 @@ export default function ImageUploadComponent({ onImagesSelected, maxImages = 10 
           📸 Upload Story Images
         </h2>
         <p className="text-gray-600">
-          Upload <span className="font-semibold text-blue-600">2-5 images</span> to generate your story
+          Upload <span className="font-semibold text-blue-600">{MIN_IMAGES}-{maxImages} images</span> to generate your story
         </p>
       </div>
 
@@ -505,7 +505,7 @@ export default function ImageUploadComponent({ onImagesSelected, maxImages = 10 
             Drag images here or click to select
           </p>
           <p className="text-sm text-gray-600">
-            Supported formats: JPG, PNG, WebP (Max 5 images)
+            Supported formats: JPG, PNG, WebP (Max {maxImages} images)
           </p>
           {loading && (
             <p className="text-sm text-blue-600 mt-2 animate-pulse">

@@ -28,7 +28,7 @@ export default function SuccessPage() {
         const response = await paymentAPI.verifyPayment(sessionId);
         console.log('[SUCCESS PAGE] Payment verified:', response);
         
-        setOrder(response.data);
+        setOrder(response.data?.data || response.data);
         setError('');
       } catch (err) {
         console.error('[SUCCESS PAGE] Verification error:', err);
@@ -127,7 +127,7 @@ export default function SuccessPage() {
               <div className="flex justify-between items-center pb-4 border-b border-gray-200">
                 <span className="text-gray-600">Amount Paid:</span>
                 <span className="font-semibold text-gray-900">
-                  {order.currency} {(order.amount / 100).toFixed(2)}
+                  {order.currency} {Number(order.amount).toFixed(2)}
                 </span>
               </div>
             )}
