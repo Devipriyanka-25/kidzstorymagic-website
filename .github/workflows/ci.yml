@@ -35,7 +35,9 @@ jobs:
 
       - name: Install dependencies
         working-directory: backend
-        run: npm install
+        env:
+          PUPPETEER_SKIP_DOWNLOAD: 'true'
+        run: npm install --no-audit --no-fund
 
       - name: Setup database
         working-directory: backend
@@ -72,7 +74,7 @@ jobs:
 
       - name: Install dependencies
         working-directory: frontend
-        run: npm install
+        run: npm install --no-audit --no-fund
 
       - name: Run tests
         working-directory: frontend
@@ -95,7 +97,9 @@ jobs:
 
       - name: Install dependencies
         working-directory: backend
-        run: npm install
+        env:
+          PUPPETEER_SKIP_DOWNLOAD: 'true'
+        run: npm install --no-audit --no-fund
 
       - name: Run ESLint
         working-directory: backend
