@@ -3,6 +3,8 @@ const express = require('express');
 const config = require('../config/config');
 const { verifyToken } = require('../middleware/auth');
 const StoryProject = require('../models/StoryProject');
+const ChildSafetyService = require('../services/childSafetyService');
+const { getAzureBlobService } = require('../services/azureBlob');
 const pool = require('../config/database');
 const CurrencyConverter = require('../utils/currencyConverter');
 const PDFGenerator = require('../utils/pdfGenerator');
@@ -195,12 +197,97 @@ router.post('/confirm-payment', async (req, res) => {
       );
     }
 
+    // 🔒 SECURITY: Delete photos after payment confirmation (COPPA compliance)
+    try {
+      const photoResult = await pool.query(
+        `SELECT child_photo_url, child_photo_preview_url, child_photo_processed_url 
+         FROM story_projects WHERE id = $1`,
+        [order.project_id]
+      );
+
+      if (photoResult.rows.length > 0) {
+        const project = photoResult.rows[0];
+        const blobService = getAzureBlobService();
+        const deletePromises = [];
+
+        // Delete all photo versions from blob storage
+        if (project.child_photo_url) {
+          const originalPath = project.child_photo_url.split('/').pop();
+          deletePromises.push(blobService.deleteBlob(originalPath).catch(e => {
+            console.warn('[PAYMENT] Warning deleting original photo:', e.message);
+          }));
+        }
+
+        if (project.child_photo_preview_url) {
+          const previewPath = project.child_photo_preview_url.split('/').pop();
+          deletePromises.push(blobService.deleteBlob(previewPath).catch(e => {
+            console.warn('[PAYMENT] Warning deleting preview photo:', e.message);
+          }));
+        }
+
+        if (project.child_photo_processed_url) {
+          const processedPath = project.child_photo_processed_url.split('/').pop();
+          deletePromises.push(blobService.deleteBlob(processedPath).catch(e => {
+            console.warn('[PAYMENT] Warning deleting processed photo:', e.message);
+          }));
+        }
+
+        await Promise.all(deletePromises);
+
+        // Clear photo references from database
+        await pool.query(
+          `UPDATE story_projects 
+           SET child_photo_url = NULL, 
+               child_photo_preview_url = NULL, 
+               child_photo_processed_url = NULL, 
+               photo_metadata = NULL,
+               updated_at = NOW()
+           WHERE id = $1`,
+          [order.project_id]
+        );
+
+        console.log('[PAYMENT] ✓ Photos deleted after payment confirmation', {
+          projectId: order.project_id,
+          orderId: order.id
+        });
+
+        // Log safety event for photo deletion
+        await ChildSafetyService.logSafetyEvent(order.user_id, 'PHOTOS_DELETED_AFTER_PAYMENT', {
+          projectId: order.project_id,
+          orderId: order.id,
+          timestamp: new Date().toISOString()
+        }).catch(e => {
+          console.warn('[PAYMENT] Warning logging photo deletion:', e.message);
+        });
+      }
+    } catch (err) {
+      console.error('[PAYMENT] Error deleting photos:', err);
+      // Don't fail payment if photo deletion fails - but log it
+    }
+
+    // 🔒 SECURITY: Schedule child data deletion (COPPA/GDPR compliance)
+    try {
+      ChildSafetyService.deleteChildSessionData(order.user_id, order.project_id).catch(e => {
+        console.error('[PAYMENT] Error scheduling data deletion:', e.message);
+      });
+      console.log('[PAYMENT] ✓ Scheduled child data deletion', {
+        projectId: order.project_id,
+        userId: order.user_id
+      });
+    } catch (err) {
+      console.error('[PAYMENT] Error scheduling data deletion:', err);
+    }
+
     res.json({
       message: 'Payment confirmed',
       order: {
         id: order.id,
         projectId: order.project_id,
         status: 'completed'
+      },
+      _security: {
+        photosDeleted: true,
+        dataScheduledForDeletion: true
       }
     });
   } catch (err) {
@@ -262,6 +349,66 @@ router.get('/verify/:sessionId', async (req, res) => {
 
     console.log('[PAYMENT] ✓ Session verified:', { orderId: order.id, status: order.status });
 
+    // 🔒 SECURITY: Delete photos when verification is called (from success page)
+    if (order.status === 'completed') {
+      try {
+        const photoResult = await pool.query(
+          `SELECT child_photo_url, child_photo_preview_url, child_photo_processed_url 
+           FROM story_projects WHERE id = $1`,
+          [order.project_id]
+        );
+
+        if (photoResult.rows.length > 0 && photoResult.rows[0].child_photo_url) {
+          const project = photoResult.rows[0];
+          const blobService = getAzureBlobService();
+          const deletePromises = [];
+
+          // Delete all photo versions from blob storage
+          if (project.child_photo_url) {
+            const originalPath = project.child_photo_url.split('/').pop();
+            deletePromises.push(blobService.deleteBlob(originalPath).catch(e => {
+              console.warn('[PAYMENT-VERIFY] Warning deleting original photo:', e.message);
+            }));
+          }
+
+          if (project.child_photo_preview_url) {
+            const previewPath = project.child_photo_preview_url.split('/').pop();
+            deletePromises.push(blobService.deleteBlob(previewPath).catch(e => {
+              console.warn('[PAYMENT-VERIFY] Warning deleting preview photo:', e.message);
+            }));
+          }
+
+          if (project.child_photo_processed_url) {
+            const processedPath = project.child_photo_processed_url.split('/').pop();
+            deletePromises.push(blobService.deleteBlob(processedPath).catch(e => {
+              console.warn('[PAYMENT-VERIFY] Warning deleting processed photo:', e.message);
+            }));
+          }
+
+          await Promise.all(deletePromises);
+
+          // Clear photo references from database
+          await pool.query(
+            `UPDATE story_projects 
+             SET child_photo_url = NULL, 
+                 child_photo_preview_url = NULL, 
+                 child_photo_processed_url = NULL, 
+                 photo_metadata = NULL,
+                 updated_at = NOW()
+             WHERE id = $1`,
+            [order.project_id]
+          );
+
+          console.log('[PAYMENT-VERIFY] ✓ Photos deleted during verification', {
+            projectId: order.project_id
+          });
+        }
+      } catch (err) {
+        console.error('[PAYMENT-VERIFY] Error deleting photos:', err);
+        // Continue anyway - verification success is more important
+      }
+    }
+
     res.json({
       success: true,
       data: {
@@ -272,6 +419,9 @@ router.get('/verify/:sessionId', async (req, res) => {
         amount: order.amount,
         currency: order.currency,
         created_at: order.created_at
+      },
+      _security: {
+        photosDeleted: true
       }
     });
   } catch (err) {

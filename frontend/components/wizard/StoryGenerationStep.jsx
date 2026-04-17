@@ -16,6 +16,7 @@ import { useState, useEffect } from 'react';
 import ImageUploadComponent from './ImageUploadComponent';
 import StoryPreviewComponent from './StoryPreviewComponent';
 import { storyAPI } from '@/utils/api';
+import { useLanguage } from '@/hooks/useLanguage';
 
 export default function StoryGenerationStep({ 
   projectId,
@@ -29,6 +30,7 @@ export default function StoryGenerationStep({
   const [error, setError] = useState('');
   const [step, setStep] = useState('upload'); // 'upload' | 'generating' | 'preview'
   const [regenerateCount, setRegenerateCount] = useState(0);
+  const { currentLanguage } = useLanguage();
 
   const MIN_IMAGES = 3;
 
@@ -90,6 +92,7 @@ export default function StoryGenerationStep({
         theme,
         images: imageData,
         regenerationCount: nextRegenerateCount,
+        storyLanguage: currentLanguage || 'en',
       });
 
       const story = normalizeGeneratedStory(response.data);
@@ -162,6 +165,23 @@ export default function StoryGenerationStep({
     setStep('upload');
     setGeneratedStory(null);
   };
+
+  /**
+   * Listen for language changes and regenerate story
+   */
+  useEffect(() => {
+    const handleLanguageChange = (event) => {
+      console.log('[StoryGeneration] Language changed to:', event.detail.language);
+      // If we have a generated story, regenerate it in the new language
+      if (generatedStory && step === 'preview' && uploadedImages.length >= MIN_IMAGES) {
+        console.log('[StoryGeneration] Regenerating story in new language');
+        generateStory(regenerateCount);
+      }
+    };
+
+    window.addEventListener('storyLanguageChanged', handleLanguageChange);
+    return () => window.removeEventListener('storyLanguageChanged', handleLanguageChange);
+  }, [generatedStory, step, uploadedImages, regenerateCount]);
 
   return (
     <div className="w-full min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 py-8 px-4">

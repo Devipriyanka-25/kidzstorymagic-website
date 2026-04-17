@@ -1,6 +1,7 @@
 import React from 'react';
 import Image from 'next/image';
 import './globals.css';
+import '@/styles/fonts.css';
 import Navbar from '@/components/Navbar';
 import { Providers } from './providers';
 import ErrorBoundary from '@/components/ErrorBoundary';

@@ -3,6 +3,7 @@
 import { useAuthStore } from '@/utils/store';
 import Link from 'next/link';
 import { useState } from 'react';
+import LanguageSelector from './i18n/LanguageSelector';
 
 export default function Header() {
   const { user, logout } = useAuthStore();
@@ -26,6 +27,7 @@ export default function Header() {
               <Link href="/wizard" className="text-gray-700 hover:text-blue-600">
                 Create Story
               </Link>
+              <LanguageSelector size="sm" showLabel={false} />
               <div className="flex items-center gap-4">
                 <span className="text-sm text-gray-600">
                   Hello, {user.name}!
@@ -40,6 +42,7 @@ export default function Header() {
             </>
           ) : (
             <>
+              <LanguageSelector size="sm" showLabel={false} />
               <Link href="/auth/login" className="text-gray-700 hover:text-blue-600">
                 Sign In
               </Link>
@@ -74,6 +77,9 @@ export default function Header() {
                 <Link href="/wizard" className="text-gray-700 hover:text-blue-600">
                   Create Story
                 </Link>
+                <div className="border-t border-gray-300 pt-4">
+                  <LanguageSelector size="sm" showLabel={true} />
+                </div>
                 <span className="text-sm text-gray-600">
                   {user.name}
                 </span>
@@ -89,6 +95,7 @@ export default function Header() {
               </>
             ) : (
               <>
+                <LanguageSelector size="sm" showLabel={true} />
                 <Link href="/auth/login" className="text-gray-700 hover:text-blue-600">
                   Sign In
                 </Link>

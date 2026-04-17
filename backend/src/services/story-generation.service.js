@@ -110,11 +110,11 @@ const selectImagesForStory = async (images, childName, theme, count = 3) => {
 /**
  * Generate story content using AI
  */
-const generateStoryContent = async (childName, theme, selectedImages, regenerationCount = 0) => {
+const generateStoryContent = async (childName, theme, selectedImages, regenerationCount = 0, storyLanguage = 'en') => {
   try {
     if (!OPENAI_API_KEY) {
       console.warn('[STORY-GEN] OpenAI API key not configured, using template');
-      return generateTemplateStory(childName, theme, selectedImages);
+      return generateTemplateStory(childName, theme, selectedImages, storyLanguage);
     }
 
     console.log('[STORY-GEN] Generating story with AI');
@@ -124,12 +124,28 @@ const generateStoryContent = async (childName, theme, selectedImages, regenerati
       .map((img, idx) => `Image ${idx + 1}: ${img.analysis?.description || img.name}`)
       .join('\n');
 
+    // Language configuration
+    const languageMap = {
+      'ta': { name: 'Tamil', instruction: 'Write the entire story in Tamil script. Use simple Tamil words suitable for children.' },
+      'hi': { name: 'Hindi', instruction: 'Write the entire story in Hindi script. Use simple Hindi words suitable for children.' },
+      'te': { name: 'Telugu', instruction: 'Write the entire story in Telugu script. Use simple Telugu words suitable for children.' },
+      'kn': { name: 'Kannada', instruction: 'Write the entire story in Kannada script. Use simple Kannada words suitable for children.' },
+      'ml': { name: 'Malayalam', instruction: 'Write the entire story in Malayalam script. Use simple Malayalam words suitable for children.' },
+      'en': { name: 'English', instruction: 'Write the story in English.' }
+    };
+
+    const langConfig = languageMap[storyLanguage] || languageMap['en'];
+    const languageInstruction = langConfig.instruction;
+
     const prompt = `
 Create a charming children's story for ${childName}.
 
 Theme: ${theme}
 Age Group: 4-8 years old
 Number of Pages: 6-8
+Language: ${langConfig.name}
+
+${languageInstruction}
 
 Use these images as inspiration:
 ${imageDescriptions}
@@ -183,21 +199,25 @@ ${regenerationCount > 0 ? `This is regeneration attempt ${regenerationCount}. Cr
       return storyJSON;
     }
 
-    return generateTemplateStory(childName, theme, selectedImages);
+    return generateTemplateStory(childName, theme, selectedImages, storyLanguage);
   } catch (error) {
     console.error('[STORY-GEN] Error:', error.message);
     // Return template story on error
-    return generateTemplateStory(childName, theme, selectedImages);
+    return generateTemplateStory(childName, theme, selectedImages, storyLanguage);
   }
 };
 
 /**
  * Generate template story when AI is unavailable
  */
-const generateTemplateStory = (childName, theme, selectedImages) => {
-  console.log('[STORY-GEN] Using template story');
+/**
+ * Generate template story when AI is unavailable
+ */
+const generateTemplateStory = (childName, theme, selectedImages, storyLanguage = 'en') => {
+  console.log('[STORY-GEN] Using template story', { storyLanguage });
 
-  const themes = {
+  // English template themes (default fallback)
+  const enThemes = {
     adventure: {
       title: `${childName}'s Amazing Adventure`,
       characters: ['Explorer ' + childName, 'Friendly Dragon', 'Wise Owl'],
@@ -311,11 +331,91 @@ const generateTemplateStory = (childName, theme, selectedImages) => {
     }
   };
 
+  // Tamil template themes
+  const taThemes = {
+    adventure: {
+      title: `${childName} வின் அற்புத சாகசம்`,
+      characters: ['ஆய்வாளர் ' + childName, 'நட்பான முத்தொடிப்பு', 'ஞானமுள்ள ஆந்தை'],
+      pages: [
+        {
+          pageNumber: 1,
+          title: 'தொடக்கம்',
+          content: `ஒருநாள் ${childName} மலைகளுக்கு அப்பால் ஒரு மந்திர உலகத்தைக் கண்டுபிடித்தார். தைரியத்துடன், நம் வீரன் இந்த அதிசய இடத்தை ஆய்வு செய்ய தொடங்கினார்.`,
+          imageIndex: 0
+        },
+        {
+          pageNumber: 2,
+          title: 'நண்பர்களை சந்திப்பது',
+          content: `வழியில், ${childName} ஒரு நட்பான முத்தொடிப்பு மற்றும் ஞானமுள்ள ஆந்தையை சந்தித்தார். அவர்கள் சிறந்த நண்பர்களாக மாறி, ஒன்றாக சாகசம் செய்ய முடிவு செய்தனர்!`,
+          imageIndex: 1
+        },
+        {
+          pageNumber: 3,
+          title: 'சவால்',
+          content: `அவர்கள் பல சவால்களை எதிர்கொண்டனர், ஆனால் ${childName} வின் விரைவான சிந்தனை மற்றும் நண்பர்களின் உதவியால் அனைத்தையும் வெல்லலாம்.`,
+          imageIndex: 2
+        },
+        {
+          pageNumber: 4,
+          title: 'கண்டுபிடிப்பு',
+          content: `இறுதியாக, அவர்கள் நட்பு மற்றும் சந்தோஷத்தின் செல்வத்தைக் கண்டுபிடித்தார்கள், இது உலகில் மிக மূல்யமானது!`,
+          imageIndex: selectedImages.length > 3 ? 3 : 2
+        },
+        {
+          pageNumber: 5,
+          title: 'முடிவு',
+          content: `${childName} கற்றுக்கொண்டார் - தைரியசாலிக்கு நண்பர்கள் இருந்தால் எந்த கனவையும் நிறைவேற்ற முடியும். அவர் அற்புத நினைவுகளுடன் வீடு திரும்பினார்.`,
+          imageIndex: selectedImages.length > 4 ? 4 : 2
+        }
+      ],
+      lesson: 'தைரியம், நட்பு மற்றும் ஒன்றாக வேலை செய்வது எந்த சவালையும் வெல்லலாம்'
+    },
+    family: {
+      title: `${childName} வின் குடும்ப வரலாறு`,
+      characters: [childName, 'அம்மா', 'அப்பா', 'சகோதரி'],
+      pages: [
+        {
+          pageNumber: 1,
+          title: 'ஒரு சிறப்பான நாள்',
+          content: `${childName} அழகான காலையில் எழுந்திருந்தார், எப்போதும் நிறைய சந்தோஷத்தை கொணர் ஒரு குடும்ப சாகசம் மற்றும் பெற்றோரின் உடன் வேலை செய்ய தயாரிருந்தார்!`,
+          imageIndex: 0
+        },
+        {
+          pageNumber: 2,
+          title: 'ஒன்றாக திட்டமிடுவது',
+          content: `${childName} வின் அம்மா சிரித்துவிட்டு, "இன்று பூங்காவுக்கு செல்லலாம்?" என்று கேட்டார். எல்லாருக்கு இது பிடிக்கவிருந்த குடும்ப சிறிய பயணம்!`,
+          imageIndex: 1
+        },
+        {
+          pageNumber: 3,
+          title: 'சந்தோஷ நினைவுகள்',
+          content: `பூங்காவில் மாறும் அவர்கள் விளையாடினார்கள், சிரித்தனர் மற்றும் ஒரு அலாதி சமயம் சேர்ந்து கழித்தனர்.`,
+          imageIndex: 2
+        },
+        {
+          pageNumber: 4,
+          title: 'பிரிக்க முடியாத பந்தம்',
+          content: `${childName} உணர்ந்தார் - குடும்பம் என்பது ஒரு பெரிய செல்வம் மற்றும் வாழ்க்கையை மகிழ்ச்சிகரமாக ஆக்குவது!`,
+          imageIndex: selectedImages.length > 3 ? 3 : 2
+        },
+        {
+          pageNumber: 5,
+          title: 'குடும்ப அன்பு',
+          content: `${childName} வீட்டுக்கு திரும்பி தன் குடும்பத்தைக் கட்டிப்பிடித்தார். "நீங்கள் என் முழு உலகம்" என்று சொன்னார்.`,
+          imageIndex: selectedImages.length > 4 ? 4 : 2
+        }
+      ],
+      lesson: 'குடும்ப அன்பு உலகில் மிக பெரிய மதிப்பு'
+    }
+  };
+
+  // Select appropriate language themes
+  const themes = storyLanguage === 'ta' ? taThemes : enThemes;
   return themes[theme] || themes.adventure;
 };
 
 /**
- * Main function: Generate story from images
+ * Update template story calls to pass language
  */
 const generateStoryFromImages = async ({
   userId,
@@ -323,7 +423,8 @@ const generateStoryFromImages = async ({
   childName,
   theme = 'adventure',
   images = [],
-  regenerationCount = 0
+  regenerationCount = 0,
+  storyLanguage = 'en'
 }) => {
   try {
     console.log('[STORY-GENERATION] Starting story generation', {
@@ -347,7 +448,8 @@ const generateStoryFromImages = async ({
       childName,
       theme,
       selectedImages,
-      regenerationCount
+      regenerationCount,
+      storyLanguage
     );
 
     // Step 3: Create story record with metadata

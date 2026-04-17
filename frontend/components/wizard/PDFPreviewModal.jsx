@@ -127,27 +127,27 @@ export default function PDFPreviewModal({ storyPages = [], isOpen = false, onClo
                 ) : (
                   // Story Page
                   <div className="h-full flex flex-col p-6 text-white">
-                    {/* Illustration - with blur effect */}
-                    <div className="flex justify-center mb-4 flex-shrink-0">
+                    {/* Illustration - Full Width & Prominent (Like Step 6) */}
+                    <div className="w-full mb-3 flex-shrink-0 rounded-xl overflow-hidden shadow-2xl border-4 border-white/20">
                       {currentPageData.illustrationUrl ? (
                         <div className="relative">
                           <img
                             src={currentPageData.illustrationUrl}
                             alt={`Page ${currentPage} Preview`}
-                            className="w-full max-w-xs h-40 object-cover rounded-2xl shadow-2xl border-4 border-white/30"
+                            className="w-full h-48 object-cover"
                             style={{
                               filter: 'blur(8px)',
                               opacity: 0.7
                             }}
                           />
-                          <div className="absolute inset-0 flex items-center justify-center rounded-2xl">
+                          <div className="absolute inset-0 flex items-center justify-center">
                             <div className="text-white font-bold text-sm bg-black/40 px-3 py-1 rounded-full">
                               🔒 Image Blurred
                             </div>
                           </div>
                         </div>
                       ) : (
-                        <div className="w-full max-w-xs h-40 flex items-center justify-center bg-white/10 rounded-2xl border-4 border-white/30 backdrop-blur-md">
+                        <div className="w-full h-48 flex items-center justify-center bg-white/10 rounded-xl border-4 border-white/30 backdrop-blur-md">
                           <span className="text-5xl">🖼️</span>
                         </div>
                       )}
@@ -155,20 +155,20 @@ export default function PDFPreviewModal({ storyPages = [], isOpen = false, onClo
 
                     {/* Title */}
                     {currentPageData.title && (
-                      <h3 className="text-xl font-black mb-3 text-center flex-shrink-0">
+                      <h3 className="text-base font-black mb-2 text-center flex-shrink-0 line-clamp-2">
                         {currentPageData.title}
                       </h3>
                     )}
 
                     {/* Story Text - Visible in preview */}
-                    <div className="flex-1 overflow-y-auto text-center px-2">
-                      <p className="text-base leading-loose whitespace-pre-wrap">
+                    <div className="flex-1 overflow-y-auto text-center px-3 scrollbar-thin scrollbar-thumb-white/40 scrollbar-track-white/10">
+                      <p className="text-base leading-relaxed whitespace-pre-wrap">
                         {currentPageData.page_text || currentPageData.text}
                       </p>
                     </div>
 
                     {/* Page Number */}
-                    <div className="text-center text-xs font-bold opacity-75 mt-3 flex-shrink-0">
+                    <div className="text-center text-xs font-bold opacity-75 mt-4 flex-shrink-0">
                       Page {currentPage + 1} / {storyPages.length}
                     </div>
                   </div>

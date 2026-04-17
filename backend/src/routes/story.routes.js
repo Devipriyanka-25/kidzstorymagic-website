@@ -4,9 +4,15 @@ const multer = require('multer');
 const path = require('path');
 const { v4: uuidv4 } = require('uuid');
 const { verifyToken } = require('../middleware/auth');
+const {
+  validateChildSafety,
+  cleanupChildData,
+  preventChildDataStorage,
+} = require('../middleware/validateChildSafety');
 const StoryProject = require('../models/StoryProject');
 const StoryRenderer = require('../utils/storyRenderer');
 const ImageProcessor = require('../utils/imageProcessor');
+const ChildSafetyService = require('../services/childSafetyService');
 const config = require('../config/config');
 
 const ImageGenerationService = require('../services/imageGeneration');
@@ -36,7 +42,13 @@ const upload = multer({
 });
 
 // Create new story project
-router.post('/create', verifyToken, async (req, res) => {
+// 🔒 SECURITY: Validates child safety requirements
+router.post(
+  '/create',
+  verifyToken,
+  validateChildSafety,      // Enforce parental consent
+  preventChildDataStorage,  // Prevent data persistence
+  async (req, res) => {
   try {
     const {
       title,
@@ -46,11 +58,19 @@ router.post('/create', verifyToken, async (req, res) => {
       child_name,
       child_gender,
       child_interests,
-      child_notes
+      child_notes,
+      childAge,  // From safety validation
+      parentEmail // From safety validation
     } = req.body;
 
     // Validation
-    if (!age_group || !theme || !page_count || !child_name) {
+    if (!age_group && !childAge) {
+      return res.status(400).json({
+        error: 'Required fields: age_group (or childAge), theme, page_count, child_name'
+      });
+    }
+
+    if (!theme || !page_count || !child_name) {
       return res.status(400).json({
         error: 'Required fields: age_group, theme, page_count, child_name'
       });
@@ -60,7 +80,7 @@ router.post('/create', verifyToken, async (req, res) => {
     const project = await StoryProject.create({
       user_id: req.userId,
       title: title || `${child_name}'s Story`,
-      age_group,
+      age_group: age_group || childAge,
       theme,
       page_count,
       child_name,
@@ -69,9 +89,32 @@ router.post('/create', verifyToken, async (req, res) => {
       child_notes
     });
 
+    // Log safety event
+    if (req.childSafety) {
+      await ChildSafetyService.logSafetyEvent(req.userId, 'PROJECT_CREATED', {
+        age: req.childSafety.age,
+        childName: child_name,
+        projectId: project.id,
+        requiresParentConsent: req.childSafety.requiresParentConsent,
+      }).catch(e => console.warn('Error logging project creation:', e));
+
+      // Send parent consent email if child is under 13
+      if (req.childSafety.requiresParentConsent && parentEmail) {
+        ChildSafetyService.sendParentConsentNotification(
+          parentEmail,
+          child_name,
+          req.childSafety.age
+        ).catch(e => console.warn('Error sending parent email:', e));
+      }
+    }
+
     res.status(201).json({
       message: 'Story project created successfully',
-      project
+      project,
+      _security: {
+        childSafetyValidated: !!req.childSafety,
+        consentRequired: req.childSafety?.requiresParentConsent || false
+      }
     });
   } catch (err) {
     console.error('[CREATE_PROJECT_ERROR]', err.message, err);
@@ -231,7 +274,7 @@ router.post('/:projectId/upload-photo', verifyToken, upload.single('photo'), asy
 router.post('/:projectId/generate-story', verifyToken, async (req, res) => {
   try {
     const { projectId } = req.params;
-    const { customPrompt } = req.body;
+    const { customPrompt, storyLanguage = 'en' } = req.body;
 
     // Verify ownership
     const project = await StoryProject.findById(projectId, req.userId);
@@ -241,12 +284,12 @@ router.post('/:projectId/generate-story', verifyToken, async (req, res) => {
 
     // Generate story with image prompts
     console.log(`[GENERATE_STORY] Starting story generation for project ${projectId}`);
-    console.log(`[GENERATE_STORY] Project theme: ${project.theme}, Page count: ${project.page_count}`);
+    console.log(`[GENERATE_STORY] Language: ${storyLanguage}, Project theme: ${project.theme}, Page count: ${project.page_count}`);
     if (customPrompt) {
       console.log(`[GENERATE_STORY] Custom illustration prompt provided: ${customPrompt.substring(0, 100)}...`);
     }
     
-    const storyPages = await StoryRenderer.generateStory(project, project.theme, customPrompt);
+    const storyPages = await StoryRenderer.generateStory(project, project.theme, customPrompt, storyLanguage);
     console.log(`[GENERATE_STORY] Generated ${storyPages.length} story pages`);
     console.log(`[GENERATE_STORY] First page sample:`, JSON.stringify(storyPages[0], null, 2));
 

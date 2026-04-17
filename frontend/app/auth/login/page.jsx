@@ -282,7 +282,7 @@ export default function LoginPage() {
               <p className="text-xs text-blue-800">
                 Email: demo@example.com
                 <br />
-                Password: Demo@12345
+                Password: Demo@123456
               </p>
             </div>
           </div>

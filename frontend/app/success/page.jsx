@@ -140,21 +140,52 @@ export default function SuccessPage() {
             </div>
           </div>
 
-          {/* Next Steps */}
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-3">📋 What's Next?</h3>
-            <ul className="space-y-2 text-gray-700">
-              <li className="flex items-start">
-                <span className="text-blue-600 font-bold mr-3">1.</span>
-                <span>We're generating your personalized storybook with AI illustrations</span>
+          {/* Security & Privacy Confirmation */}
+          <div className="bg-green-50 border-2 border-green-400 rounded-lg p-6 mb-8">
+            <h3 className="text-lg font-semibold text-green-900 mb-4 flex items-center gap-2">
+              🔒 Your Privacy Is Protected
+            </h3>
+            <ul className="space-y-3 text-green-900 text-sm font-medium">
+              <li className="flex items-start gap-3">
+                <span className="text-green-600 text-xl flex-shrink-0">✓</span>
+                <span><strong>Photos deleted</strong> - All uploaded photos have been permanently removed from our servers</span>
               </li>
-              <li className="flex items-start">
-                <span className="text-blue-600 font-bold mr-3">2.</span>
-                <span>You'll receive an email with download links when it's ready (usually within 24 hours)</span>
+              <li className="flex items-start gap-3">
+                <span className="text-green-600 text-xl flex-shrink-0">✓</span>
+                <span><strong>Child data deleted</strong> - Personal information will be removed after processing</span>
               </li>
-              <li className="flex items-start">
-                <span className="text-blue-600 font-bold mr-3">3.</span>
-                <span>Access your finished book anytime from your Dashboard</span>
+              <li className="flex items-start gap-3">
+                <span className="text-green-600 text-xl flex-shrink-0">✓</span>
+                <span><strong>COPPA compliant</strong> - Full parental consent verification and safety measures</span>
+              </li>
+              <li className="flex items-start gap-3">
+                <span className="text-green-600 text-xl flex-shrink-0">✓</span>
+                <span><strong>No data sharing</strong> - We never share or sell your child's data</span>
+              </li>
+            </ul>
+          </div>
+
+          {/* Security & Privacy Confirmation */}
+          <div className="bg-green-50 border-2 border-green-400 rounded-lg p-6 mb-8">
+            <h3 className="text-lg font-semibold text-green-900 mb-4 flex items-center gap-2">
+              🔒 Your Privacy Is Protected
+            </h3>
+            <ul className="space-y-3 text-green-900 text-sm font-medium">
+              <li className="flex items-start gap-3">
+                <span className="text-green-600 text-xl flex-shrink-0">✓</span>
+                <span><strong>Photos deleted</strong> - All uploaded photos have been permanently removed from our servers</span>
+              </li>
+              <li className="flex items-start gap-3">
+                <span className="text-green-600 text-xl flex-shrink-0">✓</span>
+                <span><strong>Child data deleted</strong> - Personal information will be removed after processing</span>
+              </li>
+              <li className="flex items-start gap-3">
+                <span className="text-green-600 text-xl flex-shrink-0">✓</span>
+                <span><strong>COPPA compliant</strong> - Full parental consent verification and safety measures</span>
+              </li>
+              <li className="flex items-start gap-3">
+                <span className="text-green-600 text-xl flex-shrink-0">✓</span>
+                <span><strong>No data sharing</strong> - We never share or sell your child's data</span>
               </li>
             </ul>
           </div>

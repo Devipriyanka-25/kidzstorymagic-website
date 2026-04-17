@@ -145,9 +145,57 @@ export const useWizardStore = create((set, get) => ({
     uploadedImages: []
   },
 
-  setStep: (step) => set({ step }),
-  nextStep: () => set((state) => ({ step: state.step + 1 })),
-  prevStep: () => set((state) => ({ step: Math.max(state.step - 1, 1) })),
+  setStep: (step) => {
+    set({ step });
+    // Save draft when step changes
+    if (typeof window !== 'undefined') {
+      try {
+        const state = get();
+        localStorage.setItem('wizardDraft', JSON.stringify({
+          step,
+          formData: state.formData
+        }));
+      } catch (err) {
+        console.error('[DRAFT] Failed to save step:', err);
+      }
+    }
+  },
+
+  nextStep: () => {
+    set((state) => {
+      const newStep = state.step + 1;
+      // Auto-save draft to localStorage when stepping
+      if (typeof window !== 'undefined') {
+        try {
+          localStorage.setItem('wizardDraft', JSON.stringify({
+            step: newStep,
+            formData: state.formData
+          }));
+        } catch (err) {
+          console.error('[DRAFT] Failed to save draft:', err);
+        }
+      }
+      return { step: newStep };
+    });
+  },
+
+  prevStep: () => {
+    set((state) => {
+      const newStep = Math.max(state.step - 1, 1);
+      // Auto-save draft to localStorage when stepping
+      if (typeof window !== 'undefined') {
+        try {
+          localStorage.setItem('wizardDraft', JSON.stringify({
+            step: newStep,
+            formData: state.formData
+          }));
+        } catch (err) {
+          console.error('[DRAFT] Failed to save draft:', err);
+        }
+      }
+      return { step: newStep };
+    });
+  },
 
   updateFormData: (field, value) =>
     set((state) => {

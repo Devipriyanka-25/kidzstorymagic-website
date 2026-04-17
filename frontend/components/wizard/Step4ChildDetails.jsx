@@ -14,7 +14,8 @@ export default function Step4ChildDetails() {
     updateFormData(field, value);
   };
 
-  const isFormValid = formData.childName && formData.childGender;
+  // Child safety info should be collected in the modal, not here
+  const isFormValid = formData.childName && formData.childGender && formData.childAge && formData.parentConsent;
 
   const handleContinue = async () => {
     if (!isFormValid) return;
@@ -24,15 +25,28 @@ export default function Step4ChildDetails() {
 
     try {
       console.log('[STEP4] Creating project with details:', {
+        // camelCase for middleware validation
+        childName: formData.childName,
+        childAge: formData.childAge,
+        parentEmail: formData.parentEmail,
+        parentConsent: formData.parentConsent,
+        // snake_case for project creation
         age_group: formData.ageGroup,
         theme: formData.theme,
         page_count: formData.pageCount,
-        child_name: formData.childName,
         child_gender: formData.childGender,
+        child_interests: formData.childInterests,
+        child_notes: formData.childNotes,
       });
 
       // Create the project now, before moving to Step 5
       const createResponse = await storyAPI.createProject({
+        // camelCase - Required for middleware validation
+        childName: formData.childName,
+        childAge: parseInt(formData.childAge, 10),
+        parentEmail: formData.parentEmail,
+        parentConsent: formData.parentConsent,
+        // snake_case - Required for project creation
         age_group: formData.ageGroup,
         theme: formData.theme,
         page_count: formData.pageCount,
@@ -63,23 +77,20 @@ export default function Step4ChildDetails() {
     <div className="step-container w-full max-w-4xl mx-auto px-4 py-10 bg-white rounded-2xl shadow-2xl">
       <div className="space-y-8">
         <div className="text-center">
-          <h2 className="text-4xl font-bold mb-4 text-gray-900">Step 4: Child Details</h2>
-          <p className="text-xl text-gray-600">Tell us about the child</p>
+          <h2 className="text-4xl font-bold mb-4 text-gray-900">Step 4: Additional Details</h2>
+          <p className="text-xl text-gray-600">Tell us more about {formData.childName}</p>
+        </div>
+
+        {/* Info Box - Child Safety Already Verified */}
+        <div className="bg-green-50 border-2 border-green-400 rounded-xl p-6">
+          <h3 className="font-bold text-green-900 mb-2">✓ Child Safety Verified</h3>
+          <p className="text-green-900">
+            We've verified child safety information for <strong>{formData.childName}</strong> (Age {formData.childAge})
+            {formData.childAge < 13 && ` - Parental consent received from ${formData.parentEmail}`}
+          </p>
         </div>
 
         <form className="space-y-8 py-8">
-          {/* Child Name */}
-          <div>
-            <label className="block text-lg font-bold mb-3 text-gray-900">Child's Name *</label>
-            <input
-              type="text"
-              value={formData.childName}
-              onChange={(e) => handleInputChange('childName', e.target.value)}
-              placeholder="Enter child's name"
-              className="w-full px-6 py-4 border-2 border-gray-300 rounded-xl focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-300 transition-all text-lg"
-            />
-          </div>
-
           {/* Child Gender */}
           <div>
             <label className="block text-lg font-bold mb-4 text-gray-900">Gender *</label>

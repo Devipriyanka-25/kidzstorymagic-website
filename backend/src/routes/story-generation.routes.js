@@ -13,6 +13,12 @@
 const express = require('express');
 const router = express.Router();
 const { verifyToken } = require('../middleware/auth');
+const {
+  validateChildSafety,
+  cleanupChildData,
+  preventChildDataStorage,
+} = require('../middleware/validateChildSafety');
+const ChildSafetyService = require('../services/childSafetyService');
 const { 
   generateStoryFromImages,
   selectImagesForStory,
@@ -24,12 +30,23 @@ const {
 /**
  * POST /api/story/generate-from-images
  * Generate story from uploaded images
+ * 
+ * SECURITY: Now requires child safety validation
+ * - Validates age (1-17)
+ * - Enforces parental consent for children under 13
+ * - Prevents data storage for child processing
  */
-router.post('/generate-from-images', verifyToken, async (req, res) => {
+router.post(
+  '/generate-from-images',
+  verifyToken,
+  validateChildSafety,      // ← ADDED: Enforce parental consent
+  cleanupChildData,         // ← ADDED: Cleanup after response
+  preventChildDataStorage,  // ← ADDED: Prevent data persistence
+  async (req, res) => {
   try {
     console.log('[STORY-GEN] Generating story from images');
     
-    const { projectId, childName, theme, images, regenerationCount = 0 } = req.body;
+    const { projectId, childName, theme, images, regenerationCount = 0, storyLanguage = 'en' } = req.body;
     const userId = req.user.id;
 
     // Validate input
@@ -58,13 +75,36 @@ router.post('/generate-from-images', verifyToken, async (req, res) => {
       childName,
       theme: theme || 'adventure',
       images,
-      regenerationCount
+      regenerationCount,
+      storyLanguage
     });
 
     console.log('[STORY-GEN] ✓ Story generated successfully', {
       storyId: story.id,
       pageCount: story.pages.length
     });
+
+    // Log child safety event (age from middleware validation)
+    if (req.childSafety) {
+      await ChildSafetyService.logSafetyEvent(userId, 'STORY_GENERATED', {
+        age: req.childSafety.age,
+        childName,
+        projectId,
+        pageCount: story.pages.length,
+        requiresDataDeletion: req.childSafety.requiresDataDeletion,
+      });
+
+      // Schedule child data deletion after processing (if required for under-13)
+      if (req.childSafety.requiresDataDeletion) {
+        console.log('[STORY-GEN] ✓ Scheduling data deletion for age:', req.childSafety.age);
+        // Delete after brief delay to ensure response is sent
+        setImmediate(() => {
+          ChildSafetyService.deleteChildSessionData(userId, projectId).catch((err) => {
+            console.error('[STORY-GEN] Error scheduling data deletion:', err);
+          });
+        });
+      }
+    }
 
     res.json({
       success: true,

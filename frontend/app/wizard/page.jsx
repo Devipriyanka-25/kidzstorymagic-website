@@ -3,6 +3,8 @@
 import dynamic from 'next/dynamic';
 import { useWizardStore } from '@/utils/store';
 import { useEffect, useState } from 'react';
+import LanguageSelector from '@/components/i18n/LanguageSelector';
+import ChildSafetyVerificationModal from '@/components/wizard/ChildSafetyVerificationModal';
 
 // Dynamically import wizard steps
 const Step1AgeSelection = dynamic(() =>
@@ -34,10 +36,12 @@ const steps = [
 ];
 
 export default function WizardPage() {
-  const { step: currentStep, loadDraft, clearDraft, resetWizard } = useWizardStore();
+  const { step: currentStep, loadDraft, clearDraft, resetWizard, formData, updateFormData } = useWizardStore();
   const [showDraftPrompt, setShowDraftPrompt] = useState(false);
+  const [showSafetyModal, setShowSafetyModal] = useState(false);
   const [draftStep, setDraftStep] = useState(null);
   const [error, setError] = useState(null);
+  const [languageChanged, setLanguageChanged] = useState(false);
 
   useEffect(() => {
     // Check for existing draft on mount
@@ -49,12 +53,14 @@ export default function WizardPage() {
           setDraftStep(step);
           setShowDraftPrompt(true);
         } else {
-          // No draft, reset wizard
+          // No draft, reset wizard and show safety modal
           resetWizard();
+          setShowSafetyModal(true);
         }
       } catch (err) {
         console.error('[WIZARD] Error checking draft:', err);
         resetWizard();
+        setShowSafetyModal(true);
       }
     }
   }, [resetWizard]);
@@ -68,6 +74,59 @@ export default function WizardPage() {
     clearDraft();
     resetWizard();
     setShowDraftPrompt(false);
+    setShowSafetyModal(true);
+  };
+
+  const handleSafetyModalComplete = (safetyData) => {
+    console.log('[WIZARD] Child Safety Data Collected:', safetyData);
+    
+    // Store safety data
+    updateFormData('childName', safetyData.childName);
+    updateFormData('childAge', safetyData.childAge);
+    updateFormData('parentEmail', safetyData.parentEmail);
+    updateFormData('parentConsent', safetyData.parentConsent);
+    
+    // Auto-fill age group if age < 13, skip Step 1
+    const age = parseInt(safetyData.childAge, 10);
+    const { setStep } = useWizardStore.getState();
+    
+    if (age < 13) {
+      // Auto-select age group based on child's age
+      let ageGroup = '0-2';
+      if (age >= 3 && age <= 5) ageGroup = '3-5';
+      else if (age >= 6 && age <= 8) ageGroup = '5-8';
+      else if (age >= 9 && age <= 12) ageGroup = '8-12';
+      
+      console.log(`[WIZARD] Auto-filling age group: ${ageGroup} for age ${age}`);
+      updateFormData('ageGroup', ageGroup);
+      
+      // Skip Step 1, go directly to Step 2 (Theme Selection)
+      setStep(2);
+    } else {
+      // For 13+, go to Step 1 (Age Selection)
+      setStep(1);
+    }
+    
+    setShowSafetyModal(false);
+  };
+
+  const handleSafetyModalCancel = () => {
+    setShowSafetyModal(false);
+    // Redirect to home if user cancels
+    window.location.href = '/';
+  };
+
+  const handleLanguageChange = (newLanguage) => {
+    console.log('[WIZARD] Language changed to:', newLanguage);
+    // Update form data with new language
+    updateFormData('storyLanguage', newLanguage);
+    setLanguageChanged(true);
+    
+    // Emit event for story components to listen to
+    const event = new CustomEvent('storyLanguageChanged', { 
+      detail: { language: newLanguage } 
+    });
+    window.dispatchEvent(event);
   };
 
   const Step = steps[currentStep - 1]?.component;
@@ -113,9 +172,18 @@ export default function WizardPage() {
           <h1 className="text-4xl font-bold text-gray-900 mb-2">
             ✨ Create Your Child's Story
           </h1>
-          <p className="text-gray-600">
+          <p className="text-gray-600 mb-6">
             Personalized, AI-powered storybooks for children
           </p>
+          
+          {/* Language Selector */}
+          <div className="flex justify-center mb-4">
+            <LanguageSelector 
+              size="md" 
+              showLabel={true}
+              onLanguageChange={handleLanguageChange}
+            />
+          </div>
         </div>
 
         {/* Progress bar */}
@@ -169,6 +237,13 @@ export default function WizardPage() {
           </p>
         </div>
       </div>
+
+      {/* Child Safety Verification Modal */}
+      <ChildSafetyVerificationModal
+        isOpen={showSafetyModal}
+        onComplete={handleSafetyModalComplete}
+        onCancel={handleSafetyModalCancel}
+      />
     </main>
   );
 }

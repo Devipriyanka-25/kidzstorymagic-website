@@ -3,12 +3,14 @@
 import { useState, useEffect } from 'react';
 import { useWizardStore, useCurrencyStore } from '@/utils/store';
 import { storyAPI, paymentAPI } from '@/utils/api';
+import { useLanguage } from '@/hooks/useLanguage';
 import { ILLUSTRATION_THEMES, getTheme } from '@/utils/themes';
 import PDFPreviewModal from './PDFPreviewModal';
 
 export default function Step6ReviewCheckout() {
   const { formData, prevStep } = useWizardStore();
   const { currency = 'USD', exchangeRates } = useCurrencyStore();
+  const { currentLanguage } = useLanguage();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [storyPreview, setStoryPreview] = useState(null);
@@ -71,8 +73,8 @@ export default function Step6ReviewCheckout() {
       // Pass custom illustration prompt if custom theme selected
       const customPrompt = formData.theme === 'customizable' ? formData.customIllustrationPrompt : null;
 
-      // Generate story with the existing projectId
-      const storyResponse = await storyAPI.generateStory(formData.projectId, customPrompt);
+      // Generate story with the existing projectId and language
+      const storyResponse = await storyAPI.generateStory(formData.projectId, customPrompt, currentLanguage || 'en');
 
       setStoryPreview(storyResponse.data.story);
       setCurrentPage(0); // Reset to first page
@@ -114,6 +116,21 @@ export default function Step6ReviewCheckout() {
     window.addEventListener('keydown', handleKeyPress);
     return () => window.removeEventListener('keydown', handleKeyPress);
   }, [currentPage, storyPreview]);
+
+  // Listen for language change and regenerate story
+  useEffect(() => {
+    const handleLanguageChange = (event) => {
+      console.log('[STEP6] Language changed to:', event.detail.language);
+      // Automatically regenerate story with new language if story exists
+      if (storyPreview) {
+        console.log('[STEP6] Regenerating story in new language');
+        handleGenerateStory();
+      }
+    };
+
+    window.addEventListener('storyLanguageChanged', handleLanguageChange);
+    return () => window.removeEventListener('storyLanguageChanged', handleLanguageChange);
+  }, [storyPreview, currentLanguage]);
 
   const handleCheckout = async () => {
     setLoading(true);
@@ -222,22 +239,22 @@ export default function Step6ReviewCheckout() {
       // Story page
       return (
         <div
-          className="w-full h-full rounded-r-3xl overflow-hidden flex flex-col p-6 text-white"
+          className="w-full h-full rounded-r-3xl overflow-hidden flex flex-col p-4 text-white"
           style={{ background: currentTheme.gradient }}
         >
-          {/* Illustration - Top (fixed height) */}
-          <div className="flex justify-center mb-4 flex-shrink-0">
+          {/* Illustration - Full Width & Prominent (Like Image 1) */}
+          <div className="w-full mb-3 flex-shrink-0 rounded-xl overflow-hidden shadow-2xl border-4 border-white/20">
             {page.illustrationUrl ? (
               <img
                 src={page.illustrationUrl}
                 alt={`Page ${index} Illustration`}
-                className="w-full max-w-xs h-48 object-cover rounded-2xl shadow-2xl border-4 border-white/30"
+                className="w-full h-48 object-cover"
                 onError={(e) => {
                   e.target.style.display = 'none';
                 }}
               />
             ) : (
-              <div className="w-full max-w-xs h-48 flex items-center justify-center bg-white/10 rounded-2xl border-4 border-white/30">
+              <div className="w-full h-48 flex items-center justify-center bg-white/10 rounded-xl border-4 border-white/30">
                 <span className="text-5xl">🖼️</span>
               </div>
             )}
@@ -245,20 +262,20 @@ export default function Step6ReviewCheckout() {
 
           {/* Title - Fixed height */}
           {page.title && (
-            <h3 className="text-2xl font-black mb-3 text-center flex-shrink-0">
+            <h3 className="text-base font-black mb-2 text-center flex-shrink-0 line-clamp-2">
               {page.title}
             </h3>
           )}
 
-          {/* Story Text - Scrollable/Flexible */}
-          <div className="flex-1 overflow-y-auto text-center px-2">
-            <p className="text-base leading-loose whitespace-pre-wrap">
+          {/* Story Text - Scrollable/Flexible with Visible Scrollbar */}
+          <div className="flex-1 overflow-y-auto text-center px-3 scrollbar-thin scrollbar-thumb-white/40 scrollbar-track-white/10">
+            <p className="text-base leading-relaxed whitespace-pre-wrap">
               {page.page_text || page.text}
             </p>
           </div>
 
           {/* Page Number - Fixed at bottom */}
-          <div className="text-center text-xs font-bold opacity-75 mt-3 flex-shrink-0">
+          <div className="text-center text-xs font-bold opacity-75 mt-4 flex-shrink-0">
             Page {index + 1}
           </div>
         </div>

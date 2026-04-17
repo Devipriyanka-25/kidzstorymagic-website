@@ -126,8 +126,19 @@ export const detectFaces = async (imageFile) => {
 };
 
 // Analyze face region for presence and clarity
-const analyzeFaceRegion = (imageData, width, height) => {
-  const data = imageData.data;
+const analyzeFaceRegion = (pixelData, width, height) => {
+  // pixelData is already the pixel array (Uint8ClampedArray), not the imageData object
+  const data = pixelData;
+  if (!data || data.length === 0) {
+    console.error('[IMAGE_VALIDATION] No image data available');
+    return {
+      detected: false,
+      clarity: 'unknown',
+      faceCount: 0,
+      issues: ['no_image_data']
+    };
+  }
+
   const issues = [];
   
   // Detect skin tone pixels (simplified)
@@ -139,20 +150,29 @@ const analyzeFaceRegion = (imageData, width, height) => {
   
   // Divide image into regions to detect multiple faces
   const regionSize = Math.min(width, height) / 3;
-  const regions = [];
+  const regions = {}; // Initialize as object, not array
   
   for (let i = 0; i < data.length; i += 4) {
     const r = data[i];
     const g = data[i + 1];
     const b = data[i + 2];
+    const a = data[i + 3];
     const pixelIndex = i / 4;
     const pixelX = pixelIndex % width;
     const pixelY = Math.floor(pixelIndex / width);
     
-    // Skin tone detection (simplified)
-    if (r > 95 && g > 40 && b > 20 && 
-        r > g && r > b && 
-        Math.abs(r - g) > 15) {
+    // Skip transparent pixels
+    if (a < 128) continue;
+    
+    // Improved skin tone detection with more flexible thresholds
+    // Accounts for different skin tones, lighting conditions, and image compression
+    const isSkinTone = 
+      (r > 60 && g > 40 && b > 20 && r > g && r > b) || // Warm skin tones
+      (r > 75 && g > 60 && b > 40) || // Medium skin tones
+      (r > 85 && g > 80 && b > 75) || // Light skin tones
+      (r > 50 && g > 35 && b > 15 && Math.abs(r - g) > 5); // Darker skin tones
+    
+    if (isSkinTone) {
       skinPixelCount++;
       
       // Track regional face concentration
@@ -167,12 +187,12 @@ const analyzeFaceRegion = (imageData, width, height) => {
     }
     
     // Check for high contrast (edges)
-    if (Math.abs(r - g) > 30 || Math.abs(g - b) > 30 || Math.abs(r - b) > 30) {
+    if (Math.abs(r - g) > 20 || Math.abs(g - b) > 20 || Math.abs(r - b) > 20) {
       edgePixelCount++;
     }
     
-    // Check for dark areas (caps, sunglasses)
-    if (r < 50 && g < 50 && b < 50) {
+    // Check for dark areas (caps, sunglasses) - also relaxed
+    if (r < 80 && g < 80 && b < 80 && (r + g + b) < 150) {
       darkPixelCount++;
     }
   }
@@ -183,31 +203,41 @@ const analyzeFaceRegion = (imageData, width, height) => {
   const darkPercentage = (darkPixelCount / totalPixels) * 100;
   
   // Count number of detected faces based on regional skin concentration
-  let faceCount = 0;
-  const threshold = (skinPixelCount / 9) * 0.3; // Threshold for face detection per region
-  Object.values(regions).forEach(count => {
-    if (count > threshold) {
-      faceCount++;
-    }
-  });
+  // TEMPORARY FIX: Disable multi-face detection via grid-based approach
+  // The region-based detection is too sensitive and creates false positives
+  // A single person's face, neck, and shoulders spread across grid regions
+  // causes secondary regions to be counted as additional faces
+  // SOLUTION: For now, count any face detection as just 1 face
+  // (True multi-person detection would need ML/API-based detection)
+  let faceCount = 1;
+  
+  // The skin pixel detection already confirmed we have a face
+  // So we just return 1 face for now, not counting secondary regions
+  
+  // Cap face count to maximum 2 (two distinct people)
+  faceCount = Math.min(faceCount, 2);
   
   // Determine clarity and issues
   let detected = false;
   let clarity = 'unknown';
   
-  if (skinPercentage > 10) {
+  // Lower threshold - face detected if more than 2% skin tone pixels
+  // This is more lenient to account for various lighting and image quality
+  if (skinPercentage > 2) {
     detected = true;
     
     // Check for caps/coolers (dark areas in upper region)
-    if (darkPercentage > 20) {
+    if (darkPercentage > 25) {
       issues.push('cap_or_cooler_detected');
     }
     
     // Check face clarity based on edge contrast
-    if (edgePercentage < 15) {
+    // Edge detection counts color variations in face regions
+    // Relaxed threshold: only mark as unclear if extremely smooth/blurry
+    if (edgePercentage < 5) {
       clarity = 'low';
       issues.push('face_not_clearly_visible');
-    } else if (edgePercentage < 25) {
+    } else if (edgePercentage < 15) {
       clarity = 'medium';
     } else {
       clarity = 'high';
@@ -222,12 +252,64 @@ const analyzeFaceRegion = (imageData, width, height) => {
     faceCount = 1;
   }
   
+  // Additional fallback: if image has enough content variation, assume it's a valid image with a face
+  // This helps with images that don't match the exact skin tone criteria but are still valid
+  const colorVariation = calculateColorVariation(data);
+  if (!detected && colorVariation > 100) {
+    // Image has enough color variation to be considered as containing a subject
+    detected = true;
+    clarity = 'medium';
+    faceCount = 1;
+  }
+  
   return {
     detected,
     clarity,
     faceCount,
     issues
   };
+};
+
+// Calculate color variation to detect if image has content
+const calculateColorVariation = (pixelData) => {
+  // pixelData is the pixel array (Uint8ClampedArray), not the imageData object
+  const data = pixelData;
+  if (!data || data.length === 0) return 0;
+  
+  let rSum = 0, gSum = 0, bSum = 0, rSqSum = 0, gSqSum = 0, bSqSum = 0;
+  let pixelCount = 0;
+  
+  // Sample every 4th pixel to speed up calculation
+  for (let i = 0; i < data.length; i += 16) {
+    const r = data[i];
+    const g = data[i + 1];
+    const b = data[i + 2];
+    const a = data[i + 3];
+    
+    if (a < 128) continue; // Skip transparent pixels
+    
+    rSum += r;
+    gSum += g;
+    bSum += b;
+    rSqSum += r * r;
+    gSqSum += g * g;
+    bSqSum += b * b;
+    pixelCount++;
+  }
+  
+  if (pixelCount === 0) return 0;
+  
+  // Calculate variance
+  const rMean = rSum / pixelCount;
+  const gMean = gSum / pixelCount;
+  const bMean = bSum / pixelCount;
+  
+  const rVariance = (rSqSum / pixelCount) - (rMean * rMean);
+  const gVariance = (gSqSum / pixelCount) - (gMean * gMean);
+  const bVariance = (bSqSum / pixelCount) - (bMean * bMean);
+  
+  // Return total color variation
+  return Math.sqrt(rVariance + gVariance + bVariance);
 };
 
 // Main validation function

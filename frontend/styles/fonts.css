@@ -1,0 +1,178 @@
+/**
+ * frontend/styles/fonts.css
+ *
+ * Google Fonts imports for multilingual support
+ * Noto Sans fonts support all Indian scripts with proper rendering
+ */
+
+/* English & Spanish - Inter font */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+
+/* Tamil Support */
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+Tamil:wght@400;500;600;700&display=swap');
+
+/* Hindi/Devanagari Support */
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+Devanagari:wght@400;500;600;700&display=swap');
+
+/* Telugu Support */
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+Telugu:wght@400;500;600;700&display=swap');
+
+/* Kannada Support */
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+Kannada:wght@400;500;600;700&display=swap');
+
+/* Malayalam Support */
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+Malayalam:wght@400;500;600;700&display=swap');
+
+/* Font family definitions for each language */
+:root {
+  --font-english: 'Inter', system-ui, -apple-system, sans-serif;
+  --font-tamil: 'Noto Sans Tamil', system-ui, -apple-system, sans-serif;
+  --font-hindi: 'Noto Sans Devanagari', system-ui, -apple-system, sans-serif;
+  --font-telugu: 'Noto Sans Telugu', system-ui, -apple-system, sans-serif;
+  --font-kannada: 'Noto Sans Kannada', system-ui, -apple-system, sans-serif;
+  --font-malayalam: 'Noto Sans Malayalam', system-ui, -apple-system, sans-serif;
+  --font-spanish: 'Inter', system-ui, -apple-system, sans-serif;
+}
+
+/* Ensure fonts render properly on all systems */
+body {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+/* Language-specific text rendering */
+[lang='ta'],
+.lang-ta,
+.language-ta {
+  font-family: var(--font-tamil) !important;
+  font-size: 1.05em; /* Slightly larger for better readability */
+  line-height: 1.8;
+}
+
+[lang='hi'],
+.lang-hi,
+.language-hi {
+  font-family: var(--font-hindi) !important;
+  font-size: 1.05em;
+  line-height: 1.8;
+}
+
+[lang='te'],
+.lang-te,
+.language-te {
+  font-family: var(--font-telugu) !important;
+  font-size: 1.05em;
+  line-height: 1.8;
+}
+
+[lang='kn'],
+.lang-kn,
+.language-kn {
+  font-family: var(--font-kannada) !important;
+  font-size: 1.05em;
+  line-height: 1.8;
+}
+
+[lang='ml'],
+.lang-ml,
+.language-ml {
+  font-family: var(--font-malayalam) !important;
+  font-size: 1.05em;
+  line-height: 1.8;
+}
+
+[lang='en'],
+.lang-en,
+.language-en {
+  font-family: var(--font-english) !important;
+}
+
+[lang='es'],
+.lang-es,
+.language-es {
+  font-family: var(--font-spanish) !important;
+}
+
+/* Fallback for systems without font support */
+@supports not (font-family: 'Noto Sans Tamil') {
+  [lang='ta'],
+  .lang-ta,
+  .language-ta {
+    font-family: system-ui, -apple-system, sans-serif !important;
+  }
+
+  [lang='hi'],
+  .lang-hi,
+  .language-hi {
+    font-family: system-ui, -apple-system, sans-serif !important;
+  }
+
+  [lang='te'],
+  .lang-te,
+  .language-te {
+    font-family: system-ui, -apple-system, sans-serif !important;
+  }
+
+  [lang='kn'],
+  .lang-kn,
+  .language-kn {
+    font-family: system-ui, -apple-system, sans-serif !important;
+  }
+
+  [lang='ml'],
+  .lang-ml,
+  .language-ml {
+    font-family: system-ui, -apple-system, sans-serif !important;
+  }
+}
+
+/* Ensure proper Unicode rendering in all elements */
+input,
+textarea,
+select,
+button,
+label,
+p,
+span,
+div,
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  -webkit-font-variant-ligatures: common-ligatures;
+  font-variant-ligatures: common-ligatures;
+}
+
+/* Better word-breaking for long Indian language words */
+.story-content,
+[lang='ta'],
+[lang='hi'],
+[lang='te'],
+[lang='kn'],
+[lang='ml'] {
+  word-break: break-word;
+  overflow-wrap: break-word;
+  hyphens: auto;
+}
+
+/* Prevent font substitution issues in PDFs */
+@media print {
+  [lang='ta'] {
+    font-family: 'Noto Sans Tamil' !important;
+  }
+  [lang='hi'] {
+    font-family: 'Noto Sans Devanagari' !important;
+  }
+  [lang='te'] {
+    font-family: 'Noto Sans Telugu' !important;
+  }
+  [lang='kn'] {
+    font-family: 'Noto Sans Kannada' !important;
+  }
+  [lang='ml'] {
+    font-family: 'Noto Sans Malayalam' !important;
+  }
+}

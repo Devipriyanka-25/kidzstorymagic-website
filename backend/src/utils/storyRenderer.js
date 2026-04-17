@@ -2,23 +2,37 @@
 const fs = require('fs').promises;
 const path = require('path');
 const pool = require('../config/database');
+const StoryGenerationService = require('../services/story-generation.service');
 
 class StoryRenderer {
   /**
    * Load and parse story template
    */
-  static async loadTemplate(theme, pageCount) {
+  static async loadTemplate(theme, pageCount, storyLanguage = 'en') {
     try {
-      const templatePath = path.join(
-        __dirname,
-        `../../../story-templates/${theme}-template.json`
-      );
+      // For now, try to load language-specific template if available, fall back to English
+      const templatePath = storyLanguage !== 'en' 
+        ? path.join(__dirname, `../../../story-templates/${theme}-template-${storyLanguage}.json`)
+        : path.join(__dirname, `../../../story-templates/${theme}-template.json`);
       
       console.log('[TEMPLATE_LOAD] Attempting to load:', templatePath);
-      const templateContent = await fs.readFile(templatePath, 'utf-8');
+      let templateContent;
+      try {
+        templateContent = await fs.readFile(templatePath, 'utf-8');
+      } catch (err) {
+        // Fall back to English template if language-specific not found
+        if (storyLanguage !== 'en') {
+          console.log(`[TEMPLATE_LOAD] Language template not found for ${storyLanguage}, falling back to English`);
+          const englishPath = path.join(__dirname, `../../../story-templates/${theme}-template.json`);
+          templateContent = await fs.readFile(englishPath, 'utf-8');
+        } else {
+          throw err;
+        }
+      }
+      
       const template = JSON.parse(templateContent);
       
-      console.log('[TEMPLATE_LOAD] Successfully loaded template for theme:', theme);
+      console.log(`[TEMPLATE_LOAD] Successfully loaded template for theme: ${theme}, language: ${storyLanguage}`);
       return template.templates[pageCount] || null;
     } catch (err) {
       console.error('[TEMPLATE_LOAD_ERROR] Failed to load template:', err.message);
@@ -89,7 +103,7 @@ class StoryRenderer {
    * Generate image prompt for a story page
    * Character appearance changes based on page content while maintaining consistency
    */
-  static generateImagePrompt(pageNumber, storyText, childData, theme, customPrompt = null) {
+  static generateImagePrompt(pageNumber, storyText, childData, theme, customPrompt = null, storyLanguage = 'en') {
     const { child_name, child_gender } = childData;
     
     // Base art style for all images
@@ -169,15 +183,56 @@ class StoryRenderer {
   }
 
   /**
-   * Generate complete story from template
+   * Generate complete story with AI support for language preservation
+   * Tries AI generation first (which supports language), falls back to templates
    */
-  static async generateStory(projectData, theme, customPrompt = null) {
+  static async generateStory(projectData, theme, customPrompt = null, storyLanguage = 'en') {
     try {
-      const pageCount = String(projectData.page_count); // Convert to string for template lookup
-      const template = await this.loadTemplate(theme, pageCount);
+      console.log(`[GENERATE_STORY] Starting story generation for language: ${storyLanguage}`);
+      
+      // Try AI generation first (supports language)
+      try {
+        console.log(`[GENERATE_STORY] Attempting AI generation with language: ${storyLanguage}`);
+        
+        // AI service generates story with language support
+        // No need to fetch images - AI generates content based on child name, theme, and language
+        const selectedImages = [];
+
+        // Call AI service with language support
+        const aiStory = await StoryGenerationService.generateStoryContent(
+          projectData.child_name,
+          theme,
+          selectedImages,
+          0,
+          storyLanguage // Pass language to AI service
+        );
+
+        console.log(`[GENERATE_STORY] AI generation successful with language: ${storyLanguage}`);
+        
+        // Convert AI story format to standard page format
+        if (aiStory && aiStory.pages && Array.isArray(aiStory.pages)) {
+          const generatedPages = aiStory.pages.map((page, index) => ({
+            page_number: page.pageNumber || index + 1,
+            title: page.title || '',
+            page_text: page.content || '',
+            illustrationPrompt: page.imagePrompt || '',
+            imagePrompt: `Illustration for: ${page.content?.substring(0, 100)}...`
+          }));
+
+          console.log(`[GENERATE_STORY] Converted ${generatedPages.length} AI-generated pages`);
+          return generatedPages;
+        }
+      } catch (aiError) {
+        console.warn(`[GENERATE_STORY] AI generation failed, falling back to templates:`, aiError.message);
+      }
+
+      // Fallback to template-based generation
+      console.log(`[GENERATE_STORY] Using template fallback for language: ${storyLanguage}`);
+      const pageCount = String(projectData.page_count);
+      const template = await this.loadTemplate(theme, pageCount, storyLanguage);
 
       if (!template) {
-        throw new Error(`Template not found for theme: ${theme}, pages: ${pageCount}`);
+        throw new Error(`Template not found for theme: ${theme}, pages: ${pageCount}, language: ${storyLanguage}`);
       }
 
       const generatedPages = template.pages.map((page, index) => {
@@ -185,7 +240,8 @@ class StoryRenderer {
           child_name: projectData.child_name,
           child_gender: projectData.child_gender,
           child_interests: projectData.child_interests,
-          theme: theme
+          theme: theme,
+          storyLanguage: storyLanguage
         };
 
         const processedText = this.replacePlaceholders(page.text, childData);
@@ -204,11 +260,13 @@ class StoryRenderer {
             processedText,
             projectData,
             theme,
-            customPrompt
+            customPrompt,
+            storyLanguage
           )
         };
       });
 
+      console.log(`[GENERATE_STORY] Generated ${generatedPages.length} template-based pages with language: ${storyLanguage}`);
       return generatedPages;
     } catch (err) {
       console.error('[GENERATE_STORY_ERROR]', err.message);
