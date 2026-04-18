@@ -30,15 +30,11 @@ const storyGenerationRoutes = require('./routes/story-generation.routes');
 const app = express();
 
 // CORS middleware - MUST be FIRST before any other middleware
-// Production frontend URLs - these MUST be allowed
-const PRODUCTION_ORIGINS = [
+// HARDCODED whitelist - ensures CORS works regardless of environment variables
+const allowedCorsOrigins = [
   'https://www.kidzstorymagic.org',
   'https://kidzstorymagic.org',
-  'https://kidzstorymagic-website.vercel.app'
-];
-
-const defaultCorsOrigins = [
-  ...PRODUCTION_ORIGINS,
+  'https://kidzstorymagic-website.vercel.app',
   'http://localhost:3000',
   'http://localhost:3001',
   'http://localhost:3002',
@@ -46,21 +42,6 @@ const defaultCorsOrigins = [
   'http://127.0.0.1:3001',
   'http://127.0.0.1:3002'
 ];
-
-// For production, ALWAYS enforce the correct frontend origins
-// This bypasses any misconfigured CORS_ORIGIN environment variable
-const isProduction = process.env.NODE_ENV === 'production';
-const enforceOrigins = isProduction ? PRODUCTION_ORIGINS : [];
-
-const configuredCorsOrigins = String(config.cors.origin || '')
-  .split(',')
-  .map((origin) => origin.trim())
-  .filter(Boolean)
-  // Filter out invalid/test origins like 'railway.com' or 'railway.app'
-  .filter(origin => !origin.includes('railway.com') && !origin.includes('railway.app'));
-
-// Combine: production origins + configured origins + defaults
-const allowedCorsOrigins = [...new Set([...enforceOrigins, ...defaultCorsOrigins, ...configuredCorsOrigins])];
 
 // Log CORS configuration for debugging
 console.log('🔐 CORS Configuration:');
