@@ -42,11 +42,5 @@
     "OPENAI_API_KEY": "@openai_api_key",
     "AZURE_STORAGE_ACCOUNT": "@azure_storage_account",
     "AZURE_STORAGE_ACCESS_KEY": "@azure_storage_access_key"
-  },
-  "functions": {
-    "backend/src/index.js": {
-      "memory": 1024,
-      "maxDuration": 60
-    }
   }
 }
