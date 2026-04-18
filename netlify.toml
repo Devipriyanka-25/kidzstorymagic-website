@@ -1,13 +1,8 @@
 [build]
-  command = "npm install --legacy-peer-deps && npm run build"
+  command = "npm install --legacy-peer-deps && next build"
   functions = "netlify/functions"
   publish = ".next"
 
-[[redirects]]
-  from = "/*"
-  to = "/index.html"
-  status = 200
-
 [dev]
-  command = "npm run dev"
+  command = "next dev"
   port = 3000
