@@ -382,45 +382,6 @@ export default function HomePage() {
           )}
         </motion.div>
       </section>
-
-      {/* Footer */}
-      <footer className="bg-gray-900 text-gray-400 py-16">
-        <div className="max-w-6xl mx-auto px-6 py-12">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-12 mb-12">
-            <div>
-              <h3 className="font-black text-2xl text-white mb-6">✨ Kidz Story Magic</h3>
-              <p className="text-base">Creating magical personalized stories for children worldwide.</p>
-            </div>
-            <div>
-              <h4 className="font-bold text-white mb-6 text-lg">Product</h4>
-              <ul className="space-y-3 text-base">
-                <li><Link href="#" className="hover:text-white transition">Features</Link></li>
-                <li><Link href="#" className="hover:text-white transition">Pricing</Link></li>
-                <li><Link href="#" className="hover:text-white transition">How It Works</Link></li>
-              </ul>
-            </div>
-            <div>
-              <h4 className="font-bold text-white mb-6 text-lg">Company</h4>
-              <ul className="space-y-3 text-base">
-                <li><Link href="#" className="hover:text-white transition">About</Link></li>
-                <li><Link href="#" className="hover:text-white transition">Blog</Link></li>
-                <li><Link href="#" className="hover:text-white transition">Contact</Link></li>
-              </ul>
-            </div>
-            <div>
-              <h4 className="font-bold text-white mb-6 text-lg">Legal</h4>
-              <ul className="space-y-3 text-base">
-                <li><Link href="#" className="hover:text-white transition">Privacy</Link></li>
-                <li><Link href="#" className="hover:text-white transition">Terms</Link></li>
-                <li><Link href="#" className="hover:text-white transition">Cookies</Link></li>
-              </ul>
-            </div>
-          </div>
-          <div className="border-t border-gray-800 pt-8 text-center text-base">
-            <p>&copy; 2024 Kidz Story Magic. All rights reserved.</p>
-          </div>
-        </div>
-      </footer>
     </main>
   );
 }
