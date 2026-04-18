@@ -1,5 +1,6 @@
 {
   "version": 2,
   "buildCommand": "npm ci --legacy-peer-deps && next build",
+  "outputDirectory": ".next",
   "framework": "nextjs"
 }
