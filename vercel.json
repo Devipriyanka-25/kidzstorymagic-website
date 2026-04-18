@@ -1,5 +1,5 @@
 {
   "version": 2,
-  "buildCommand": "bash build-app.sh",
-  "outputDirectory": "frontend/.next"
+  "buildCommand": "cd frontend && npm install --legacy-peer-deps && npm run build",
+  "installCommand": "npm install"
 }
