@@ -1,10 +1,21 @@
 // Backend configuration file
+// Use FRONTEND_URL as primary source of truth for CORS origin
 const frontendUrl = (
   process.env.FRONTEND_URL ||
   process.env.NEXT_PUBLIC_APP_URL ||
   process.env.CORS_ORIGIN ||
   'http://localhost:3000'
 ).split(',')[0].trim();
+
+// Build comprehensive CORS origins list
+const corsOriginList = [
+  frontendUrl,
+  process.env.FRONTEND_URL,
+  process.env.NEXT_PUBLIC_APP_URL,
+  process.env.CORS_ORIGIN,
+  'https://www.kidzstorymagic.org',
+  'https://kidzstorymagic.org'
+].filter(Boolean).join(',');
 
 module.exports = {
   app: {
@@ -85,7 +96,7 @@ module.exports = {
     password: process.env.EMAIL_PASSWORD
   },
   cors: {
-    origin: process.env.CORS_ORIGIN || 'http://localhost:3000',
+    origin: corsOriginList,
     credentials: true
   },
   logging: {
