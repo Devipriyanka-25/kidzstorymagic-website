@@ -47,6 +47,11 @@ const defaultCorsOrigins = [
   'http://127.0.0.1:3002'
 ];
 
+// For production, ALWAYS enforce the correct frontend origins
+// This bypasses any misconfigured CORS_ORIGIN environment variable
+const isProduction = process.env.NODE_ENV === 'production';
+const enforceOrigins = isProduction ? PRODUCTION_ORIGINS : [];
+
 const configuredCorsOrigins = String(config.cors.origin || '')
   .split(',')
   .map((origin) => origin.trim())
@@ -54,7 +59,13 @@ const configuredCorsOrigins = String(config.cors.origin || '')
   // Filter out invalid/test origins like 'railway.com' or 'railway.app'
   .filter(origin => !origin.includes('railway.com') && !origin.includes('railway.app'));
 
-const allowedCorsOrigins = [...new Set([...defaultCorsOrigins, ...configuredCorsOrigins])];
+// Combine: production origins + configured origins + defaults
+const allowedCorsOrigins = [...new Set([...enforceOrigins, ...defaultCorsOrigins, ...configuredCorsOrigins])];
+
+// Log CORS configuration for debugging
+console.log('🔐 CORS Configuration:');
+console.log('   Environment:', process.env.NODE_ENV);
+console.log('   Allowed Origins:', allowedCorsOrigins);
 
 const corsOptions = {
   origin: (origin, callback) => {
