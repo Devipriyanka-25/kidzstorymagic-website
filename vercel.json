@@ -1,5 +1,6 @@
 {
   "version": 2,
-  "buildCommand": "cd frontend && npm install --legacy-peer-deps && npm run build",
-  "installCommand": "npm install"
+  "buildCommand": "npm ci --legacy-peer-deps && next build",
+  "framework": "nextjs",
+  "nodeVersion": "18.x"
 }
