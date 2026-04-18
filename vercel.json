@@ -1,5 +1,9 @@
 {
   "version": 2,
-  "buildCommand": "cd frontend && npm ci --legacy-peer-deps && npm run build",
-  "outputDirectory": "frontend/.next"
+  "projects": [
+    {
+      "name": "kidzstorymagic-frontend",
+      "path": "frontend"
+    }
+  ]
 }
