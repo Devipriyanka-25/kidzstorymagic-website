@@ -1,10 +1,7 @@
 [build]
-  command = "next build"
+  command = "npm install --legacy-peer-deps && next build"
   functions = "netlify/functions"
   publish = ".next"
-
-[build.environment]
-  NPM_FLAGS = "--legacy-peer-deps"
 
 [dev]
   command = "next dev"
