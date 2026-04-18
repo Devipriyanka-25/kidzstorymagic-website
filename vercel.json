@@ -1,9 +1,4 @@
 {
   "version": 2,
-  "projects": [
-    {
-      "name": "kidzstorymagic-frontend",
-      "path": "frontend"
-    }
-  ]
+  "buildCommand": "cd frontend && npm ci --legacy-peer-deps && npm run build"
 }
