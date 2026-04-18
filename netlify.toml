@@ -1,18 +1,11 @@
 [build]
-  command = "npm run build"
-  functions = "api"
+  command = "npm install --legacy-peer-deps && next build"
   publish = ".next"
 
 [build.environment]
   NODE_VERSION = "18"
   NODE_ENV = "production"
-  NPM_FLAGS = "--prefer-offline"
 
 [dev]
   command = "next dev"
   port = 3000
-  
-[[redirects]]
-  from = "/*"
-  to = "/:splat"
-  status = 200
