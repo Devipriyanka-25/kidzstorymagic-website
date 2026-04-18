@@ -30,22 +30,29 @@ const storyGenerationRoutes = require('./routes/story-generation.routes');
 const app = express();
 
 // CORS middleware - MUST be FIRST before any other middleware
-const defaultCorsOrigins = [
-  'http://localhost:3000',
-  'http://localhost:3001',
-  'http://localhost:3002',
-  'http://127.0.0.1:3000',
-  'http://127.0.0.1:3001',
-  'http://127.0.0.1:3002',
+// Production frontend URLs - these MUST be allowed
+const PRODUCTION_ORIGINS = [
   'https://www.kidzstorymagic.org',
   'https://kidzstorymagic.org',
   'https://kidzstorymagic-website.vercel.app'
 ];
 
+const defaultCorsOrigins = [
+  ...PRODUCTION_ORIGINS,
+  'http://localhost:3000',
+  'http://localhost:3001',
+  'http://localhost:3002',
+  'http://127.0.0.1:3000',
+  'http://127.0.0.1:3001',
+  'http://127.0.0.1:3002'
+];
+
 const configuredCorsOrigins = String(config.cors.origin || '')
   .split(',')
   .map((origin) => origin.trim())
-  .filter(Boolean);
+  .filter(Boolean)
+  // Filter out invalid/test origins like 'railway.com' or 'railway.app'
+  .filter(origin => !origin.includes('railway.com') && !origin.includes('railway.app'));
 
 const allowedCorsOrigins = [...new Set([...defaultCorsOrigins, ...configuredCorsOrigins])];
 
