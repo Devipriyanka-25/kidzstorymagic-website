@@ -48,13 +48,29 @@ console.log('🔐 CORS Configuration:');
 console.log('   Environment:', process.env.NODE_ENV);
 console.log('   Allowed Origins:', allowedCorsOrigins);
 
+// Manual CORS middleware - direct header setting to ensure it works
+app.use((req, res, next) => {
+  const origin = req.headers.origin;
+  
+  // EXPLICIT ALLOW for production domains
+  if (allowedCorsOrigins.includes(origin)) {
+    res.header('Access-Control-Allow-Origin', origin);
+    res.header('Access-Control-Allow-Credentials', 'true');
+    res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS');
+    res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  }
+  
+  // Handle preflight requests
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
+  }
+  
+  next();
+});
+
+// Also apply cors library as backup
 const corsOptions = {
-  origin: (origin, callback) => {
-    if (!origin || allowedCorsOrigins.includes(origin)) {
-      return callback(null, true);
-    }
-    return callback(null, false);
-  },
+  origin: allowedCorsOrigins,
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
