@@ -3,14 +3,11 @@ FROM node:20-bookworm-slim as builder
 
 WORKDIR /app
 
-# Copy frontend dependency files specifically
-COPY frontend/package*.json ./
+# Copy entire frontend directory (includes package.json and package-lock.json)
+COPY frontend/ ./
 
 # Install all dependencies (including dev) for build
 RUN npm ci
-
-# Copy frontend source code
-COPY frontend/ ./
 
 # Build args
 ARG NEXT_PUBLIC_API_URL=http://localhost:5000/api
