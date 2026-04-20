@@ -12,17 +12,15 @@ ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
 ENV NODE_ENV=production
 ENV NODE_OPTIONS=--max-old-space-size=512
 
-# Install with maximum parallelism and offline-first strategy
-RUN --mount=type=cache,target=/root/.npm \
-    npm ci --only=production \
+# Install with maximum optimization
+RUN npm ci --only=production \
     --prefer-offline \
     --no-audit \
     --no-fund \
     --omit=optional \
-    --maxsockets=50 \
+    --maxsockets=32 \
     --legacy-peer-deps \
-    && npm cache clean --force \
-    && npm cache verify
+    && npm cache clean --force
 
 # Runtime stage - use Alpine for lightweight production image
 FROM node:20-alpine
