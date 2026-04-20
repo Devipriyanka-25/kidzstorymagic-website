@@ -3,18 +3,26 @@ FROM node:20-alpine AS builder
 
 WORKDIR /app
 
-# Copy package files
+# Copy package files FIRST (before anything else for better caching)
 COPY package*.json ./
 
-# Install dependencies with optimizations for faster builds
+# Pre-install step: Use npm ci with aggressive caching
 # Skip Puppeteer chromium download since we install it via apk
 ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
-RUN npm ci --only=production \
+ENV NODE_ENV=production
+ENV NODE_OPTIONS=--max-old-space-size=512
+
+# Install with maximum parallelism and offline-first strategy
+RUN --mount=type=cache,target=/root/.npm \
+    npm ci --only=production \
     --prefer-offline \
     --no-audit \
+    --no-fund \
     --omit=optional \
-    --maxsockets=1 \
-    && npm cache clean --force
+    --maxsockets=50 \
+    --legacy-peer-deps \
+    && npm cache clean --force \
+    && npm cache verify
 
 # Runtime stage - use Alpine for lightweight production image
 FROM node:20-alpine
