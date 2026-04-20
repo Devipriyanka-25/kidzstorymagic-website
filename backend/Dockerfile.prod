@@ -20,13 +20,13 @@ RUN apk add --no-cache \
     g++ \
     && rm -rf /var/cache/apk/*
 
-# Copy package files
-COPY package*.json ./
-
 # Skip Puppeteer chromium download (use system chromium)
 ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
 ENV NODE_ENV=production
 ENV NODE_OPTIONS=--max-old-space-size=512
+
+# Copy package files from backend
+COPY backend/package*.json ./
 
 # Create .npmrc for aggressive optimization
 RUN echo "maxsockets=128" > ~/.npmrc && \
@@ -49,8 +49,8 @@ RUN npm ci --only=production \
     --no-prefer-source \
     && npm cache clean --force
 
-# Copy application source
-COPY src ./src
+# Copy application source from backend
+COPY backend/src ./src
 
 # Non-root user for security
 RUN addgroup -g 1001 -S nodejs && \
