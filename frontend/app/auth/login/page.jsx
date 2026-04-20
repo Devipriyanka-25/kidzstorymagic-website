@@ -6,21 +6,31 @@ import { useAuthStore } from '@/utils/store';
 import { validateEmail } from '@/utils/helpers';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import RoleSelectionModal from '@/components/auth/RoleSelectionModal';
 
 export default function LoginPage() {
   const router = useRouter();
   const { login } = useAuthStore();
   
-  // Form state with role selection
+  // Role selection state
+  const [selectedRole, setSelectedRole] = useState(null);
+  const [showRoleModal, setShowRoleModal] = useState(true);
+  
+  // Form state
   const [formData, setFormData] = useState({
     email: '',
     password: '',
-    role: 'customer', // Default role
     rememberMe: false,
   });
   const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(false);
   const [generalError, setGeneralError] = useState('');
+
+  // Handle role selection
+  const handleSelectRole = (role) => {
+    setSelectedRole(role);
+    setShowRoleModal(false);
+  };
 
   // Handle form field changes
   const handleChange = (e) => {
@@ -38,7 +48,7 @@ export default function LoginPage() {
     }
   };
 
-  // Validate form data including role
+  // Validate form data
   const validate = () => {
     const newErrors = {};
 
@@ -48,10 +58,6 @@ export default function LoginPage() {
 
     if (!formData.password) {
       newErrors.password = 'Password is required';
-    }
-
-    if (!formData.role) {
-      newErrors.role = 'Please select a role';
     }
 
     setErrors(newErrors);
@@ -73,11 +79,17 @@ export default function LoginPage() {
       await login({ 
         email: formData.email, 
         password: formData.password,
-        role: formData.role,
+        role: selectedRole || 'customer',
       });
       
       // Redirect based on role
-      const redirectPath = formData.role === 'admin' ? '/admin-dashboard' : '/dashboard';
+      const redirectPath = (selectedRole || 'customer')
+        password: formData.password,
+        role: selectedRole || 'customer',
+      });
+      
+      // Redirect based on role
+      const redirectPath = (selectedRole || 'customer') === 'admin' ? '/admin-dashboard' : '/dashboard';
       router.push(redirectPath);
     } catch (error) {
       setGeneralError(error.message || 'Login failed');
@@ -88,6 +100,9 @@ export default function LoginPage() {
 
   return (
     <main className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 py-12 px-4 flex items-center justify-center">
+      {/* Role Selection Modal */}
+      <RoleSelectionModal isOpen={showRoleModal} onSelectRole={handleSelectRole} />
+
       <div className="w-full max-w-5xl">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-center">
           {/* Left: Branding Section */}
@@ -123,7 +138,7 @@ export default function LoginPage() {
             </div>
           </div>
 
-          {/* Right: Login Form with Role Selection */}
+          {/* Right: Login Form */}
           <div className="bg-white rounded-lg shadow-md p-8">
             <h1 className="text-3xl font-bold text-gray-900 mb-2 text-center">
               Sign In
@@ -131,6 +146,22 @@ export default function LoginPage() {
             <p className="text-gray-600 text-center mb-6">
               Welcome back! Sign in to your account
             </p>
+
+            {/* Selected Role Display */}
+            {selectedRole && (
+              <div className="mb-6 p-3 bg-blue-50 border border-blue-200 rounded-lg flex items-center justify-between">
+                <span className="text-sm font-semibold text-blue-700">
+                  Role: <span className="capitalize">{selectedRole}</span>
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setShowRoleModal(true)}
+                  className="text-xs text-blue-600 hover:text-blue-800 font-semibold"
+                >
+                  Change
+                </button>
+              </div>
+            )}
 
             {/* General Error Alert */}
             {generalError && (
@@ -179,62 +210,6 @@ export default function LoginPage() {
                 />
                 {errors.password && (
                   <p className="text-red-600 text-xs mt-1">{errors.password}</p>
-                )}
-              </div>
-
-              {/* Role Selection Section - NEW FEATURE */}
-              <div className="pt-4 border-t border-gray-200">
-                <label className="block text-sm font-semibold text-gray-700 mb-3">
-                  👥 Select Your Role
-                </label>
-                
-                {/* Role Options - Radio Buttons */}
-                <div className="space-y-2">
-                  {/* Customer Role Option */}
-                  <label className="flex items-center p-3 border border-gray-300 rounded-lg cursor-pointer hover:bg-blue-50 transition-colors"
-                    style={{
-                      borderColor: formData.role === 'customer' ? '#3B82F6' : '#D1D5DB',
-                      backgroundColor: formData.role === 'customer' ? '#EFF6FF' : 'transparent',
-                    }}>
-                    <input
-                      type="radio"
-                      name="role"
-                      value="customer"
-                      checked={formData.role === 'customer'}
-                      onChange={handleChange}
-                      disabled={loading}
-                      className="w-4 h-4 text-blue-600 cursor-pointer"
-                    />
-                    <div className="ml-3">
-                      <p className="font-semibold text-gray-900">👶 Customer</p>
-                      <p className="text-xs text-gray-500">Create and manage stories for kids</p>
-                    </div>
-                  </label>
-
-                  {/* Admin Role Option */}
-                  <label className="flex items-center p-3 border border-gray-300 rounded-lg cursor-pointer hover:bg-purple-50 transition-colors"
-                    style={{
-                      borderColor: formData.role === 'admin' ? '#A855F7' : '#D1D5DB',
-                      backgroundColor: formData.role === 'admin' ? '#FAF5FF' : 'transparent',
-                    }}>
-                    <input
-                      type="radio"
-                      name="role"
-                      value="admin"
-                      checked={formData.role === 'admin'}
-                      onChange={handleChange}
-                      disabled={loading}
-                      className="w-4 h-4 text-purple-600 cursor-pointer"
-                    />
-                    <div className="ml-3">
-                      <p className="font-semibold text-gray-900">⚙️ Admin</p>
-                      <p className="text-xs text-gray-500">Manage platform and analytics</p>
-                    </div>
-                  </label>
-                </div>
-
-                {errors.role && (
-                  <p className="text-red-600 text-xs mt-2">{errors.role}</p>
                 )}
               </div>
 

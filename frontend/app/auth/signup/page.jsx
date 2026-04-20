@@ -6,10 +6,16 @@ import { useAuthStore } from '@/utils/store';
 import { validateEmail, validatePassword } from '@/utils/helpers';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import RoleSelectionModal from '@/components/auth/RoleSelectionModal';
 
 export default function SignupPage() {
   const router = useRouter();
   const { register } = useAuthStore();
+  
+  // Role selection state
+  const [selectedRole, setSelectedRole] = useState(null);
+  const [showRoleModal, setShowRoleModal] = useState(true);
+  
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -20,6 +26,12 @@ export default function SignupPage() {
   const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(false);
   const [generalError, setGeneralError] = useState('');
+
+  // Handle role selection
+  const handleSelectRole = (role) => {
+    setSelectedRole(role);
+    setShowRoleModal(false);
+  };
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
@@ -78,6 +90,7 @@ export default function SignupPage() {
         name: formData.name,
         email: formData.email,
         password: formData.password,
+        role: selectedRole || 'customer', // Add selected role
         preferredCurrency: 'USD'
       };
 
@@ -89,8 +102,9 @@ export default function SignupPage() {
       // Debug: Log success response
       console.log('[SIGNUP] Registration successful:', result);
 
-      // Redirect to dashboard on success
-      router.push('/dashboard');
+      // Redirect based on role
+      const redirectPath = selectedRole === 'admin' ? '/admin-dashboard' : '/dashboard';
+      router.push(redirectPath);
     } catch (error) {
       // Debug: Log error details
       console.error('[SIGNUP] Registration error:', {
@@ -112,6 +126,9 @@ export default function SignupPage() {
 
   return (
     <main className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 py-12 px-4 flex items-center justify-center">
+      {/* Role Selection Modal */}
+      <RoleSelectionModal isOpen={showRoleModal} onSelectRole={handleSelectRole} />
+
       <div className="w-full max-w-md">
         <div className="bg-white rounded-lg shadow-md p-8">
           {/* Logo */}
@@ -133,6 +150,22 @@ export default function SignupPage() {
           <p className="text-gray-600 text-center mb-6">
             Join us to create magical personalized stories
           </p>
+
+          {/* Selected Role Display */}
+          {selectedRole && (
+            <div className="mb-6 p-3 bg-blue-50 border border-blue-200 rounded-lg flex items-center justify-between">
+              <span className="text-sm font-semibold text-blue-700">
+                Role: <span className="capitalize">{selectedRole}</span>
+              </span>
+              <button
+                type="button"
+                onClick={() => setShowRoleModal(true)}
+                className="text-xs text-blue-600 hover:text-blue-800 font-semibold"
+              >
+                Change
+              </button>
+            </div>
+          )}
 
           {generalError && (
             <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
