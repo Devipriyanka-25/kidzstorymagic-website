@@ -83,12 +83,6 @@ export default function LoginPage() {
       });
       
       // Redirect based on role
-      const redirectPath = (selectedRole || 'customer')
-        password: formData.password,
-        role: selectedRole || 'customer',
-      });
-      
-      // Redirect based on role
       const redirectPath = (selectedRole || 'customer') === 'admin' ? '/admin-dashboard' : '/dashboard';
       router.push(redirectPath);
     } catch (error) {
