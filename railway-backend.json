@@ -1,0 +1,10 @@
+{
+  "builder": "dockerfile",
+  "dockerfile": "backend/Dockerfile.prod",
+  "registry": "ghcr.io",
+  "usePrebuiltImage": true,
+  "source": {
+    "type": "docker",
+    "image": "ghcr.io/devipriyanka-25/kidzstorymagic-website/backend:main"
+  }
+}

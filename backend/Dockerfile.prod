@@ -1,0 +1,68 @@
+# Production Dockerfile - Optimized for pre-built image deployment
+# This image is built once and pushed to GHCR, then pulled by Railway
+# Build time: ~11 minutes (one-time, cached in registry)
+# Deploy time: <30 seconds (just pull and run)
+
+FROM node:20-alpine
+
+WORKDIR /app
+
+# Install system dependencies for Puppeteer, Sharp, and other native modules
+RUN apk add --no-cache \
+    ca-certificates \
+    chromium \
+    nss \
+    freetype \
+    harfbuzz \
+    ttf-freefont \
+    python3 \
+    make \
+    g++ \
+    && rm -rf /var/cache/apk/*
+
+# Copy package files
+COPY package*.json ./
+
+# Skip Puppeteer chromium download (use system chromium)
+ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
+ENV NODE_ENV=production
+ENV NODE_OPTIONS=--max-old-space-size=512
+
+# Create .npmrc for aggressive optimization
+RUN echo "maxsockets=128" > ~/.npmrc && \
+    echo "fetch-timeout=60000" >> ~/.npmrc && \
+    echo "fetch-retries=3" >> ~/.npmrc && \
+    echo "fetch-retry-mintimeout=20000" >> ~/.npmrc && \
+    echo "fetch-retry-maxtimeout=120000" >> ~/.npmrc
+
+# Pre-warm npm cache
+RUN npm cache verify --force
+
+# Install production dependencies with all optimizations
+RUN npm ci --only=production \
+    --prefer-offline \
+    --no-audit \
+    --no-fund \
+    --omit=optional \
+    --maxsockets=128 \
+    --legacy-peer-deps \
+    --no-prefer-source \
+    && npm cache clean --force
+
+# Copy application source
+COPY src ./src
+
+# Non-root user for security
+RUN addgroup -g 1001 -S nodejs && \
+    adduser -S nodejs -u 1001 && \
+    chown -R nodejs:nodejs /app
+
+USER nodejs
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
+    CMD node -e "require('http').get('http://localhost:5000/health', (r) => {if (r.statusCode !== 200) throw new Error(r.statusCode)})"
+
+EXPOSE 5000
+
+CMD ["node", "src/index.js"]
