@@ -1,4 +1,4 @@
-# Multi-stage build for optimized production image
+# Multi-stage build for optimized production image - Fixed build process
 FROM node:20-bookworm-slim as builder
 
 WORKDIR /app
