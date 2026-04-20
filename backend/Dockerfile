@@ -1,5 +1,5 @@
 # Build stage
-FROM node:20-bookworm-slim AS builder
+FROM node:20-alpine AS builder
 
 WORKDIR /app
 
@@ -14,51 +14,22 @@ RUN npm ci --only=production \
     --maxsockets=1 \
     && npm cache clean --force
 
-# Runtime stage
-FROM node:20-bookworm-slim
+# Runtime stage - use Alpine for lightweight production image
+FROM node:20-alpine
 
 WORKDIR /app
 
-# Install minimal Puppeteer dependencies (optimized for size)
-RUN apt-get update && apt-get install -y --no-install-recommends \
+# Install minimal Puppeteer dependencies for Alpine
+# Note: Puppeteer requires chromium which may not work well on Alpine
+# Consider using system browser or simplifying dependencies
+RUN apk add --no-cache \
     ca-certificates \
-    fonts-liberation \
-    libappindicator1 \
-    libasound2 \
-    libatk1.0-0 \
-    libatomic1 \
-    libcairo2 \
-    libcups2 \
-    libdbus-1-3 \
-    libexpat1 \
-    libfontconfig1 \
-    libgbm1 \
-    libgdk-pixbuf2.0-0 \
-    libglib2.0-0 \
-    libgtk-3-0 \
-    libnspr4 \
-    libnss3 \
-    libpango-1.0-0 \
-    libpangocairo-1.0-0 \
-    libstdc++6 \
-    libx11-6 \
-    libx11-xcb1 \
-    libxcb1 \
-    libxcomposite1 \
-    libxcursor1 \
-    libxdamage1 \
-    libxext6 \
-    libxfixes3 \
-    libxi6 \
-    libxrandr2 \
-    libxrender1 \
-    libxss1 \
-    libxtst6 \
-    lsb-release \
-    wget \
-    xdg-utils \
-    && apt-get clean \
-    && rm -rf /var/lib/apt/lists/*
+    chromium \
+    nss \
+    freetype \
+    harfbuzz \
+    ttf-freefont \
+    && rm -rf /var/cache/apk/*
 
 # Copy node_modules and production files from builder stage
 COPY --from=builder /app/node_modules ./node_modules
