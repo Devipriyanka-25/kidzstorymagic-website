@@ -6,8 +6,13 @@ WORKDIR /app
 # Copy package files
 COPY package*.json ./
 
-# Install dependencies (including dev dependencies for build)
-RUN npm ci --only=production
+# Install dependencies with optimizations for faster builds
+RUN npm ci --only=production \
+    --prefer-offline \
+    --no-audit \
+    --omit=optional \
+    --maxsockets=1 \
+    && npm cache clean --force
 
 # Runtime stage
 FROM node:20-bookworm-slim
