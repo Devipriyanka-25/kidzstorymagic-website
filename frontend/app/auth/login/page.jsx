@@ -100,9 +100,11 @@ export default function LoginPage() {
 
   return (
     <main className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 py-12 px-4 flex items-center justify-center">
-      {/* Role Selection Modal */}
+      {/* Role Selection Modal - Must select role first */}
       <RoleSelectionModal isOpen={showRoleModal} onSelectRole={handleSelectRole} />
 
+      {/* Show login form only after role is selected */}
+      {!showRoleModal && (
       <div className="w-full max-w-5xl">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-center">
           {/* Left: Branding Section */}
@@ -147,19 +149,23 @@ export default function LoginPage() {
               Welcome back! Sign in to your account
             </p>
 
-            {/* Selected Role Display */}
+            {/* Selected Role Display - Read Only */}
             {selectedRole && (
-              <div className="mb-6 p-3 bg-blue-50 border border-blue-200 rounded-lg flex items-center justify-between">
-                <span className="text-sm font-semibold text-blue-700">
-                  Role: <span className="capitalize">{selectedRole}</span>
-                </span>
-                <button
-                  type="button"
-                  onClick={() => setShowRoleModal(true)}
-                  className="text-xs text-blue-600 hover:text-blue-800 font-semibold"
-                >
-                  Change
-                </button>
+              <div className="mb-6 p-4 bg-gradient-to-r from-blue-50 to-indigo-50 border-2 border-blue-200 rounded-lg">
+                <div className="flex items-center space-x-3">
+                  <div className="text-2xl">
+                    {selectedRole === 'admin' ? '⚙️' : '👨‍👩‍👧‍👦'}
+                  </div>
+                  <div>
+                    <p className="text-xs text-blue-600 font-semibold uppercase tracking-wide">Selected Role</p>
+                    <p className="text-lg font-bold text-gray-800 capitalize">{selectedRole}</p>
+                  </div>
+                </div>
+                <p className="text-xs text-blue-600 mt-2">
+                  {selectedRole === 'admin' 
+                    ? '🔒 Logging in as Administrator' 
+                    : '🔒 Logging in as Customer'}
+                </p>
               </div>
             )}
 
@@ -263,6 +269,7 @@ export default function LoginPage() {
           </div>
         </div>
       </div>
+      )}
     </main>
   );
 }
