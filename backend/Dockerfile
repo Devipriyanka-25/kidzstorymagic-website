@@ -12,14 +12,25 @@ ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
 ENV NODE_ENV=production
 ENV NODE_OPTIONS=--max-old-space-size=512
 
-# Install with maximum optimization
+# Create .npmrc with aggressive caching and parallel settings
+RUN echo "maxsockets=128" > ~/.npmrc && \
+    echo "fetch-timeout=60000" >> ~/.npmrc && \
+    echo "fetch-retries=3" >> ~/.npmrc && \
+    echo "fetch-retry-mintimeout=20000" >> ~/.npmrc && \
+    echo "fetch-retry-maxtimeout=120000" >> ~/.npmrc
+
+# Pre-warm npm cache by verifying
+RUN npm cache verify --force
+
+# Install with maximum parallelism and offline preference
 RUN npm ci --only=production \
     --prefer-offline \
     --no-audit \
     --no-fund \
     --omit=optional \
-    --maxsockets=32 \
+    --maxsockets=128 \
     --legacy-peer-deps \
+    --no-prefer-source \
     && npm cache clean --force
 
 # Runtime stage - use Alpine for lightweight production image
