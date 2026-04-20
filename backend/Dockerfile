@@ -60,9 +60,15 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy node_modules and app from builder stage
+# Copy node_modules and production files from builder stage
 COPY --from=builder /app/node_modules ./node_modules
-COPY . .
+
+# Copy only necessary application files (src and package files)
+COPY src ./src
+COPY package.json package-lock.json ./
+
+# Note: Test files, logs, documentation, and other non-essential files 
+# are excluded via .dockerignore and not needed in production
 
 # Set environment variables
 ENV NODE_ENV=production
