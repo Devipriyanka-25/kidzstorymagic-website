@@ -2,5 +2,10 @@
   "version": 2,
   "buildCommand": "npm ci --legacy-peer-deps && next build",
   "outputDirectory": ".next",
-  "framework": "nextjs"
+  "framework": "nextjs",
+  "env": {
+    "NEXT_PUBLIC_API_URL": "@next_public_api_url"
+  },
+  "ignore": ["backend/**", ".github/**", "docs/**", "scripts/**"],
+  "public": true
 }

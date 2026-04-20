@@ -14,3 +14,27 @@ coverage
 .vscode
 .idea
 *.log
+
+# Backend - deployed separately on Railway
+backend/
+Dockerfile
+docker-compose.yml
+.dockerignore
+
+# Development
+.github
+docs/
+scripts/
+database-setup.sh
+Makefile
+.node-version
+
+# Other deployments
+railway.json
+netlify.toml
+build.sh
+build-app.sh
+
+# Temporary files
+client.log
+frontend_logs.txt
