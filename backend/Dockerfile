@@ -7,6 +7,8 @@ WORKDIR /app
 COPY package*.json ./
 
 # Install dependencies with optimizations for faster builds
+# Skip Puppeteer chromium download since we install it via apk
+ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
 RUN npm ci --only=production \
     --prefer-offline \
     --no-audit \
