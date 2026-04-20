@@ -4,7 +4,6 @@
 
 [build.environment]
   NODE_VERSION = "18"
-  NODE_ENV = "production"
 
 [dev]
   command = "next dev"

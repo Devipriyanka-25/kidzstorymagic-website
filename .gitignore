@@ -86,3 +86,5 @@ backend/coverage/
 
 # Documentation
 docs/generated/
+.vercel
+.env*.local

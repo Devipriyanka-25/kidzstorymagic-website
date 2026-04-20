@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useWizardStore, useCurrencyStore } from '@/utils/store';
 import { storyAPI, paymentAPI } from '@/utils/api';
 import { useLanguage } from '@/hooks/useLanguage';
+import { useCurrencyConversion } from '@/hooks/useCurrencyDetection';
 import { ILLUSTRATION_THEMES, getTheme } from '@/utils/themes';
 import PDFPreviewModal from './PDFPreviewModal';
 
@@ -11,6 +12,7 @@ export default function Step6ReviewCheckout() {
   const { formData, prevStep } = useWizardStore();
   const { currency = 'USD', exchangeRates } = useCurrencyStore();
   const { currentLanguage } = useLanguage();
+  const { getExchangeRateInfo } = useCurrencyConversion();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [storyPreview, setStoryPreview] = useState(null);
@@ -27,6 +29,7 @@ export default function Step6ReviewCheckout() {
 
   const exchangeRate = exchangeRates[currency] || 1;
   const price = (basePriceUSD * exchangeRate).toFixed(2);
+  const rateInfo = getExchangeRateInfo('USD');
 
   const currencySymbols = {
     USD: '$',
@@ -498,6 +501,11 @@ export default function Step6ReviewCheckout() {
                       <p className="font-black text-sm" style={{ color: currentTheme.primary }}>
                         {currencySymbols[currency]}{price}
                       </p>
+                      {rateInfo && currency !== 'USD' && (
+                        <p className="text-xs text-gray-600 mt-1">
+                          💱 {rateInfo.display}
+                        </p>
+                      )}
                     </div>
                   </div>
 

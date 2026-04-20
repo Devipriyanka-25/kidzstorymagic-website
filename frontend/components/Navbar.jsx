@@ -3,12 +3,26 @@
 import Link from 'next/link';
 import Image from 'next/image';
 import { useAuthStore } from '@/utils/store';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
+import CurrencySelector from './CurrencySelector';
+import { useCurrencyDetection } from '@/hooks/useCurrencyDetection';
 
 export default function Navbar() {
   const { user, logout } = useAuthStore();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [mounted, setMounted] = useState(false);
+  
+  // Initialize currency detection on mount
+  useCurrencyDetection();
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  if (!mounted) {
+    return null;
+  }
 
   return (
     <motion.header
@@ -52,6 +66,10 @@ export default function Navbar() {
                   My Stories
                 </Link>
               </motion.div>
+              
+              {/* Currency Selector */}
+              <CurrencySelector />
+              
               <div className="flex items-center gap-4 border-l-2 border-gray-200 pl-8">
                 <span className="text-sm text-gray-600">👋 {user.name}</span>
                 <motion.button
@@ -66,6 +84,9 @@ export default function Navbar() {
             </>
           ) : (
             <>
+              {/* Currency Selector for non-logged-in users */}
+              <CurrencySelector />
+              
               <motion.div whileHover={{ scale: 1.05 }}>
                 <Link href="/auth/login" className="text-gray-700 hover:text-blue-600 font-semibold transition-colors">
                   Sign In
@@ -110,6 +131,10 @@ export default function Navbar() {
                 <Link href="/dashboard" className="text-gray-700 hover:text-blue-600 font-semibold py-2">
                   My Stories
                 </Link>
+                <div className="py-2">
+                  <p className="text-xs text-gray-600 mb-2">💱 Select Currency</p>
+                  <CurrencySelector />
+                </div>
                 <span className="text-sm text-gray-600 py-2">👋 {user.name}</span>
                 <button
                   onClick={logout}
@@ -120,6 +145,10 @@ export default function Navbar() {
               </>
             ) : (
               <>
+                <div className="py-2">
+                  <p className="text-xs text-gray-600 mb-2">💱 Select Currency</p>
+                  <CurrencySelector />
+                </div>
                 <Link href="/auth/login" className="text-gray-700 hover:text-blue-600 font-semibold py-2">
                   Sign In
                 </Link>

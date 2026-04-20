@@ -284,9 +284,17 @@ export const useWizardStore = create((set, get) => ({
 export const useCurrencyStore = create((set) => ({
   selectedCurrency: 'USD',
   supportedCurrencies: ['USD', 'CAD', 'GBP', 'EUR', 'AUD', 'INR'],
-  exchangeRates: {},
+  exchangeRates: {
+    USD: 1.0,
+    CAD: 1.36,
+    GBP: 0.79,
+    EUR: 0.92,
+    AUD: 1.52,
+    INR: 83.12
+  },
   pricing: null,
 
   setCurrency: (currency) => set({ selectedCurrency: currency }),
+  setExchangeRates: (rates) => set({ exchangeRates: rates }),
   setPricing: (pricing) => set({ pricing })
 }));
