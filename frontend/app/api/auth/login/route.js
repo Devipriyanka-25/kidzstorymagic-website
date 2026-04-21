@@ -1,30 +1,98 @@
-// Proxy: POST /api/auth/login -> Railway backend
-import axios from 'axios';
+// POST /api/auth/login
+import bcrypt from 'bcryptjs';
+import User from '@/lib/User';
+import { generateToken } from '@/lib/jwt';
 
-const BACKEND_URL = process.env.BACKEND_API_URL || 'https://kidzstorymagic-api.railway.app/api';
+export const dynamic = 'force-dynamic';
+
+async function validateLogin(body) {
+  const errors = [];
+  
+  if (!body.email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(body.email)) {
+    errors.push('Valid email is required');
+  }
+  
+  if (!body.password) {
+    errors.push('Password is required');
+  }
+
+  return errors;
+}
 
 export async function POST(request) {
   try {
     const body = await request.json();
 
-    // Forward request to Railway backend
-    const response = await axios.post(`${BACKEND_URL}/auth/login`, body, {
-      headers: {
-        'Content-Type': 'application/json',
-      },
+    console.log('[LOGIN] Incoming request:', {
+      email: body.email,
+      timestamp: new Date().toISOString()
     });
 
-    return new Response(JSON.stringify(response.data), {
-      status: response.status,
-      headers: { 'Content-Type': 'application/json' },
-    });
-  } catch (error) {
-    const status = error.response?.status || 500;
-    const data = error.response?.data || { error: 'Backend error' };
+    const errors = await validateLogin(body);
+    if (errors.length > 0) {
+      console.log('[LOGIN] Validation errors:', errors);
+      return new Response(JSON.stringify({
+        success: false,
+        error: 'Validation failed',
+        details: errors
+      }), { status: 400, headers: { 'Content-Type': 'application/json' } });
+    }
 
-    return new Response(JSON.stringify(data), {
-      status,
-      headers: { 'Content-Type': 'application/json' },
+    const { email, password } = body;
+
+    // Find user
+    const user = await User.findByEmail(email.toLowerCase());
+    if (!user) {
+      console.log('[LOGIN] User not found:', email);
+      return new Response(JSON.stringify({
+        success: false,
+        error: 'Invalid credentials'
+      }), { status: 401, headers: { 'Content-Type': 'application/json' } });
+    }
+
+    // Verify password
+    const passwordValid = await bcrypt.compare(password, user.password_hash);
+    if (!passwordValid) {
+      console.log('[LOGIN] Invalid password for:', email);
+      return new Response(JSON.stringify({
+        success: false,
+        error: 'Invalid credentials'
+      }), { status: 401, headers: { 'Content-Type': 'application/json' } });
+    }
+
+    // Create JWT token
+    const token = generateToken({
+      id: user.id,
+      email: user.email
     });
+
+    console.log('[LOGIN] User logged in successfully:', {
+      userId: user.id,
+      email: user.email,
+      timestamp: new Date().toISOString()
+    });
+
+    return new Response(JSON.stringify({
+      success: true,
+      token,
+      user: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        preferred_currency: user.preferred_currency
+      }
+    }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+
+  } catch (err) {
+    console.error('[LOGIN] Error:', {
+      message: err.message,
+      stack: err.stack
+    });
+    
+    return new Response(JSON.stringify({
+      success: false,
+      error: 'Login failed',
+      details: err.message
+    }), { status: 500, headers: { 'Content-Type': 'application/json' } });
   }
 }

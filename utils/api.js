@@ -87,6 +87,7 @@ function createAPIClient() {
   );
 
   return apiClient;
+}
 
 // Auth APIs
 export const authAPI = {
