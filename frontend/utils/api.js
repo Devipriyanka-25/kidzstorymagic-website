@@ -2,28 +2,30 @@
 import axios from 'axios';
 import { retryWithBackoff, handleApiError } from './advancedErrorHandler';
 
-// Use Vercel API proxy routes to bypass CORS when not in local development
-// Detect local development: if API_BASE_URL is explicitly set, use it
-// Otherwise, in production/deployed environments, use /api to proxy through Vercel
-const API_BASE_URL = (() => {
-  // If explicitly set via environment variable, use it
-  if (process.env.NEXT_PUBLIC_API_URL) {
-    return process.env.NEXT_PUBLIC_API_URL;
+// API URL Configuration:
+// - Vercel production: Use /api (local proxy routes)
+// - Local dev: Use localhost:5000
+// - Custom override: Use NEXT_PUBLIC_API_URL env var
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || (() => {
+  if (typeof window === 'undefined') {
+    // Server-side rendering
+    return '/api';
   }
   
-  // Check if running on localhost
-  if (typeof window !== 'undefined' && window.location.hostname === 'localhost') {
+  const hostname = window.location.hostname;
+  
+  // Local development
+  if (hostname === 'localhost' || hostname === '127.0.0.1') {
     return 'http://localhost:5000/api';
   }
   
-  // In production/deployed environments, use local proxy routes
+  // Production/Deployed - use local API proxy routes
   return '/api';
 })();
 
-// Log API URL configuration for debugging
+// DEBUG: Log API configuration
 if (typeof window !== 'undefined') {
-  console.log('[API_CLIENT] Using API URL:', API_BASE_URL);
-  console.log('[API_CLIENT] Hostname:', window.location.hostname);
+  console.log('[API_CLIENT] Configuration:', { API_BASE_URL, hostname: window.location.hostname });
 }
 
 // Request timeout (30 seconds)
