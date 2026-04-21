@@ -1,0 +1,38 @@
+# Fast production Dockerfile for Railway - Minimal dependencies
+FROM node:20-alpine
+
+WORKDIR /app
+
+# Install only essential system packages
+RUN apk add --no-cache \
+    ca-certificates \
+    curl
+
+# Configure npm for speed
+ENV NODE_ENV=production
+ENV NODE_OPTIONS=--max-old-space-size=512
+
+# Copy package files
+COPY backend/package*.json ./
+
+# Install ONLY production dependencies - skip optional
+RUN npm ci \
+    --only=production \
+    --prefer-offline \
+    --omit=optional \
+    --legacy-peer-deps \
+    --no-fund \
+    --audit=false \
+    && npm cache clean --force
+
+# Copy application
+COPY backend/src ./src
+
+# Set environment
+EXPOSE 5000
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
+    CMD curl -f http://localhost:5000/api/health || exit 1
+
+CMD ["node", "src/index.js"]
