@@ -1,4 +1,4 @@
-# Fast production Dockerfile for Railway - Minimal dependencies
+# Ultra-minimal Dockerfile for Railway - Core backend only
 FROM node:20-alpine
 
 WORKDIR /app
@@ -8,31 +8,39 @@ RUN apk add --no-cache \
     ca-certificates \
     curl
 
-# Configure npm for speed
+# Configure npm and Node for speed
 ENV NODE_ENV=production
 ENV NODE_OPTIONS=--max-old-space-size=512
+ENV PUPPETEER_SKIP_DOWNLOAD=true
 
 # Copy package files
 COPY package*.json ./
 
-# Install ONLY production dependencies - skip optional (puppeteer, face-api.js, aws-sdk)
+# Install production dependencies with aggressive optimization
+# - --only=production: skip devDependencies
+# - --ignore-scripts: skip build scripts (prevents native module compilation)
+# - --prefer-offline: use cached packages
+# - --legacy-peer-deps: skip peer dependency warnings
+# - --no-fund: skip funding checks
+# - --audit=false: skip security audits
 RUN npm ci \
     --only=production \
-    --omit=optional \
+    --ignore-scripts \
     --prefer-offline \
     --legacy-peer-deps \
     --no-fund \
     --audit=false \
     && npm cache clean --force
 
-# Copy application
+# Copy application source
 COPY src ./src
 
-# Set environment
+# Expose port
 EXPOSE 5000
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
     CMD curl -f http://localhost:5000/api/health || exit 1
 
+# Start application
 CMD ["node", "src/index.js"]
