@@ -52,15 +52,19 @@ console.log('   Allowed Origins:', allowedCorsOrigins);
 app.use((req, res, next) => {
   const origin = req.headers.origin;
   
+  // CRITICAL: Always remove any bad CORS headers first
+  res.removeHeader('Access-Control-Allow-Origin');
+  
   // EXPLICIT ALLOW for production domains
   if (allowedCorsOrigins.includes(origin)) {
     res.set('Access-Control-Allow-Origin', origin);
     res.set('Access-Control-Allow-Credentials', 'true');
     res.set('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS');
     res.set('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
+    console.log(`✅ CORS allowed for origin: ${origin}`);
   } else if (origin) {
-    // Log unknown origins but still allow OPTIONS for development
-    console.warn(`⚠️ CORS request from unrecognized origin: ${origin}`);
+    // Explicitly DENY unknown origins (do not set CORS headers)
+    console.warn(`❌ CORS DENIED for origin: ${origin}`);
   }
   
   // Handle preflight requests
