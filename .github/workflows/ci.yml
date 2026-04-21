@@ -37,7 +37,8 @@ jobs:
         working-directory: backend
         env:
           PUPPETEER_SKIP_DOWNLOAD: 'true'
-        run: npm install --no-audit --no-fund
+          NODE_OPTIONS: '--max-old-space-size=1024'
+        run: npm ci --only=production --legacy-peer-deps
 
       - name: Setup database
         working-directory: backend
@@ -52,12 +53,20 @@ jobs:
 
       - name: Run tests
         working-directory: backend
-        run: npm test
-
-      - name: Upload coverage
-        uses: codecov/codecov-action@v3
-        with:
-          files: ./backend/coverage/lcov.info
+        env:
+          NODE_ENV: test
+          DB_HOST: localhost
+          DB_PORT: 5432
+          DB_NAME: kidz_story_magic
+          DB_USER: postgres
+          DB_PASSWORD: postgres
+          JWT_SECRET: test_secret
+          # Mock API keys for tests
+          OPENAI_API_KEY: test_key_mock
+          AZURE_VISION_KEY: test_key_mock
+          AZURE_VISION_ENDPOINT: https://test.cognitiveservices.azure.com/
+          STRIPE_SECRET_KEY: sk_test_mock
+        run: npm test -- --maxWorkers=2
 
   test-frontend:
     runs-on: ubuntu-latest

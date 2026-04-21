@@ -3,34 +3,43 @@ FROM node:20-alpine AS builder
 
 WORKDIR /app
 
+# Install system dependencies for native module compilation
+RUN apk add --no-cache \
+    ca-certificates \
+    chromium \
+    nss \
+    freetype \
+    harfbuzz \
+    ttf-freefont \
+    python3 \
+    make \
+    g++
+
 # Copy package files FIRST (before anything else for better caching)
 COPY package*.json ./
 
-# Pre-install step: Use npm ci with aggressive caching
-# Skip Puppeteer chromium download since we install it via apk
+# Configure npm for faster, more reliable builds
 ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
 ENV NODE_ENV=production
-ENV NODE_OPTIONS=--max-old-space-size=512
+ENV NODE_OPTIONS=--max-old-space-size=1024
 
-# Create .npmrc with aggressive caching and parallel settings
-RUN echo "maxsockets=128" > ~/.npmrc && \
-    echo "fetch-timeout=60000" >> ~/.npmrc && \
-    echo "fetch-retries=3" >> ~/.npmrc && \
-    echo "fetch-retry-mintimeout=20000" >> ~/.npmrc && \
-    echo "fetch-retry-maxtimeout=120000" >> ~/.npmrc
+# Increase npm timeouts and retry settings for unreliable networks
+RUN npm config set fetch-timeout 120000 && \
+    npm config set fetch-retries 5 && \
+    npm config set fetch-retry-mintimeout 60000 && \
+    npm config set fetch-retry-maxtimeout 120000 && \
+    npm config set registry https://registry.npmjs.org/
 
-# Pre-warm npm cache by verifying
-RUN npm cache verify --force
+# Clear cache before install for clean state
+RUN npm cache clean --force
 
-# Install with maximum parallelism and offline preference
-RUN npm ci --only=production \
+# Install dependencies with optimized settings
+RUN npm ci \
+    --only=production \
     --prefer-offline \
-    --no-audit \
-    --no-fund \
+    --omit=dev \
     --omit=optional \
-    --maxsockets=128 \
     --legacy-peer-deps \
-    --no-prefer-source \
     && npm cache clean --force
 
 # Runtime stage - use Alpine for lightweight production image
