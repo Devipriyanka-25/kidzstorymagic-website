@@ -2,10 +2,84 @@
 import axios from 'axios';
 import { retryWithBackoff, handleApiError } from './advancedErrorHandler';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
+// Get API base URL dynamically at RUNTIME, not at build time
+// This ensures environment variables and window detection work correctly
+function getAPIBaseURL() {
+  // In server-side rendering, default to /api
+  if (typeof window === 'undefined') {
+    return '/api';
+  }
+  
+  const hostname = window.location.hostname;
+  
+  // Local development
+  if (hostname === 'localhost' || hostname === '127.0.0.1' || hostname.startsWith('192.168')) {
+    return 'http://localhost:5000/api';
+  }
+  
+  // Production: ALWAYS use /api to route through Vercel proxy
+  return '/api';
+}
 
-// Request timeout (30 seconds)
-const REQUEST_TIMEOUT = 30000;
+// Create API client dynamically at runtime
+function createAPIClient() {
+  const baseURL = getAPIBaseURL();
+  
+  const apiClient = axios.create({
+    baseURL,
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    timeout: 30000 // 30 seconds
+  });
+
+  // Add auth token to requests
+  apiClient.interceptors.request.use((config) => {
+    const token = getAuthToken();
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    return config;
+  }, (error) => {
+    console.error('[API_REQUEST_ERROR]', error);
+    return Promise.reject(error);
+  });
+
+  // Handle response errors and logging
+  apiClient.interceptors.response.use(
+    (response) => {
+      if (process.env.NEXT_PUBLIC_DEBUG_MODE === 'true') {
+        console.log(`[API_SUCCESS] ${response.config.method?.toUpperCase()} ${response.config.url}`, response.status);
+      }
+      return response;
+    },
+    (error) => {
+      const errorInfo = handleApiError(error);
+      
+      if (process.env.NEXT_PUBLIC_DEBUG_MODE === 'true') {
+        console.error('[API_ERROR]', {
+          url: error.config?.url,
+          method: error.config?.method,
+          status: error.response?.status,
+          message: errorInfo.message,
+          data: error.response?.data
+        });
+      }
+      
+      // Handle 401 (Unauthorized) - redirect to login
+      if (error.response?.status === 401) {
+        if (typeof window !== 'undefined') {
+          localStorage.removeItem('authToken');
+          window.location.href = '/auth/login';
+        }
+      }
+      
+      return Promise.reject(error);
+    }
+  );
+
+  return apiClient;
+}
 
 // Get auth token
 export const getAuthToken = () => {
@@ -15,70 +89,14 @@ export const getAuthToken = () => {
   return null;
 };
 
-// API client instance
-const apiClient = axios.create({
-  baseURL: API_BASE_URL,
-  headers: {
-    'Content-Type': 'application/json'
-  },
-  timeout: REQUEST_TIMEOUT
-});
-
-// Add auth token to requests
-apiClient.interceptors.request.use((config) => {
-  const token = getAuthToken();
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
-  }
-  return config;
-}, (error) => {
-  console.error('[API_REQUEST_ERROR]', error);
-  return Promise.reject(error);
-});
-
-// Handle response errors and logging
-apiClient.interceptors.response.use(
-  (response) => {
-    // Log successful responses in development
-    if (process.env.NEXT_PUBLIC_DEBUG_MODE === 'true') {
-      console.log(`[API_SUCCESS] ${response.config.method?.toUpperCase()} ${response.config.url}`, response.status);
-    }
-    return response;
-  },
-  (error) => {
-    // Handle different error scenarios
-    const errorInfo = handleApiError(error);
-    
-    if (process.env.NEXT_PUBLIC_DEBUG_MODE === 'true') {
-      console.error('[API_ERROR]', {
-        url: error.config?.url,
-        method: error.config?.method,
-        status: error.response?.status,
-        message: errorInfo.message,
-        data: error.response?.data
-      });
-    }
-    
-    // Handle 401 (Unauthorized) - redirect to login
-    if (error.response?.status === 401) {
-      if (typeof window !== 'undefined') {
-        localStorage.removeItem('authToken');
-        window.location.href = '/auth/login';
-      }
-    }
-    
-    return Promise.reject(error);
-  }
-);
-
 // Auth APIs
 export const authAPI = {
-  register: (data) => apiClient.post('/auth/register', data),
-  login: (data) => apiClient.post('/auth/login', data),
-  forgotPassword: (email) => apiClient.post('/auth/forgot-password', { email }),
-  resetPassword: (token, password) => apiClient.post('/auth/reset-password', { token, password }),
-  getCurrentUser: () => apiClient.get('/auth/me'),
-  updateProfile: (data) => apiClient.put('/auth/me', data),
+  register: (data) => createAPIClient().post('/auth/register', data),
+  login: (data) => createAPIClient().post('/auth/login', data),
+  forgotPassword: (email) => createAPIClient().post('/auth/forgot-password', { email }),
+  resetPassword: (token, password) => createAPIClient().post('/auth/reset-password', { token, password }),
+  getCurrentUser: () => createAPIClient().get('/auth/me'),
+  updateProfile: (data) => createAPIClient().put('/auth/me', data),
   logout: () => {
     if (typeof window !== 'undefined') {
       localStorage.removeItem('authToken');
@@ -89,30 +107,30 @@ export const authAPI = {
 // Story APIs with enhanced error handling
 export const storyAPI = {
   createProject: (data) => 
-    retryWithBackoff(() => apiClient.post('/story/create', data), 3, 1000),
+    retryWithBackoff(() => createAPIClient().post('/story/create', data), 3, 1000),
   
   getProjects: (limit = 10, offset = 0) => 
-    apiClient.get('/story', { params: { limit, offset } }),
+    createAPIClient().get('/story', { params: { limit, offset } }),
   
   listStories: (limit = 10, offset = 0) => 
-    apiClient.get('/story', { params: { limit, offset } }),
+    createAPIClient().get('/story', { params: { limit, offset } }),
   
   getProject: (projectId) => 
-    apiClient.get(`/story/${projectId}`),
+    createAPIClient().get(`/story/${projectId}`),
   
   updateProject: (projectId, data) => 
-    apiClient.put(`/story/${projectId}`, data),
+    createAPIClient().put(`/story/${projectId}`, data),
   
   deleteProject: (projectId) => 
-    apiClient.delete(`/story/${projectId}`),
+    createAPIClient().delete(`/story/${projectId}`),
   
   uploadPhoto: (projectId, file) => {
     const formData = new FormData();
     formData.append('photo', file);
     return retryWithBackoff(
-      () => apiClient.post(`/story/${projectId}/upload-photo`, formData, {
+      () => createAPIClient().post(`/story/${projectId}/upload-photo`, formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
-        timeout: 60000 // Longer timeout for file upload
+        timeout: 60000
       }),
       3,
       1000
@@ -121,19 +139,19 @@ export const storyAPI = {
   
   generateStory: (projectId, customPrompt = null, storyLanguage = 'en') => 
     retryWithBackoff(
-      () => apiClient.post(`/story/${projectId}/generate-story`, { customPrompt, storyLanguage }, {
-        timeout: 120000 // Very long timeout for AI generation
+      () => createAPIClient().post(`/story/${projectId}/generate-story`, { customPrompt, storyLanguage }, {
+        timeout: 120000
       }),
       2,
       2000
     ),
   
   getStoryContent: (projectId) => 
-    apiClient.get(`/story/${projectId}/content`),
+    createAPIClient().get(`/story/${projectId}/content`),
   
   generateStoryFromImages: (payload) => 
     retryWithBackoff(
-      () => apiClient.post('/story/generate-from-images', payload, {
+      () => createAPIClient().post('/story/generate-from-images', payload, {
         timeout: 120000
       }),
       2,
@@ -141,11 +159,11 @@ export const storyAPI = {
     ),
   
   saveDraft: (payload) => 
-    apiClient.post('/story/save-draft', payload),
+    createAPIClient().post('/story/save-draft', payload),
   
   regenerateStory: (storyId, options) => 
     retryWithBackoff(
-      () => apiClient.post(`/story/${storyId}/regenerate`, options, {
+      () => createAPIClient().post(`/story/${storyId}/regenerate`, options, {
         timeout: 120000
       }),
       2,
@@ -153,18 +171,18 @@ export const storyAPI = {
     ),
   
   getStory: (storyId) => 
-    apiClient.get(`/story/${storyId}`)
+    createAPIClient().get(`/story/${storyId}`)
 };
 
 // Draft Stories APIs
 export const draftAPI = {
-  getDraftStories: () => apiClient.get('/drafts/user'),
-  getDraft: (draftId) => apiClient.get(`/drafts/${draftId}`),
-  createDraft: (data) => apiClient.post('/drafts', data),
-  updateDraft: (draftId, data) => apiClient.put(`/drafts/${draftId}`, data),
-  deleteDraft: (draftId) => apiClient.delete(`/drafts/${draftId}`),
-  publishDraft: (draftId) => apiClient.post(`/drafts/${draftId}/publish`),
-  saveDraftProgress: (draftId, data) => apiClient.put(`/drafts/${draftId}`, data)
+  getDraftStories: () => createAPIClient().get('/drafts/user'),
+  getDraft: (draftId) => createAPIClient().get(`/drafts/${draftId}`),
+  createDraft: (data) => createAPIClient().post('/drafts', data),
+  updateDraft: (draftId, data) => createAPIClient().put(`/drafts/${draftId}`, data),
+  deleteDraft: (draftId) => createAPIClient().delete(`/drafts/${draftId}`),
+  publishDraft: (draftId) => createAPIClient().post(`/drafts/${draftId}/publish`),
+  saveDraftProgress: (draftId, data) => createAPIClient().put(`/drafts/${draftId}`, data)
 };
 
 // Add draft methods to storyAPI for convenience
@@ -180,51 +198,52 @@ storyAPI.saveDraftProgress = draftAPI.saveDraftProgress;
 export const paymentAPI = {
   createCheckout: (data) => 
     retryWithBackoff(
-      () => apiClient.post('/payment/checkout', data),
+      () => createAPIClient().post('/payment/checkout', data),
       3,
       1000
     ),
   
   confirmPayment: (data) => 
     retryWithBackoff(
-      () => apiClient.post('/payment/confirm-payment', data),
+      () => createAPIClient().post('/payment/confirm-payment', data),
       3,
       1000
     ),
   
   verifyPayment: (sessionId) => 
-    apiClient.get(`/payment/verify/${sessionId}`),
+    createAPIClient().get(`/payment/verify/${sessionId}`),
   
   getOrder: (orderId) => 
-    apiClient.get(`/payment/order/${orderId}`),
+    createAPIClient().get(`/payment/order/${orderId}`),
   
   getUserOrders: () => 
-    apiClient.get('/payment/user/orders'),
+    createAPIClient().get('/payment/user/orders'),
   
   getPDF: (projectId) => 
-    apiClient.get(`/payment/pdf/${projectId}`, {
+    createAPIClient().get(`/payment/pdf/${projectId}`, {
       responseType: 'blob'
     })
 };
 
 // Currency APIs
 export const currencyAPI = {
-  getSupportedCurrencies: () => apiClient.get('/currency/supported'),
+  getSupportedCurrencies: () => createAPIClient().get('/currency/supported'),
   
   getExchangeRates: (from = 'USD', to = null) => 
-    apiClient.get('/currency/rates', { params: { from, to } }),
+    createAPIClient().get('/currency/rates', { params: { from, to } }),
   
   convertCurrency: (data) => 
-    apiClient.post('/currency/convert', data),
+    createAPIClient().post('/currency/convert', data),
   
   getPricing: (data) => 
-    apiClient.post('/currency/pricing', data),
+    createAPIClient().post('/currency/pricing', data),
   
   detectCurrency: () => 
-    apiClient.get('/currency/detect'),
+    createAPIClient().get('/currency/detect'),
   
   refreshRates: () => 
-    retryWithBackoff(() => apiClient.post('/currency/refresh-rates'), 2, 1000)
+    retryWithBackoff(() => createAPIClient().post('/currency/refresh-rates'), 2, 1000)
 };
 
-export default apiClient;
+// Note: Default export removed since apiClient no longer exists at module level
+// Use the named exports (authAPI, storyAPI, paymentAPI, etc.) instead
