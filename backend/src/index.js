@@ -51,17 +51,22 @@ console.log('   Allowed Origins:', allowedCorsOrigins);
 // Configure CORS properly with callback function
 const corsOptions = {
   origin: function (origin, callback) {
+    console.log(`[CORS] Request from origin: ${origin || 'none'}`);
+    console.log(`[CORS] Whitelist check: ${allowedCorsOrigins.includes(origin)}`);
+    
     // For requests with no origin (like mobile apps or Curl requests)
     if (!origin) {
+      console.log('[CORS] No origin detected, allowing');
       return callback(null, true);
     }
 
     // Check if origin is in whitelist
     if (allowedCorsOrigins.includes(origin)) {
+      console.log(`[CORS] ✅ Origin ALLOWED: ${origin}`);
       callback(null, true);
     } else {
       // Still allow but log it
-      console.warn(`⚠️ CORS request from unknown origin: ${origin}, allowing anyway`);
+      console.warn(`[CORS] ⚠️ Origin NOT in whitelist: ${origin}, allowing anyway`);
       callback(null, true);
     }
   },
