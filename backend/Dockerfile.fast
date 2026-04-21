@@ -13,7 +13,7 @@ ENV NODE_ENV=production
 ENV NODE_OPTIONS=--max-old-space-size=512
 
 # Copy package files
-COPY backend/package*.json ./
+COPY package*.json ./
 
 # Install ONLY production dependencies - skip optional
 RUN npm ci \
@@ -26,7 +26,7 @@ RUN npm ci \
     && npm cache clean --force
 
 # Copy application
-COPY backend/src ./src
+COPY src ./src
 
 # Set environment
 EXPOSE 5000
