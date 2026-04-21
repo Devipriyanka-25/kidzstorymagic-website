@@ -2,6 +2,14 @@
 import axios from 'axios';
 import { retryWithBackoff, handleApiError } from './advancedErrorHandler';
 
+// Get auth token
+export const getAuthToken = () => {
+  if (typeof window !== 'undefined') {
+    return localStorage.getItem('authToken');
+  }
+  return null;
+};
+
 // Get API base URL dynamically at RUNTIME, not at build time
 // This ensures environment variables and window detection work correctly
 function getAPIBaseURL() {
@@ -79,15 +87,6 @@ function createAPIClient() {
   );
 
   return apiClient;
-}
-
-// Get auth token
-export const getAuthToken = () => {
-  if (typeof window !== 'undefined') {
-    return localStorage.getItem('authToken');
-  }
-  return null;
-};
 
 // Auth APIs
 export const authAPI = {
