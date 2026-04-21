@@ -54,10 +54,13 @@ app.use((req, res, next) => {
   
   // EXPLICIT ALLOW for production domains
   if (allowedCorsOrigins.includes(origin)) {
-    res.header('Access-Control-Allow-Origin', origin);
-    res.header('Access-Control-Allow-Credentials', 'true');
-    res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS');
-    res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+    res.set('Access-Control-Allow-Origin', origin);
+    res.set('Access-Control-Allow-Credentials', 'true');
+    res.set('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS');
+    res.set('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
+  } else if (origin) {
+    // Log unknown origins but still allow OPTIONS for development
+    console.warn(`⚠️ CORS request from unrecognized origin: ${origin}`);
   }
   
   // Handle preflight requests
@@ -68,29 +71,7 @@ app.use((req, res, next) => {
   next();
 });
 
-// Also apply cors library as backup
-const corsOptions = {
-  origin: function(origin, callback) {
-    // Always allow if no origin (same-site requests)
-    if (!origin) return callback(null, true);
-    
-    // Check if origin is in whitelist
-    if (allowedCorsOrigins.includes(origin)) {
-      return callback(null, true);
-    }
-    
-    // If not in whitelist, still allow for development but log warning
-    console.warn(`⚠️ CORS request from unrecognized origin: ${origin}`);
-    callback(null, true); // Allow to pass through to manual middleware
-  },
-  credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
-  optionsSuccessStatus: 200
-};
-
-app.use(cors(corsOptions));
-app.options('*', cors(corsOptions));
+// DO NOT use cors library - it interferes with our manual headers
 
 // Security middleware (after CORS)
 app.use(helmet({
