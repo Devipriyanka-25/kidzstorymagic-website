@@ -1,11 +1,25 @@
 {
   "version": 2,
-  "buildCommand": "npm ci --legacy-peer-deps && next build",
+  "buildCommand": "npm ci --legacy-peer-deps && npm run build",
   "outputDirectory": ".next",
   "framework": "nextjs",
   "env": {
-    "NEXT_PUBLIC_API_URL": "@next_public_api_url"
+    "NEXT_PUBLIC_API_URL": "@next_public_api_url",
+    "NODE_ENV": "production",
+    "DB_HOST": "@db_host",
+    "DB_PORT": "@db_port",
+    "DB_NAME": "@db_name",
+    "DB_USER": "@db_user",
+    "DB_PASSWORD": "@db_password",
+    "JWT_SECRET": "@jwt_secret",
+    "OPENAI_API_KEY": "@openai_api_key",
+    "AZURE_VISION_KEY": "@azure_vision_key",
+    "AZURE_VISION_ENDPOINT": "@azure_vision_endpoint",
+    "STRIPE_SECRET_KEY": "@stripe_secret_key"
   },
-  "ignore": ["backend/**", ".github/**", "docs/**", "scripts/**"],
-  "public": true
+  "ignore": [".github/**", "docs/**", "scripts/**"],
+  "public": true,
+  "rewrites": [
+    { "source": "/api/(.*)", "destination": "/api" }
+  ]
 }
