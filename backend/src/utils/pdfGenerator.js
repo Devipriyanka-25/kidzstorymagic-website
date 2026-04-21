@@ -1,8 +1,16 @@
 // PDF Generation Utilities
-const puppeteer = require('puppeteer');
 const fs = require('fs').promises;
 const path = require('path');
 const config = require('../config/config');
+
+// Try to load puppeteer, but don't fail if it's not available
+let puppeteer;
+try {
+  puppeteer = require('puppeteer');
+} catch (err) {
+  console.warn('⚠️  Puppeteer not installed - PDF generation will not be available');
+  puppeteer = null;
+}
 
 class PDFGenerator {
   /**
@@ -124,6 +132,11 @@ class PDFGenerator {
    * Generate PDF from HTML
    */
   static async generatePDFFromHTML(htmlContent, outputPath) {
+    // Check if puppeteer is available
+    if (!puppeteer) {
+      throw new Error('PDF generation is not available - Puppeteer library not installed');
+    }
+
     let browser;
     try {
       browser = await puppeteer.launch({
@@ -144,7 +157,7 @@ class PDFGenerator {
       return outputPath;
     } catch (err) {
       console.error('PDF generation failed:', err);
-      throw new Error('Failed to generate PDF');
+      throw new Error('Failed to generate PDF: ' + err.message);
     } finally {
       if (browser) {
         await browser.close();
