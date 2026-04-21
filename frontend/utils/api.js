@@ -5,18 +5,21 @@ import { retryWithBackoff, handleApiError } from './advancedErrorHandler';
 // Get the API base URL dynamically to ensure runtime evaluation
 function getAPIBaseURL() {
   if (typeof window === 'undefined') {
-    // Server-side: default to /api
+    console.log('[getAPIBaseURL] Server-side rendering - returning /api');
     return '/api';
   }
   
   const hostname = window.location.hostname;
+  console.log('[getAPIBaseURL] Hostname:', hostname);
   
   // Local development
   if (hostname === 'localhost' || hostname === '127.0.0.1' || hostname.startsWith('192.168')) {
+    console.log('[getAPIBaseURL] Local development detected - returning http://localhost:5000/api');
     return 'http://localhost:5000/api';
   }
   
   // Production: use /api to route through Vercel proxy
+  console.log('[getAPIBaseURL] Production detected - returning /api');
   return '/api';
 }
 
@@ -24,9 +27,7 @@ function getAPIBaseURL() {
 function createAPIClient() {
   const baseURL = getAPIBaseURL();
   
-  if (typeof window !== 'undefined') {
-    console.log('[API_CLIENT] Creating client with baseURL:', baseURL, 'hostname:', window.location.hostname);
-  }
+  console.log('[createAPIClient] Creating axios instance with baseURL:', baseURL);
   
   const apiClient = axios.create({
     baseURL,
@@ -96,8 +97,18 @@ export const getAuthToken = () => {
 
 // Auth APIs
 export const authAPI = {
-  register: (data) => createAPIClient().post('/auth/register', data),
-  login: (data) => createAPIClient().post('/auth/login', data),
+  register: (data) => {
+    console.log('[authAPI.register] Called - creating client');
+    const client = createAPIClient();
+    console.log('[authAPI.register] Client created, posting to /auth/register');
+    return client.post('/auth/register', data);
+  },
+  login: (data) => {
+    console.log('[authAPI.login] Called - creating client');
+    const client = createAPIClient();
+    console.log('[authAPI.login] Client created, posting to /auth/login');
+    return client.post('/auth/login', data);
+  },
   forgotPassword: (email) => createAPIClient().post('/auth/forgot-password', { email }),
   resetPassword: (token, password) => createAPIClient().post('/auth/reset-password', { token, password }),
   getCurrentUser: () => createAPIClient().get('/auth/me'),
