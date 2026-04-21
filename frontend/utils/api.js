@@ -2,7 +2,11 @@
 import axios from 'axios';
 import { retryWithBackoff, handleApiError } from './advancedErrorHandler';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
+// Use Vercel API proxy routes in production, local backend in development
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 
+  (typeof window !== 'undefined' && window.location.hostname.includes('vercel') 
+    ? '/api'  // Proxy through Vercel to Railway (bypasses CORS)
+    : 'http://localhost:5000/api');
 
 // Request timeout (30 seconds)
 const REQUEST_TIMEOUT = 30000;
