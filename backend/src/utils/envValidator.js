@@ -70,6 +70,12 @@ function setDefaults() {
     console.warn('⚠️  Using default CORS_ORIGIN');
   }
 
+  // Fix incorrect CORS_ORIGIN that may be set by Railway
+  if (process.env.CORS_ORIGIN === 'https://railway.com') {
+    console.warn('⚠️  Detected incorrect CORS_ORIGIN (https://railway.com), resetting to default');
+    process.env.CORS_ORIGIN = 'https://kidzstorymagic-website.vercel.app,http://localhost:3000';
+  }
+
   // Stripe - use test keys if not set
   if (isBlank(process.env.STRIPE_SECRET_KEY)) {
     process.env.STRIPE_SECRET_KEY = 'sk_test_dummy_key_for_testing';
