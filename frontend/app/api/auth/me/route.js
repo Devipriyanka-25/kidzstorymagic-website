@@ -1,88 +1,54 @@
-// GET/PUT /api/auth/me - Get or update current user profile
-import User from '@/lib/User';
-import { authenticateRequest } from '@/lib/jwt';
+// Proxy: GET/PUT /api/auth/me -> Railway backend
+import { NextResponse } from 'next/server';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET(request) {
   try {
-    const decoded = authenticateRequest(request);
-    if (!decoded || !decoded.id) {
-      return new Response(JSON.stringify({
-        success: false,
-        error: 'No token provided'
-      }), { status: 401, headers: { 'Content-Type': 'application/json' } });
-    }
+    const railwayUrl = process.env.RAILWAY_API_URL || 'https://kidzstorymagic-api.railway.app';
+    const authHeader = request.headers.get('Authorization');
 
-    const user = await User.findById(decoded.id);
-    
-    if (!user) {
-      return new Response(JSON.stringify({
-        success: false,
-        error: 'User not found'
-      }), { status: 404, headers: { 'Content-Type': 'application/json' } });
-    }
+    const response = await fetch(`${railwayUrl}/api/auth/me`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(authHeader && { Authorization: authHeader }),
+      },
+    });
 
-    return new Response(JSON.stringify({
-      success: true,
-      data: user
-    }), { status: 200, headers: { 'Content-Type': 'application/json' } });
-
-  } catch (err) {
-    console.error('[AUTH_ME_GET] Error:', err.message);
-    return new Response(JSON.stringify({
-      success: false,
-      error: 'Failed to fetch user',
-      details: err.message
-    }), { status: 500, headers: { 'Content-Type': 'application/json' } });
+    const data = await response.json();
+    return NextResponse.json(data, { status: response.status });
+  } catch (error) {
+    console.error('[PROXY_ME_GET] Error:', error.message);
+    return NextResponse.json(
+      { error: 'Backend error', details: error.message },
+      { status: 500 }
+    );
   }
 }
 
 export async function PUT(request) {
   try {
-    const decoded = authenticateRequest(request);
-    if (!decoded || !decoded.id) {
-      return new Response(JSON.stringify({
-        success: false,
-        error: 'No token provided'
-      }), { status: 401, headers: { 'Content-Type': 'application/json' } });
-    }
-
     const body = await request.json();
-    const { name, profilePictureUrl, preferredCurrency, location } = body;
+    const railwayUrl = process.env.RAILWAY_API_URL || 'https://kidzstorymagic-api.railway.app';
+    const authHeader = request.headers.get('Authorization');
 
-    // Validate currency if provided
-    if (preferredCurrency && !['USD', 'CAD', 'GBP', 'EUR', 'AUD', 'INR'].includes(preferredCurrency)) {
-      return new Response(JSON.stringify({
-        success: false,
-        error: 'Invalid preferred currency'
-      }), { status: 400, headers: { 'Content-Type': 'application/json' } });
-    }
-
-    const user = await User.update(decoded.id, {
-      name,
-      profile_picture_url: profilePictureUrl,
-      preferred_currency: preferredCurrency,
-      location
+    const response = await fetch(`${railwayUrl}/api/auth/me`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(authHeader && { Authorization: authHeader }),
+      },
+      body: JSON.stringify(body),
     });
 
-    console.log('[AUTH_ME_PUT] User updated:', {
-      userId: decoded.id,
-      timestamp: new Date().toISOString()
-    });
-
-    return new Response(JSON.stringify({
-      success: true,
-      message: 'Profile updated successfully',
-      data: user
-    }), { status: 200, headers: { 'Content-Type': 'application/json' } });
-
-  } catch (err) {
-    console.error('[AUTH_ME_PUT] Error:', err.message);
-    return new Response(JSON.stringify({
-      success: false,
-      error: 'Failed to update profile',
-      details: err.message
-    }), { status: 500, headers: { 'Content-Type': 'application/json' } });
+    const data = await response.json();
+    return NextResponse.json(data, { status: response.status });
+  } catch (error) {
+    console.error('[PROXY_ME_PUT] Error:', error.message);
+    return NextResponse.json(
+      { error: 'Backend error', details: error.message },
+      { status: 500 }
+    );
   }
 }
