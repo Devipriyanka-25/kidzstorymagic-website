@@ -18,8 +18,5 @@
     "STRIPE_SECRET_KEY": "@stripe_secret_key"
   },
   "ignore": [".github/**", "docs/**", "scripts/**"],
-  "public": true,
-  "rewrites": [
-    { "source": "/api/(.*)", "destination": "/api" }
-  ]
+  "public": true
 }
