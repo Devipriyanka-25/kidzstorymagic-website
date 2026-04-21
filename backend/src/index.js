@@ -70,7 +70,19 @@ app.use((req, res, next) => {
 
 // Also apply cors library as backup
 const corsOptions = {
-  origin: allowedCorsOrigins,
+  origin: function(origin, callback) {
+    // Always allow if no origin (same-site requests)
+    if (!origin) return callback(null, true);
+    
+    // Check if origin is in whitelist
+    if (allowedCorsOrigins.includes(origin)) {
+      return callback(null, true);
+    }
+    
+    // If not in whitelist, still allow for development but log warning
+    console.warn(`⚠️ CORS request from unrecognized origin: ${origin}`);
+    callback(null, true); // Allow to pass through to manual middleware
+  },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
