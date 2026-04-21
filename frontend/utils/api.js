@@ -2,30 +2,17 @@
 import axios from 'axios';
 import { retryWithBackoff, handleApiError } from './advancedErrorHandler';
 
-// API URL Configuration:
-// - Vercel production: Use /api (local proxy routes)
-// - Local dev: Use localhost:5000
-// - Custom override: Use NEXT_PUBLIC_API_URL env var
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || (() => {
-  if (typeof window === 'undefined') {
-    // Server-side rendering
-    return '/api';
-  }
-  
-  const hostname = window.location.hostname;
-  
-  // Local development
-  if (hostname === 'localhost' || hostname === '127.0.0.1') {
-    return 'http://localhost:5000/api';
-  }
-  
-  // Production/Deployed - use local API proxy routes
-  return '/api';
-})();
+// API URL Configuration
+// Local development: http://localhost:5000/api
+// Production: /api (uses Vercel proxy routes to bypass Railway CORS)
+let API_BASE_URL = '/api';
 
-// DEBUG: Log API configuration
 if (typeof window !== 'undefined') {
-  console.log('[API_CLIENT] Configuration:', { API_BASE_URL, hostname: window.location.hostname });
+  const hostname = window.location.hostname;
+  if (hostname === 'localhost' || hostname === '127.0.0.1' || hostname.startsWith('192.168')) {
+    API_BASE_URL = 'http://localhost:5000/api';
+  }
+  console.log('[API_CLIENT] API_BASE_URL:', API_BASE_URL, '| Hostname:', hostname);
 }
 
 // Request timeout (30 seconds)
