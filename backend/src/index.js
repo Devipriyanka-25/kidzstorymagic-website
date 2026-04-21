@@ -48,34 +48,34 @@ console.log('🔐 CORS Configuration:');
 console.log('   Environment:', process.env.NODE_ENV);
 console.log('   Allowed Origins:', allowedCorsOrigins);
 
-// Manual CORS middleware - direct header setting to ensure it works
-app.use((req, res, next) => {
-  const origin = req.headers.origin;
-  
-  // CRITICAL: Always remove any bad CORS headers first
-  res.removeHeader('Access-Control-Allow-Origin');
-  
-  // EXPLICIT ALLOW for production domains
-  if (allowedCorsOrigins.includes(origin)) {
-    res.set('Access-Control-Allow-Origin', origin);
-    res.set('Access-Control-Allow-Credentials', 'true');
-    res.set('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS');
-    res.set('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
-    console.log(`✅ CORS allowed for origin: ${origin}`);
-  } else if (origin) {
-    // Explicitly DENY unknown origins (do not set CORS headers)
-    console.warn(`❌ CORS DENIED for origin: ${origin}`);
-  }
-  
-  // Handle preflight requests
-  if (req.method === 'OPTIONS') {
-    return res.status(200).end();
-  }
-  
-  next();
-});
+// Configure CORS properly with callback function
+const corsOptions = {
+  origin: function (origin, callback) {
+    // For requests with no origin (like mobile apps or Curl requests)
+    if (!origin) {
+      return callback(null, true);
+    }
 
-// DO NOT use cors library - it interferes with our manual headers
+    // Check if origin is in whitelist
+    if (allowedCorsOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      // Still allow but log it
+      console.warn(`⚠️ CORS request from unknown origin: ${origin}, allowing anyway`);
+      callback(null, true);
+    }
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+  optionsSuccessStatus: 200
+};
+
+// Apply CORS middleware
+app.use(cors(corsOptions));
+
+// Also handle preflight manually as backup
+app.options('*', cors(corsOptions));
 
 // Security middleware (after CORS)
 app.use(helmet({
