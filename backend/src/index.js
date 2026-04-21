@@ -1,6 +1,6 @@
 // Backend Server Entry Point
 const express = require('express');
-const cors = require('cors');
+// const cors = require('cors'); // NOT USING - we have custom CORS middleware
 const helmet = require('helmet');
 const morgan = require('morgan');
 const compression = require('compression');
@@ -48,43 +48,69 @@ console.log('🔐 CORS Configuration:');
 console.log('   Environment:', process.env.NODE_ENV);
 console.log('   Allowed Origins:', allowedCorsOrigins);
 
-// Configure CORS properly with callback function
-const corsOptions = {
-  origin: function (origin, callback) {
-    console.log(`[CORS] Request from origin: ${origin || 'none'}`);
-    console.log(`[CORS] Whitelist check: ${allowedCorsOrigins.includes(origin)}`);
+// AGGRESSIVE CORS middleware - runs FIRST and CLEANS UP any bad headers
+app.use((req, res, next) => {
+  const origin = req.headers.origin;
+  
+  console.log(`[CORS] Incoming request from: ${origin || 'none'}`);
+  
+  // CRITICAL: Intercept and fix headers BEFORE they're sent
+  const originalSend = res.send;
+  res.send = function(data) {
+    // Remove any bad CORS headers that might have been set
+    res.removeHeader('Access-Control-Allow-Origin');
+    res.removeHeader('Access-Control-Allow-Credentials');
+    res.removeHeader('Access-Control-Allow-Methods');
+    res.removeHeader('Access-Control-Allow-Headers');
     
-    // For requests with no origin (like mobile apps or Curl requests)
-    if (!origin) {
-      console.log('[CORS] No origin detected, allowing');
-      return callback(null, true);
+    // Set correct headers based on origin
+    if (origin && allowedCorsOrigins.includes(origin)) {
+      res.set('Access-Control-Allow-Origin', origin);
+      res.set('Access-Control-Allow-Credentials', 'true');
+      res.set('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS');
+      res.set('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
+      console.log(`[CORS] ✅ Applied CORS for: ${origin}`);
+    } else if (origin) {
+      // Still set CORS for unknown origins (permissive mode)
+      res.set('Access-Control-Allow-Origin', origin);
+      res.set('Access-Control-Allow-Credentials', 'true');
+      res.set('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS');
+      res.set('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
+      console.log(`[CORS] ⚠️ Applied CORS for unknown origin: ${origin}`);
     }
-
-    // Check if origin is in whitelist
-    if (allowedCorsOrigins.includes(origin)) {
-      console.log(`[CORS] ✅ Origin ALLOWED: ${origin}`);
-      callback(null, true);
-    } else {
-      // Still allow but log it
-      console.warn(`[CORS] ⚠️ Origin NOT in whitelist: ${origin}, allowing anyway`);
-      callback(null, true);
+    
+    // Call original send
+    return originalSend.call(this, data);
+  };
+  
+  // Handle preflight requests
+  if (req.method === 'OPTIONS') {
+    // Clean up any bad headers
+    res.removeHeader('Access-Control-Allow-Origin');
+    
+    // Set correct headers
+    if (origin && allowedCorsOrigins.includes(origin)) {
+      res.set('Access-Control-Allow-Origin', origin);
+    } else if (origin) {
+      res.set('Access-Control-Allow-Origin', origin);
     }
-  },
-  credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
-  optionsSuccessStatus: 200
-};
+    res.set('Access-Control-Allow-Credentials', 'true');
+    res.set('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS');
+    res.set('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
+    res.set('Access-Control-Max-Age', '86400');
+    
+    console.log(`[CORS] ✅ Handling preflight for: ${origin}`);
+    return res.status(200).end();
+  }
+  
+  next();
+});
 
-// Apply CORS middleware
-app.use(cors(corsOptions));
-
-// Also handle preflight manually as backup
-app.options('*', cors(corsOptions));
-
-// Security middleware (after CORS)
+// Security middleware (AFTER CORS - but allow CORS headers)
 app.use(helmet({
-  crossOriginResourcePolicy: false
+  crossOriginResourcePolicy: false,
+  crossOriginOpenerPolicy: false,
+  crossOriginEmbedderPolicy: false
 }));
 
 // Rate limiting
