@@ -2,8 +2,16 @@
 import axios from 'axios';
 import { retryWithBackoff, handleApiError } from './advancedErrorHandler';
 
+// TEST: Simple hardcoded API client creator to verify deployments are working
+function getTestURL() {
+  console.log('TEST_FUNCTION_CALLED - This proves the code was updated');
+  return '/api';
+}
+
 // Get the API base URL dynamically to ensure runtime evaluation
 function getAPIBaseURL() {
+  const testUrl = getTestURL(); // Call test function to prove code was updated
+  
   if (typeof window === 'undefined') {
     console.log('[getAPIBaseURL] Server-side rendering - returning /api');
     return '/api';
