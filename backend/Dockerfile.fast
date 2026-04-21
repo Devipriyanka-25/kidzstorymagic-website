@@ -15,10 +15,12 @@ ENV NODE_OPTIONS=--max-old-space-size=512
 # Copy package files
 COPY package*.json ./
 
-# Install ONLY production dependencies - skip optional (puppeteer, face-api.js, aws-sdk)
+# Install production dependencies with aggressive optimization
+# Skip ALL native module compilation using --ignore-scripts
 RUN npm ci \
     --only=production \
     --omit=optional \
+    --ignore-scripts \
     --prefer-offline \
     --legacy-peer-deps \
     --no-fund \
