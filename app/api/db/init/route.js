@@ -4,30 +4,30 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 export async function POST(request) {
-  let pool = null;
   try {
-    console.log('[DB_INIT] Start - DATABASE_URL exists:', !!process.env.DATABASE_URL);
-    
-    // Dynamic import for pg
+    console.log('[DB_INIT] Starting database initialization...');
+    console.log('[DB_INIT] DATABASE_URL:', process.env.DATABASE_URL ? 'SET' : 'NOT SET');
+
     const { Pool } = await import('pg');
-    
+    console.log('[DB_INIT] pg module imported successfully');
+
     const connectionUrl = process.env.DATABASE_URL;
     if (!connectionUrl) {
-      return NextResponse.json({ error: 'No DATABASE_URL' }, { status: 400 });
+      console.log('[DB_INIT] ERROR: DATABASE_URL not set');
+      return NextResponse.json({ error: 'DATABASE_URL not configured' }, { status: 400 });
     }
 
-    console.log('[DB_INIT] Creating pool with connection URL...');
-    pool = new Pool({
+    const pool = new Pool({
       connectionString: connectionUrl,
       ssl: { rejectUnauthorized: false }
     });
 
-    console.log('[DB_INIT] Testing connection...');
-    const testResult = await pool.query('SELECT NOW()');
-    console.log('[DB_INIT] Connection test passed:', testResult.rows[0]);
+    console.log('[DB_INIT] Testing database connection...');
+    const testResult = await pool.query('SELECT NOW() as current_time');
+    console.log('[DB_INIT] Database connection successful:', testResult.rows[0]);
 
     console.log('[DB_INIT] Creating auth_users table...');
-    const createTable = await pool.query(`
+    await pool.query(`
       CREATE TABLE IF NOT EXISTS auth_users (
         id SERIAL PRIMARY KEY,
         name VARCHAR(255) NOT NULL,
@@ -41,29 +41,23 @@ export async function POST(request) {
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `);
-    console.log('[DB_INIT] Table created');
+    console.log('[DB_INIT] auth_users table created/verified');
 
     await pool.query(`CREATE INDEX IF NOT EXISTS idx_auth_users_email ON auth_users(email)`);
-    console.log('[DB_INIT] Index created');
+    console.log('[DB_INIT] Index created/verified');
 
-    return NextResponse.json({
-      message: 'Database initialized successfully',
-      tables: ['auth_users']
-    }, { status: 200 });
+    await pool.end();
 
+    return NextResponse.json(
+      { message: 'Database initialized successfully', tables: ['auth_users'] },
+      { status: 200 }
+    );
   } catch (error) {
-    console.error('[DB_INIT] Error:', error.message, error.code);
-    return NextResponse.json({
-      error: 'Database initialization failed',
-      message: error.message
-    }, { status: 500 });
-  } finally {
-    if (pool) {
-      try {
-        await pool.end();
-      } catch (e) {
-        console.error('[DB_INIT] Error closing pool:', e);
-      }
-    }
+    console.error('[DB_INIT] ERROR:', error.message);
+    console.error('[DB_INIT] Stack:', error.stack);
+    return NextResponse.json(
+      { error: 'Database initialization failed', message: error.message, stack: process.env.NODE_ENV === 'development' ? error.stack : undefined },
+      { status: 500 }
+    );
   }
 }
