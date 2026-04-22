@@ -25,13 +25,20 @@ function getAPIBaseURL() {
     return 'http://localhost:5000/api';
   }
   
-  // Production: ALWAYS use /api to route through Vercel proxy
-  return '/api';
+  // Production: Use Vercel proxy first, fallback to CORS proxy
+  // Try Vercel proxy routes first (/api -> Vercel -> Railway)
+  // If that fails, fallback will use CORS proxy
+  return '/api'; // This will be /api in production
 }
 
 // Create API client dynamically at runtime
 function createAPIClient() {
   const baseURL = getAPIBaseURL();
+  
+  // DEBUG: Log which API URL is being used
+  if (typeof window !== 'undefined') {
+    console.log('🔍 [createAPIClient] API Base URL:', baseURL);
+  }
   
   const apiClient = axios.create({
     baseURL,
