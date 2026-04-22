@@ -4,8 +4,8 @@
  */
 
 import { NextResponse } from 'next/server';
-import bcrypt from 'bcryptjs';
-import jwt from 'jsonwebtoken';
+const bcrypt = require('bcryptjs');
+const jwt = require('jsonwebtoken');
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';

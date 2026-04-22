@@ -4,7 +4,7 @@
  */
 
 import { NextResponse } from 'next/server';
-import jwt from 'jsonwebtoken';
+const jwt = require('jsonwebtoken');
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
