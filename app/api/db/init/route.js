@@ -4,10 +4,11 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 export async function POST(request) {
+  let pool = null;
   try {
     console.log('[DB_INIT] Start - DATABASE_URL exists:', !!process.env.DATABASE_URL);
     
-    // Dynamic require to ensure pg is loaded fresh
+    // Dynamic import for pg
     const { Pool } = await import('pg');
     
     const connectionUrl = process.env.DATABASE_URL;
@@ -16,7 +17,7 @@ export async function POST(request) {
     }
 
     console.log('[DB_INIT] Creating pool with connection URL...');
-    const pool = new Pool({
+    pool = new Pool({
       connectionString: connectionUrl,
       ssl: { rejectUnauthorized: false }
     });
@@ -45,8 +46,6 @@ export async function POST(request) {
     await pool.query(`CREATE INDEX IF NOT EXISTS idx_auth_users_email ON auth_users(email)`);
     console.log('[DB_INIT] Index created');
 
-    await pool.end();
-
     return NextResponse.json({
       message: 'Database initialized successfully',
       tables: ['auth_users']
@@ -58,5 +57,13 @@ export async function POST(request) {
       error: 'Database initialization failed',
       message: error.message
     }, { status: 500 });
+  } finally {
+    if (pool) {
+      try {
+        await pool.end();
+      } catch (e) {
+        console.error('[DB_INIT] Error closing pool:', e);
+      }
+    }
   }
 }

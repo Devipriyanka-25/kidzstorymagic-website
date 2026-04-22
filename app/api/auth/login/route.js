@@ -4,6 +4,8 @@
  */
 
 import { NextResponse } from 'next/server';
+import bcrypt from 'bcryptjs';
+import jwt from 'jsonwebtoken';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -26,8 +28,6 @@ export async function POST(request) {
 
     // Import pg
     const { Pool } = await import('pg');
-    const bcrypt = require('bcryptjs');
-    const jwt = require('jsonwebtoken');
 
     const connectionUrl = process.env.DATABASE_URL;
     const jwtSecret = process.env.JWT_SECRET;
