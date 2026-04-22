@@ -4,12 +4,12 @@
  */
 
 import { NextResponse } from 'next/server';
-import { hashPassword, findUserByEmail, createUser, generateToken } from '@/lib/auth';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 export async function POST(request) {
+  let pool = null;
   try {
     const body = await request.json();
     const { name, email, password, preferredCurrency } = body;
@@ -38,31 +38,66 @@ export async function POST(request) {
 
     console.log('[REGISTER] Processing registration for:', email);
 
+    // Import pg
+    const { Pool } = await import('pg');
+    const bcrypt = require('bcryptjs');
+    const jwt = require('jsonwebtoken');
+
+    const connectionUrl = process.env.DATABASE_URL;
+    const jwtSecret = process.env.JWT_SECRET;
+
+    if (!connectionUrl) {
+      return NextResponse.json(
+        { error: 'Database not configured' },
+        { status: 500 }
+      );
+    }
+
+    pool = new Pool({
+      connectionString: connectionUrl,
+      ssl: { rejectUnauthorized: false }
+    });
+
+    console.log('[REGISTER] Checking if email exists...');
     // Check if user exists
-    const existingUser = await findUserByEmail(email);
-    if (existingUser) {
+    const checkResult = await pool.query(
+      'SELECT id FROM auth_users WHERE email = $1',
+      [email]
+    );
+
+    if (checkResult.rows.length > 0) {
       console.log('[REGISTER] Email already registered:', email);
+      await pool.end();
       return NextResponse.json(
         { error: 'Email already registered' },
         { status: 409 }
       );
     }
 
+    console.log('[REGISTER] Hashing password...');
     // Hash password
-    const passwordHash = await hashPassword(password);
+    const passwordHash = await bcrypt.hash(password, 10);
 
+    console.log('[REGISTER] Creating user...');
     // Create user
-    const user = await createUser({
-      name,
-      email,
-      passwordHash,
-      preferredCurrency: preferredCurrency || 'USD'
-    });
+    const createResult = await pool.query(
+      `INSERT INTO auth_users (name, email, password_hash, preferred_currency, created_at, updated_at)
+       VALUES ($1, $2, $3, $4, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+       RETURNING id, name, email, preferred_currency`,
+      [name, email, passwordHash, preferredCurrency || 'USD']
+    );
 
+    const user = createResult.rows[0];
     console.log('[REGISTER] User created:', user.id);
 
     // Generate token
-    const token = generateToken(user.id);
+    const token = jwt.sign(
+      { id: user.id },
+      jwtSecret || 'your-secret-key',
+      { expiresIn: '7d' }
+    );
+
+    await pool.end();
 
     return NextResponse.json(
       {
@@ -78,6 +113,23 @@ export async function POST(request) {
       { status: 201 }
     );
   } catch (error) {
+    console.error('[REGISTER] Error:', error.message, error.code);
+    if (pool) {
+      try {
+        await pool.end();
+      } catch (e) {
+        console.error('[REGISTER] Error closing pool:', e);
+      }
+    }
+    return NextResponse.json(
+      {
+        error: 'Registration failed',
+        details: error.message
+      },
+      { status: 500 }
+    );
+  }
+}
     console.error('[REGISTER] Error:', error.message);
     return NextResponse.json(
       { error: 'Registration failed', details: error.message },
