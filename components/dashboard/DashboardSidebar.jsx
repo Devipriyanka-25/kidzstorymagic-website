@@ -3,9 +3,11 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { useAuthStore } from '@/utils/store';
 
 export default function DashboardSidebar({ activeTab, setActiveTab, user }) {
   const router = useRouter();
+  const { logout: authLogout } = useAuthStore();
   const [isMobileOpen, setIsMobileOpen] = useState(false);
 
   const tabs = [
@@ -21,10 +23,14 @@ export default function DashboardSidebar({ activeTab, setActiveTab, user }) {
 
   const handleLogout = async () => {
     try {
-      // Clear user data and redirect to home
-      window.location.href = '/';
+      // Clear auth state
+      authLogout();
+      // Redirect to login page
+      router.push('/auth/login');
     } catch (error) {
       console.error('Logout error:', error);
+      // Force redirect even if error
+      router.push('/auth/login');
     }
   };
 
