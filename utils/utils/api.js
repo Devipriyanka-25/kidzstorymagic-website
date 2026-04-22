@@ -2,7 +2,12 @@
 import axios from 'axios';
 import { retryWithBackoff, handleApiError } from './advancedErrorHandler';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
+// FORCE /api in production - this is the proxy route that forwards to Railway
+// In development (localhost), use local backend
+const IS_PRODUCTION = typeof window !== 'undefined' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1';
+const API_BASE_URL = IS_PRODUCTION ? '/api' : (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api');
+
+console.log('🚀 [API_CLIENT] Initialized with baseURL:', API_BASE_URL);
 
 // Request timeout (30 seconds)
 const REQUEST_TIMEOUT = 30000;
