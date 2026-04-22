@@ -1,7 +1,7 @@
 /**
  * Auth Login Endpoint
  * Serverless implementation: POST /api/auth/login
- * Strategy: Supabase REST API → Mock Database Fallback
+ * Strategy: Demo User → Supabase REST API → Mock Database Fallback
  */
 
 import { NextResponse } from 'next/server';
@@ -12,6 +12,14 @@ const jwt = require('jsonwebtoken');
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
+
+// Demo user credentials for testing
+const DEMO_USER = {
+  email: 'demo@example.com',
+  password: 'Demo@123456',
+  name: 'Demo User',
+  id: 'demo_user_001',
+};
 
 export async function POST(request) {
   try {
@@ -30,7 +38,33 @@ export async function POST(request) {
 
     const jwtSecret = process.env.JWT_SECRET || 'kidz-story-magic-jwt-secret-key-2024-production-secure-random-12345';
 
-    // Try Supabase REST API first
+    // Check for demo credentials first
+    if (email === DEMO_USER.email && password === DEMO_USER.password) {
+      console.log('[LOGIN] ✓ Demo user login successful');
+      
+      const token = jwt.sign(
+        { id: DEMO_USER.id, email: DEMO_USER.email, name: DEMO_USER.name },
+        jwtSecret,
+        { expiresIn: '7d' }
+      );
+
+      return NextResponse.json(
+        {
+          message: 'Login successful',
+          user: {
+            id: DEMO_USER.id,
+            name: DEMO_USER.name,
+            email: DEMO_USER.email,
+            preferredCurrency: 'USD',
+          },
+          token,
+          source: 'demo',
+        },
+        { status: 200 }
+      );
+    }
+
+    // Try Supabase REST API
     try {
       console.log('[LOGIN] Attempting Supabase REST API...');
       
@@ -54,54 +88,9 @@ export async function POST(request) {
 
       const users = await response.json();
 
-      if (!users || users.length === 0) {
-        return NextResponse.json(
-          { error: 'Invalid email or password' },
-          { status: 401 }
-        );
-      }
-
-      const user = users[0];
-      const passwordMatch = await bcrypt.compare(password, user.password_hash);
-
-      if (!passwordMatch) {
-        return NextResponse.json(
-          { error: 'Invalid email or password' },
-          { status: 401 }
-        );
-      }
-
-      console.log('[LOGIN] ✓ Supabase login successful');
-
-      const token = jwt.sign(
-        { id: user.id, email: user.email },
-        jwtSecret,
-        { expiresIn: '7d' }
-      );
-
-      return NextResponse.json(
-        {
-          message: 'Login successful',
-          user: {
-            id: user.id,
-            name: user.name,
-            email: user.email,
-            preferredCurrency: user.preferred_currency,
-          },
-          token,
-          source: 'supabase',
-        },
-        { status: 200 }
-      );
-    } catch (supabaseErr) {
-      console.log('[LOGIN] Supabase failed:', supabaseErr.message, '- Checking user store');
-
-      // Fallback: Check shared user store (may work if requests hit same container)
-      const demoUser = userStore.getUser(email);
-
-      if (demoUser) {
-        console.log('[LOGIN] ✓ Found user in shared store');
-        const passwordMatch = await bcrypt.compare(password, demoUser.passwordHash);
+      if (users && users.length > 0) {
+        const user = users[0];
+        const passwordMatch = await bcrypt.compare(password, user.password_hash);
 
         if (!passwordMatch) {
           return NextResponse.json(
@@ -110,41 +99,82 @@ export async function POST(request) {
           );
         }
 
+        console.log('[LOGIN] ✓ Supabase login successful');
+
         const token = jwt.sign(
-          { id: demoUser.id, email: demoUser.email },
+          { id: user.id, email: user.email, name: user.name },
           jwtSecret,
           { expiresIn: '7d' }
         );
 
         return NextResponse.json(
           {
-            message: 'Login successful (shared store)',
+            message: 'Login successful',
             user: {
-              id: demoUser.id,
-              name: demoUser.name,
-              email: demoUser.email,
-              preferredCurrency: demoUser.preferredCurrency,
+              id: user.id,
+              name: user.name,
+              email: user.email,
+              preferredCurrency: user.preferred_currency,
             },
             token,
-            source: 'shared-store',
+            source: 'supabase',
           },
           { status: 200 }
         );
       }
 
-      // If no user in shared store, provide helpful message
-      console.log('[LOGIN] ✗ User not found in shared store');
-      console.log('[LOGIN] Available users:', userStore.getAllUsers().length);
-      
+      throw new Error('User not found in Supabase');
+    } catch (supabaseErr) {
+      console.log('[LOGIN] Supabase failed:', supabaseErr.message, '- Checking user store');
+    }
+
+    // Fallback: Check shared user store
+    const demoUser = userStore.getUser(email);
+
+    if (demoUser) {
+      console.log('[LOGIN] ✓ Found user in shared store');
+      const passwordMatch = await bcrypt.compare(password, demoUser.passwordHash);
+
+      if (!passwordMatch) {
+        return NextResponse.json(
+          { error: 'Invalid email or password' },
+          { status: 401 }
+        );
+      }
+
+      const token = jwt.sign(
+        { id: demoUser.id, email: demoUser.email, name: demoUser.name },
+        jwtSecret,
+        { expiresIn: '7d' }
+      );
+
       return NextResponse.json(
-        { 
-          error: 'Invalid email or password',
-          details: 'User not found. Please sign up first.',
-          hint: 'If you just signed up, try signing in again. Serverless functions may need time to sync.',
+        {
+          message: 'Login successful (shared store)',
+          user: {
+            id: demoUser.id,
+            name: demoUser.name,
+            email: demoUser.email,
+            preferredCurrency: demoUser.preferredCurrency,
+          },
+          token,
+          source: 'shared-store',
         },
-        { status: 401 }
+        { status: 200 }
       );
     }
+
+    // If no user found anywhere, provide helpful message
+    console.log('[LOGIN] ✗ User not found anywhere');
+    console.log('[LOGIN] Available users in store:', userStore.getAllUsers().length);
+    
+    return NextResponse.json(
+      { 
+        error: 'Invalid email or password',
+        details: 'User not found. Please sign up first.',
+      },
+      { status: 401 }
+    );
   } catch (error) {
     console.error('[LOGIN] Unexpected error:', error.message);
     return NextResponse.json(
