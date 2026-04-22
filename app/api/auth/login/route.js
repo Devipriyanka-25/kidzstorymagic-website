@@ -38,9 +38,9 @@ export async function POST(request) {
 
     const jwtSecret = process.env.JWT_SECRET || 'kidz-story-magic-jwt-secret-key-2024-production-secure-random-12345';
 
-    // Check for demo credentials first
+    // Check for demo credentials first (these are available for testing)
     if (email === DEMO_USER.email && password === DEMO_USER.password) {
-      console.log('[LOGIN] ✓ Demo user login successful');
+      console.log('[LOGIN] ✓ Demo user login successful - returning demo token');
       
       const token = jwt.sign(
         { id: DEMO_USER.id, email: DEMO_USER.email, name: DEMO_USER.name },
