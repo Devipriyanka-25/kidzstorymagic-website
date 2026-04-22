@@ -5,14 +5,13 @@
  */
 
 import { NextResponse } from 'next/server';
+import { userStore } from '../shared/userStore.js';
+
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
-
-// This would be shared with register endpoint in production
-let demoUsers = new Map();
 
 export async function POST(request) {
   try {
@@ -95,10 +94,10 @@ export async function POST(request) {
         { status: 200 }
       );
     } catch (supabaseErr) {
-      console.log('[LOGIN] Supabase failed:', supabaseErr.message, '- Using demo mode');
+      console.log('[LOGIN] Supabase failed:', supabaseErr.message, '- Using shared user store');
 
-      // Fallback: Demo mode
-      const demoUser = demoUsers.get(email);
+      // Fallback: Check shared user store
+      const demoUser = userStore.getUser(email);
 
       if (!demoUser) {
         return NextResponse.json(
@@ -116,7 +115,7 @@ export async function POST(request) {
         );
       }
 
-      console.log('[LOGIN] ✓ Demo login successful');
+      console.log('[LOGIN] ✓ Shared user store login successful');
 
       const token = jwt.sign(
         { id: demoUser.id, email: demoUser.email },

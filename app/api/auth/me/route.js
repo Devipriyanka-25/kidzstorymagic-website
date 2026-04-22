@@ -5,13 +5,12 @@
  */
 
 import { NextResponse } from 'next/server';
+import { userStore } from '../shared/userStore.js';
+
 const jwt = require('jsonwebtoken');
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
-
-// Reference to demo users (shared with register endpoint)
-let demoUsers = new Map();
 
 export async function GET(request) {
   try {
@@ -100,9 +99,9 @@ export async function GET(request) {
         { status: 200 }
       );
     } catch (supabaseErr) {
-      console.log('[ME] Supabase failed:', supabaseErr.message, '- Using demo mode');
+      console.log('[ME] Supabase failed:', supabaseErr.message, '- Using shared user store');
 
-      // Fallback: Demo mode
+      // Fallback: Shared user store
       if (!decoded.email) {
         return NextResponse.json(
           { error: 'User not found' },
@@ -110,7 +109,7 @@ export async function GET(request) {
         );
       }
 
-      const demoUser = demoUsers.get(decoded.email);
+      const demoUser = userStore.getUser(decoded.email);
 
       if (!demoUser) {
         return NextResponse.json(

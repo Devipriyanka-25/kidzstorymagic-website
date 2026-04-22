@@ -5,14 +5,13 @@
  */
 
 import { NextResponse } from 'next/server';
+import { userStore } from '../shared/userStore.js';
+
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
-
-// In-memory user store for demo (in production, use real database)
-const demoUsers = new Map();
 
 export async function POST(request) {
   try {
@@ -97,10 +96,10 @@ export async function POST(request) {
         throw new Error(`Supabase ${response.status}`);
       }
     } catch (supabaseErr) {
-      console.log('[REGISTER] Supabase failed:', supabaseErr.message, '- Using demo mode');
+      console.log('[REGISTER] Supabase failed:', supabaseErr.message, '- Using shared user store');
       
-      // Fallback: Demo mode with in-memory storage
-      if (demoUsers.has(email)) {
+      // Fallback: Shared user store with in-memory storage
+      if (userStore.userExists(email)) {
         return NextResponse.json(
           { error: 'Email already registered' },
           { status: 409 }
@@ -110,14 +109,16 @@ export async function POST(request) {
       const userId = `user_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
       const passwordHash = await bcrypt.hash(password, 10);
       
-      demoUsers.set(email, {
+      const userData = {
         id: userId,
         name,
         email,
         passwordHash,
         preferredCurrency: preferredCurrency || 'USD',
         createdAt: new Date().toISOString(),
-      });
+      };
+
+      userStore.addUser(email, userData);
 
       console.log('[REGISTER] ✓ Demo registration successful');
 
