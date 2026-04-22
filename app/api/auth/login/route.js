@@ -94,49 +94,55 @@ export async function POST(request) {
         { status: 200 }
       );
     } catch (supabaseErr) {
-      console.log('[LOGIN] Supabase failed:', supabaseErr.message, '- Using shared user store');
+      console.log('[LOGIN] Supabase failed:', supabaseErr.message, '- Checking user store');
 
-      // Fallback: Check shared user store
+      // Fallback: Check shared user store (may work if requests hit same container)
       const demoUser = userStore.getUser(email);
 
-      if (!demoUser) {
-        return NextResponse.json(
-          { error: 'Invalid email or password' },
-          { status: 401 }
+      if (demoUser) {
+        console.log('[LOGIN] ✓ Found user in shared store');
+        const passwordMatch = await bcrypt.compare(password, demoUser.passwordHash);
+
+        if (!passwordMatch) {
+          return NextResponse.json(
+            { error: 'Invalid email or password' },
+            { status: 401 }
+          );
+        }
+
+        const token = jwt.sign(
+          { id: demoUser.id, email: demoUser.email },
+          jwtSecret,
+          { expiresIn: '7d' }
         );
-      }
 
-      const passwordMatch = await bcrypt.compare(password, demoUser.passwordHash);
-
-      if (!passwordMatch) {
         return NextResponse.json(
-          { error: 'Invalid email or password' },
-          { status: 401 }
-        );
-      }
-
-      console.log('[LOGIN] ✓ Shared user store login successful');
-
-      const token = jwt.sign(
-        { id: demoUser.id, email: demoUser.email },
-        jwtSecret,
-        { expiresIn: '7d' }
-      );
-
-      return NextResponse.json(
-        {
-          message: 'Login successful (demo mode)',
-          user: {
-            id: demoUser.id,
-            name: demoUser.name,
-            email: demoUser.email,
-            preferredCurrency: demoUser.preferredCurrency,
+          {
+            message: 'Login successful (shared store)',
+            user: {
+              id: demoUser.id,
+              name: demoUser.name,
+              email: demoUser.email,
+              preferredCurrency: demoUser.preferredCurrency,
+            },
+            token,
+            source: 'shared-store',
           },
-          token,
-          source: 'demo',
-          note: 'Running in demo mode - Supabase not available',
+          { status: 200 }
+        );
+      }
+
+      // If no user in shared store, provide helpful message
+      console.log('[LOGIN] ✗ User not found in shared store');
+      console.log('[LOGIN] Available users:', userStore.getAllUsers().length);
+      
+      return NextResponse.json(
+        { 
+          error: 'Invalid email or password',
+          details: 'User not found. Please sign up first.',
+          hint: 'If you just signed up, try signing in again. Serverless functions may need time to sync.',
         },
-        { status: 200 }
+        { status: 401 }
       );
     }
   } catch (error) {
