@@ -1,11 +1,11 @@
 import { NextResponse } from 'next/server';
-import { Pool } from 'pg';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 export async function POST(request) {
   try {
+    const { Pool } = require('pg');
     const connectionUrl = process.env.DATABASE_URL;
     
     if (!connectionUrl) {
@@ -15,9 +15,13 @@ export async function POST(request) {
       );
     }
 
+    console.log('[DB_INIT] Creating connection pool...');
     const pool = new Pool({
       connectionString: connectionUrl,
-      ssl: { rejectUnauthorized: false }
+      ssl: { rejectUnauthorized: false },
+      max: 1,
+      idleTimeoutMillis: 5000,
+      connectionTimeoutMillis: 5000
     });
 
     console.log('[DB_INIT] Initializing database schema...');
@@ -60,11 +64,12 @@ export async function POST(request) {
       { status: 200 }
     );
   } catch (error) {
-    console.error('[DB_INIT] Error:', error.message);
+    console.error('[DB_INIT] Error:', error.message, error.stack);
     return NextResponse.json(
       { 
         error: 'Database initialization failed', 
-        details: error.message 
+        details: error.message,
+        stack: error.stack 
       },
       { status: 500 }
     );
