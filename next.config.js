@@ -7,7 +7,11 @@ const nextConfig = {
     domains: ['localhost', 'your-domain.com'],
   },
   env: {
-    NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api',
+    // Force API URL to /api for production (proxy routes)
+    // In dev, this will use http://localhost:5000/api from .env.local
+    NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL || (
+      process.env.NODE_ENV === 'production' ? '/api' : 'http://localhost:5000/api'
+    ),
     NEXT_PUBLIC_STRIPE_KEY: process.env.NEXT_PUBLIC_STRIPE_KEY,
   },
   // Ensure API routes are properly recognized
