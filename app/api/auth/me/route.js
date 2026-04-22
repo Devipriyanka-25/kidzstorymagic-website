@@ -1,4 +1,8 @@
-// Proxy: GET /api/auth/me -> Railway backend
+/**
+ * Get Current User Endpoint
+ * Serverless implementation: GET /api/auth/me
+ */
+
 import { NextResponse } from 'next/server';
 
 export const runtime = 'nodejs';
@@ -6,28 +10,41 @@ export const dynamic = 'force-dynamic';
 
 export async function GET(request) {
   try {
-    const authHeader = request.headers.get('authorization');
-    const railwayUrl = process.env.RAILWAY_API_URL || 'https://kidzstorymagic-api.railway.app';
-    
-    console.log('[PROXY_ME] Forwarding to:', railwayUrl + '/api/auth/me');
+    // Import auth utilities
+    const { verifyUserFromToken } = await import('@/lib/auth');
 
-    const response = await fetch(`${railwayUrl}/api/auth/me`, {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-        ...(authHeader && { 'Authorization': authHeader })
-      },
-    });
+    console.log('[ME] Verifying user from token');
 
-    const data = await response.json();
-    
-    console.log('[PROXY_ME] Response status:', response.status);
+    // Get and verify user from token
+    const user = await verifyUserFromToken(request);
+    if (!user) {
+      console.log('[ME] No valid token provided');
+      return NextResponse.json(
+        { error: 'Unauthorized' },
+        { status: 401 }
+      );
+    }
 
-    return NextResponse.json(data, { status: response.status });
-  } catch (error) {
-    console.error('[PROXY_ME] Error:', error.message);
+    console.log('[ME] User verified:', user.id);
+
     return NextResponse.json(
-      { error: 'Backend error', details: error.message },
+      {
+        user: {
+          id: user.id,
+          name: user.name,
+          email: user.email,
+          profilePictureUrl: user.profile_picture_url,
+          preferredCurrency: user.preferred_currency,
+          location: user.location,
+          createdAt: user.created_at
+        }
+      },
+      { status: 200 }
+    );
+  } catch (error) {
+    console.error('[ME] Error:', error.message);
+    return NextResponse.json(
+      { error: 'Failed to get user info', details: error.message },
       { status: 500 }
     );
   }

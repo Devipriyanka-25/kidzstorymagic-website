@@ -1,4 +1,8 @@
-// Proxy: POST /api/auth/login -> Railway backend
+/**
+ * Auth Login Endpoint
+ * Serverless implementation: POST /api/auth/login
+ */
+
 import { NextResponse } from 'next/server';
 
 export const runtime = 'nodejs';
@@ -7,27 +11,63 @@ export const dynamic = 'force-dynamic';
 export async function POST(request) {
   try {
     const body = await request.json();
-    const railwayUrl = process.env.RAILWAY_API_URL || 'https://kidzstorymagic-api.railway.app';
-    
-    console.log('[PROXY_LOGIN] Forwarding to:', railwayUrl + '/api/auth/login');
+    const { email, password } = body;
 
-    const response = await fetch(`${railwayUrl}/api/auth/login`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(body),
-    });
+    // Validate input
+    if (!email || !password) {
+      return NextResponse.json(
+        { error: 'Email and password are required' },
+        { status: 400 }
+      );
+    }
 
-    const data = await response.json();
-    
-    console.log('[PROXY_LOGIN] Response status:', response.status);
+    // Import auth utilities
+    const { findUserByEmail, comparePassword, generateToken } = await import('@/lib/auth');
 
-    return NextResponse.json(data, { status: response.status });
-  } catch (error) {
-    console.error('[PROXY_LOGIN] Error:', error.message);
+    console.log('[LOGIN] Processing login for:', email);
+
+    // Find user
+    const user = await findUserByEmail(email);
+    if (!user) {
+      console.log('[LOGIN] User not found:', email);
+      return NextResponse.json(
+        { error: 'Invalid email or password' },
+        { status: 401 }
+      );
+    }
+
+    // Compare password
+    const passwordMatch = await comparePassword(password, user.password_hash);
+    if (!passwordMatch) {
+      console.log('[LOGIN] Invalid password for:', email);
+      return NextResponse.json(
+        { error: 'Invalid email or password' },
+        { status: 401 }
+      );
+    }
+
+    console.log('[LOGIN] User authenticated:', user.id);
+
+    // Generate token
+    const token = generateToken(user.id);
+
     return NextResponse.json(
-      { error: 'Backend error', details: error.message },
+      {
+        message: 'Login successful',
+        user: {
+          id: user.id,
+          name: user.name,
+          email: user.email,
+          preferredCurrency: user.preferred_currency
+        },
+        token
+      },
+      { status: 200 }
+    );
+  } catch (error) {
+    console.error('[LOGIN] Error:', error.message);
+    return NextResponse.json(
+      { error: 'Login failed', details: error.message },
       { status: 500 }
     );
   }
