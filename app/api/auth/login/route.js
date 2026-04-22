@@ -46,7 +46,6 @@ export async function POST(request) {
             'apikey': anonKey,
             'Authorization': `Bearer ${anonKey}`,
           },
-          timeout: 5000,
         }
       );
 

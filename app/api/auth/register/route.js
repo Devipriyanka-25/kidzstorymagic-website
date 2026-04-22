@@ -67,7 +67,6 @@ export async function POST(request) {
           preferred_currency: preferredCurrency || 'USD',
           is_active: true,
         }),
-        timeout: 5000,
       });
 
       if (response.ok) {
