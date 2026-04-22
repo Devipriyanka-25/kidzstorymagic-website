@@ -1,6 +1,9 @@
 // Generic proxy for all other API routes
 import axios from 'axios';
 
+export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
+
 const BACKEND_URL = process.env.BACKEND_API_URL || 'https://kidzstorymagic-api.railway.app/api';
 
 async function proxyRequest(method, pathname, request) {
