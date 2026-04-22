@@ -17,6 +17,5 @@
     "AZURE_VISION_ENDPOINT": "@azure_vision_endpoint",
     "STRIPE_SECRET_KEY": "@stripe_secret_key"
   },
-  "ignore": [".github/**", "docs/**", "scripts/**"],
   "public": true
 }
