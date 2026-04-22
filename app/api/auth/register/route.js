@@ -4,6 +4,7 @@
  */
 
 import { NextResponse } from 'next/server';
+import { hashPassword, findUserByEmail, createUser, generateToken } from '@/lib/auth';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -34,9 +35,6 @@ export async function POST(request) {
         { status: 400 }
       );
     }
-
-    // Import auth utilities
-    const { hashPassword, findUserByEmail, createUser, generateToken } = await import('@/lib/auth');
 
     console.log('[REGISTER] Processing registration for:', email);
 

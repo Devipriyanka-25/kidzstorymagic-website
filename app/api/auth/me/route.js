@@ -4,15 +4,13 @@
  */
 
 import { NextResponse } from 'next/server';
+import { verifyUserFromToken } from '@/lib/auth';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 export async function GET(request) {
   try {
-    // Import auth utilities
-    const { verifyUserFromToken } = await import('@/lib/auth');
-
     console.log('[ME] Verifying user from token');
 
     // Get and verify user from token
