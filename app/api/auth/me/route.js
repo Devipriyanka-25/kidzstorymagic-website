@@ -59,10 +59,50 @@ export async function GET(request) {
       );
     }
 
-    pool = new Pool({
-      connectionString: connectionUrl,
-      ssl: { rejectUnauthorized: false }
-    });
+    // Connect with retry logic
+    let attempts = 0;
+    const maxAttempts = 2;
+    let lastError = null;
+
+    while (attempts < maxAttempts) {
+      attempts++;
+      try {
+        console.log(`[ME] Connection attempt ${attempts}/${maxAttempts}...`);
+        pool = new Pool({
+          connectionString: connectionUrl,
+          ssl: { rejectUnauthorized: false },
+          connectionTimeoutMillis: 10000,
+          idleTimeoutMillis: 10000,
+          max: 1,
+          keepAlives: false
+        });
+
+        const testConn = await pool.query('SELECT 1');
+        console.log('[ME] Database connection successful');
+        break;
+      } catch (err) {
+        lastError = err;
+        console.error(`[ME] Connection attempt ${attempts} failed:`, err.message);
+        if (pool) {
+          try {
+            await pool.end();
+            pool = null;
+          } catch (e) {
+            console.error('[ME] Error closing pool:', e.message);
+          }
+        }
+        if (attempts < maxAttempts) {
+          await new Promise(r => setTimeout(r, 1000 * attempts));
+        }
+      }
+    }
+
+    if (!pool) {
+      return NextResponse.json(
+        { error: 'Failed to retrieve user', details: `Database connection failed: ${lastError?.message}` },
+        { status: 500 }
+      );
+    }
 
     console.log('[ME] Fetching user:', decoded.id);
     // Get user from database

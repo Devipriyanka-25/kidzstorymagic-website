@@ -39,10 +39,50 @@ export async function POST(request) {
       );
     }
 
-    pool = new Pool({
-      connectionString: connectionUrl,
-      ssl: { rejectUnauthorized: false }
-    });
+    // Connect with retry logic
+    let attempts = 0;
+    const maxAttempts = 2;
+    let lastError = null;
+
+    while (attempts < maxAttempts) {
+      attempts++;
+      try {
+        console.log(`[LOGIN] Connection attempt ${attempts}/${maxAttempts}...`);
+        pool = new Pool({
+          connectionString: connectionUrl,
+          ssl: { rejectUnauthorized: false },
+          connectionTimeoutMillis: 10000,
+          idleTimeoutMillis: 10000,
+          max: 1,
+          keepAlives: false
+        });
+
+        const testConn = await pool.query('SELECT 1');
+        console.log('[LOGIN] Database connection successful');
+        break;
+      } catch (err) {
+        lastError = err;
+        console.error(`[LOGIN] Connection attempt ${attempts} failed:`, err.message);
+        if (pool) {
+          try {
+            await pool.end();
+            pool = null;
+          } catch (e) {
+            console.error('[LOGIN] Error closing pool:', e.message);
+          }
+        }
+        if (attempts < maxAttempts) {
+          await new Promise(r => setTimeout(r, 1000 * attempts));
+        }
+      }
+    }
+
+    if (!pool) {
+      return NextResponse.json(
+        { error: 'Login failed', details: `Database connection failed: ${lastError?.message}` },
+        { status: 500 }
+      );
+    }
 
     console.log('[LOGIN] Finding user...');
     // Find user

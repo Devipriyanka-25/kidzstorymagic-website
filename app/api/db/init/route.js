@@ -17,14 +17,52 @@ export async function POST(request) {
       return NextResponse.json({ error: 'DATABASE_URL not configured' }, { status: 400 });
     }
 
-    const pool = new Pool({
-      connectionString: connectionUrl,
-      ssl: { rejectUnauthorized: false }
-    });
+    // Try to connect with aggressive timeout and retry settings
+    let pool;
+    let attempts = 0;
+    const maxAttempts = 2;
+    let lastError = null;
 
-    console.log('[DB_INIT] Testing database connection...');
-    const testResult = await pool.query('SELECT NOW() as current_time');
-    console.log('[DB_INIT] Database connection successful:', testResult.rows[0]);
+    while (attempts < maxAttempts) {
+      attempts++;
+      try {
+        console.log(`[DB_INIT] Connection attempt ${attempts}/${maxAttempts}...`);
+        
+        pool = new Pool({
+          connectionString: connectionUrl,
+          ssl: { rejectUnauthorized: false },
+          connectionTimeoutMillis: 10000,  // 10s connection timeout
+          idleTimeoutMillis: 10000,         // 10s idle timeout
+          max: 1,                           // Single connection for serverless
+          keepAlives: false,
+          application_name: 'kidzstory_vercel'
+        });
+
+        console.log('[DB_INIT] Testing database connection...');
+        const testResult = await pool.query('SELECT NOW() as current_time');
+        console.log('[DB_INIT] Database connection successful:', testResult.rows[0]);
+        break; // Connection succeeded
+      } catch (err) {
+        lastError = err;
+        console.error(`[DB_INIT] Connection attempt ${attempts} failed:`, err.message);
+        if (pool) {
+          try {
+            await pool.end();
+          } catch (e) {
+            console.error('[DB_INIT] Error closing pool:', e.message);
+          }
+        }
+        if (attempts < maxAttempts) {
+          const waitTime = 1000 * attempts;
+          console.log(`[DB_INIT] Retrying in ${waitTime}ms...`);
+          await new Promise(r => setTimeout(r, waitTime));
+        }
+      }
+    }
+
+    if (!pool) {
+      throw new Error(`Failed to connect after ${maxAttempts} attempts: ${lastError?.message}`);
+    }
 
     console.log('[DB_INIT] Creating auth_users table...');
     await pool.query(`
