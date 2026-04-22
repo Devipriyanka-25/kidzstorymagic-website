@@ -4,7 +4,7 @@
  */
 
 import { NextResponse } from 'next/server';
-import { mockDB } from '../lib/mock-db.js';
+import { mockDB } from '../../lib/mock-db.js';
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 
