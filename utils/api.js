@@ -252,5 +252,32 @@ export const currencyAPI = {
     retryWithBackoff(() => createAPIClient().post('/currency/refresh-rates'), 2, 1000)
 };
 
+// Face Swap API
+export const faceSwapAPI = {
+  detectFace: (photo, childName, userId, storyId) => {
+    const formData = new FormData();
+    formData.append('photo', photo);
+    formData.append('childName', childName);
+    formData.append('userId', userId);
+    if (storyId) formData.append('storyId', storyId);
+    
+    return createAPIClient().post('/photos/detect-face', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    });
+  },
+  
+  performFaceSwap: (params) => 
+    createAPIClient().post('/photos/face-swap', params),
+  
+  saveFaceSwap: (params) => 
+    retryWithBackoff(() => createAPIClient().post('/photos/save-face-swap', params), 2, 1000),
+  
+  getFaceSwapResults: (storyId) => 
+    createAPIClient().get(`/photos/face-swap-results/${storyId}`),
+  
+  deleteFaceSwap: (resultId) => 
+    createAPIClient().delete(`/photos/face-swap/${resultId}`)
+};
+
 // Note: Default export removed since apiClient no longer exists at module level
-// Use the named exports (authAPI, storyAPI, paymentAPI, etc.) instead
+// Use the named exports (authAPI, storyAPI, paymentAPI, faceSwapAPI, etc.) instead
