@@ -4,32 +4,29 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 export async function POST(request) {
-  let pool = null;
   try {
-    // Import pg using require for compatibility
-    const pg = require('pg');
-    const { Pool } = pg;
+    console.log('[DB_INIT] Start - DATABASE_URL exists:', !!process.env.DATABASE_URL);
+    
+    // Dynamic require to ensure pg is loaded fresh
+    const { Pool } = await import('pg');
     
     const connectionUrl = process.env.DATABASE_URL;
-    
     if (!connectionUrl) {
-      return NextResponse.json(
-        { error: 'DATABASE_URL not configured' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'No DATABASE_URL' }, { status: 400 });
     }
 
-    console.log('[DB_INIT] Creating connection pool...');
-    
-    pool = new Pool({
+    console.log('[DB_INIT] Creating pool with connection URL...');
+    const pool = new Pool({
       connectionString: connectionUrl,
       ssl: { rejectUnauthorized: false }
     });
 
-    console.log('[DB_INIT] Initializing database schema...');
+    console.log('[DB_INIT] Testing connection...');
+    const testResult = await pool.query('SELECT NOW()');
+    console.log('[DB_INIT] Connection test passed:', testResult.rows[0]);
 
-    // Create auth_users table
-    await pool.query(`
+    console.log('[DB_INIT] Creating auth_users table...');
+    const createTable = await pool.query(`
       CREATE TABLE IF NOT EXISTS auth_users (
         id SERIAL PRIMARY KEY,
         name VARCHAR(255) NOT NULL,
@@ -43,39 +40,23 @@ export async function POST(request) {
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `);
-    console.log('[DB_INIT] auth_users table created');
+    console.log('[DB_INIT] Table created');
 
-    // Create index
-    await pool.query(`
-      CREATE INDEX IF NOT EXISTS idx_auth_users_email ON auth_users(email)
-    `);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_auth_users_email ON auth_users(email)`);
     console.log('[DB_INIT] Index created');
 
-    return NextResponse.json(
-      { 
-        message: 'Database initialized successfully',
-        tables: ['auth_users'],
-        timestamp: new Date().toISOString()
-      },
-      { status: 200 }
-    );
+    await pool.end();
+
+    return NextResponse.json({
+      message: 'Database initialized successfully',
+      tables: ['auth_users']
+    }, { status: 200 });
+
   } catch (error) {
-    console.error('[DB_INIT] Error:', error.message, error.stack);
-    return NextResponse.json(
-      { 
-        error: 'Database initialization failed',
-        details: error.message
-      },
-      { status: 500 }
-    );
-  } finally {
-    if (pool) {
-      try {
-        await pool.end();
-        console.log('[DB_INIT] Pool closed');
-      } catch (err) {
-        console.error('[DB_INIT] Error closing pool:', err);
-      }
-    }
+    console.error('[DB_INIT] Error:', error.message, error.code);
+    return NextResponse.json({
+      error: 'Database initialization failed',
+      message: error.message
+    }, { status: 500 });
   }
 }
