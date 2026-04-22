@@ -130,10 +130,3 @@ export async function POST(request) {
     );
   }
 }
-    console.error('[REGISTER] Error:', error.message);
-    return NextResponse.json(
-      { error: 'Registration failed', details: error.message },
-      { status: 500 }
-    );
-  }
-}
