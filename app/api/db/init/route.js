@@ -4,8 +4,12 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 export async function POST(request) {
-  let client = null;
+  let pool = null;
   try {
+    // Import pg using require for compatibility
+    const pg = require('pg');
+    const { Pool } = pg;
+    
     const connectionUrl = process.env.DATABASE_URL;
     
     if (!connectionUrl) {
@@ -15,36 +19,17 @@ export async function POST(request) {
       );
     }
 
-    console.log('[DB_INIT] Parsing DATABASE_URL...');
+    console.log('[DB_INIT] Creating connection pool...');
     
-    // Parse Supabase connection string
-    const url = new URL(connectionUrl);
-    const user = url.username;
-    const password = url.password;
-    const host = url.hostname;
-    const port = url.port || 5432;
-    const database = url.pathname.slice(1);
-
-    console.log('[DB_INIT] Creating PostgreSQL connection...');
-    
-    // Use pg client directly with import
-    const pg = await import('pg');
-    const { Client } = pg.default || pg;
-    
-    client = new Client({
-      user,
-      password,
-      host,
-      port,
-      database,
+    pool = new Pool({
+      connectionString: connectionUrl,
       ssl: { rejectUnauthorized: false }
     });
 
-    await client.connect();
-    console.log('[DB_INIT] Connected to database');
+    console.log('[DB_INIT] Initializing database schema...');
 
     // Create auth_users table
-    const createTableSQL = `
+    await pool.query(`
       CREATE TABLE IF NOT EXISTS auth_users (
         id SERIAL PRIMARY KEY,
         name VARCHAR(255) NOT NULL,
@@ -57,18 +42,14 @@ export async function POST(request) {
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
-    `;
+    `);
+    console.log('[DB_INIT] auth_users table created');
 
-    await client.query(createTableSQL);
-    console.log('[DB_INIT] auth_users table created successfully');
-
-    // Create index on email
-    const createIndexSQL = `
+    // Create index
+    await pool.query(`
       CREATE INDEX IF NOT EXISTS idx_auth_users_email ON auth_users(email)
-    `;
-
-    await client.query(createIndexSQL);
-    console.log('[DB_INIT] Index created successfully');
+    `);
+    console.log('[DB_INIT] Index created');
 
     return NextResponse.json(
       { 
@@ -82,18 +63,18 @@ export async function POST(request) {
     console.error('[DB_INIT] Error:', error.message, error.stack);
     return NextResponse.json(
       { 
-        error: 'Database initialization failed', 
+        error: 'Database initialization failed',
         details: error.message
       },
       { status: 500 }
     );
   } finally {
-    if (client) {
+    if (pool) {
       try {
-        await client.end();
-        console.log('[DB_INIT] Connection closed');
+        await pool.end();
+        console.log('[DB_INIT] Pool closed');
       } catch (err) {
-        console.error('[DB_INIT] Error closing connection:', err);
+        console.error('[DB_INIT] Error closing pool:', err);
       }
     }
   }
