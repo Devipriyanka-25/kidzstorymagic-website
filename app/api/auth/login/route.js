@@ -42,6 +42,15 @@ export async function POST(request) {
     if (email === DEMO_USER.email && password === DEMO_USER.password) {
       console.log('[LOGIN] ✓ Demo user login successful - returning demo token');
       
+      // Add demo user to shared store for subsequent API calls
+      userStore.addUser(DEMO_USER.email, {
+        id: DEMO_USER.id,
+        name: DEMO_USER.name,
+        email: DEMO_USER.email,
+        preferredCurrency: 'USD',
+        createdAt: new Date().toISOString(),
+      });
+      
       const token = jwt.sign(
         { id: DEMO_USER.id, email: DEMO_USER.email, name: DEMO_USER.name },
         jwtSecret,

@@ -16,7 +16,9 @@ export async function POST(request, { params }) {
 
     // Verify authentication
     const authHeader = request.headers.get('authorization');
+    console.log('[GENERATE_STORY] Auth header:', authHeader ? 'Present' : 'Missing');
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      console.log('[GENERATE_STORY] Missing or invalid auth header format');
       return NextResponse.json(
         { error: 'Unauthorized' },
         { status: 401 }
@@ -24,12 +26,15 @@ export async function POST(request, { params }) {
     }
 
     const token = authHeader.substring(7);
+    console.log('[GENERATE_STORY] Token length:', token.length);
     const jwtSecret = process.env.JWT_SECRET || 'kidz-story-magic-jwt-secret-key-2024-production-secure-random-12345';
 
     let decoded;
     try {
       decoded = jwt.verify(token, jwtSecret);
+      console.log('[GENERATE_STORY] Token verified successfully');
     } catch (err) {
+      console.log('[GENERATE_STORY] Token verification failed:', err.message);
       return NextResponse.json(
         { error: 'Unauthorized' },
         { status: 401 }

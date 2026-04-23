@@ -12,7 +12,7 @@ import SupportModal from '@/components/dashboard/SupportModal';
 
 export default function DashboardPage() {
   const router = useRouter();
-  const { user, isAuthenticated } = useAuthStore();
+  const { user, isAuthenticated, isInitializing } = useAuthStore();
   const [activeTab, setActiveTab] = useState('all'); // 'all', 'drafts', 'published'
   const [stories, setStories] = useState([]);
   const [drafts, setDrafts] = useState([]);
@@ -24,16 +24,17 @@ export default function DashboardPage() {
 
   // Check authentication and redirect if needed
   useEffect(() => {
-    // Add a small delay to allow auth store to initialize
-    const timer = setTimeout(() => {
-      if (!isAuthenticated || !user) {
-        console.log('[DASHBOARD] User not authenticated, redirecting to login');
-        router.push('/auth/login');
-      }
-    }, 500);
-    
-    return () => clearTimeout(timer);
-  }, [isAuthenticated, user, router]);
+    // Wait for auth initialization to complete
+    if (isInitializing) {
+      console.log('[DASHBOARD] Still initializing auth...');
+      return;
+    }
+
+    if (!isAuthenticated || !user) {
+      console.log('[DASHBOARD] User not authenticated, redirecting to login');
+      router.push('/auth/login');
+    }
+  }, [isInitializing, isAuthenticated, user, router]);
 
   // Fetch stories on mount
   useEffect(() => {

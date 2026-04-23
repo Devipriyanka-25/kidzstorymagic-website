@@ -8,6 +8,7 @@ export const useAuthStore = create((set) => ({
   isAuthenticated: false,
   isLoading: false,
   error: null,
+  isInitializing: true,
 
   // Initialize auth from token
   initAuth: async () => {
@@ -15,12 +16,18 @@ export const useAuthStore = create((set) => ({
       const token = getAuthToken();
       if (token) {
         try {
+          console.log('[INITAUTH] Found token in localStorage, verifying...');
           const response = await authAPI.getCurrentUser();
-          set({ user: response.data, isAuthenticated: true });
+          console.log('[INITAUTH] Token verified, setting authenticated state');
+          set({ user: response.data, isAuthenticated: true, isInitializing: false });
         } catch (err) {
+          console.log('[INITAUTH] Token verification failed:', err.message);
           localStorage.removeItem('authToken');
-          set({ isAuthenticated: false });
+          set({ isAuthenticated: false, isInitializing: false });
         }
+      } else {
+        console.log('[INITAUTH] No token in localStorage');
+        set({ isInitializing: false });
       }
     }
   },
