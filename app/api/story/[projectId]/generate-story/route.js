@@ -158,18 +158,33 @@ export async function POST(request, { params }) {
     const pagesArray = [];
     const arcsPerPage = Math.ceil(storyArcs.length / pages);
     
+    // Map themes to color schemes for placeholder images
+    const themeColors = {
+      adventure: 'FF6B6B-4ECDC4',
+      fantasy: '9B59B6-3498DB',
+      friends: 'F39C12-E74C3C',
+      family: '2ECC71-27AE60',
+      motivational: 'E67E22-C0392B'
+    };
+    
+    const colorScheme = themeColors[theme] || '667EEA-764BA2';
+    
     for (let i = 0; i < pages; i++) {
       const arcStart = i * arcsPerPage;
       const arcEnd = Math.min((i + 1) * arcsPerPage, storyArcs.length);
       const pageArcs = storyArcs.slice(arcStart, arcEnd);
       const pageContent = pageArcs.join(' ');
-      const pageIllustration = `/images/illustration-${theme}-${(i % 5) + 1}.png`;
+      
+      // Use placeholder image service for better illustrations
+      const pageIllustration = `https://via.placeholder.com/600x400/${colorScheme}?text=${encodeURIComponent(`Page ${i + 1}`)}`;
       
       pagesArray.push({
         pageNumber: i + 1,
         title: `${selectedTheme.title} - Page ${i + 1}`,
         content: pageContent || `${childName}'s story continues...`,
+        text: pageContent || `${childName}'s story continues...`,
         illustrationUrl: pageIllustration,
+        image: pageIllustration,
         htmlContent: `
           <div style="padding: 20px; font-family: 'Comic Sans MS', cursive; line-height: 1.8;">
             <h3 style="color: #667eea; margin-bottom: 15px;">✨ Page ${i + 1}: ${selectedTheme.title}</h3>

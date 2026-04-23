@@ -165,40 +165,54 @@ export default function StoryPreviewComponent({
       {/* Main Story Display Area */}
       <div className={`flex gap-4 mb-6 ${isFullscreen ? 'flex-col lg:flex-row' : 'flex-col'}`}>
         {/* Book-like Page Display */}
-        <div className={`flex-1 flex items-center justify-center ${isFullscreen ? 'min-h-96 lg:min-h-full' : 'min-h-96'} bg-gradient-to-br from-gray-800 to-gray-900 rounded-lg p-6 shadow-2xl`}>
-          <div className={`w-full h-full bg-white rounded-lg shadow-lg overflow-hidden flex flex-col transition-opacity duration-300 ${flipAnimation ? 'opacity-50' : 'opacity-100'}`}>
+        <div className={`flex-1 flex items-center justify-center ${isFullscreen ? 'min-h-screen lg:min-h-full' : 'max-h-96 sm:max-h-full'} bg-gradient-to-br from-gray-800 to-gray-900 rounded-lg p-6 shadow-2xl overflow-y-auto`}>
+          <div className={`w-full bg-white rounded-lg shadow-lg overflow-hidden flex flex-col transition-opacity duration-300 ${flipAnimation ? 'opacity-50' : 'opacity-100'}`}>
             {/* Page Image Section */}
-            <div className="flex-shrink-0 h-48 sm:h-64 md:h-72 relative bg-gray-200 overflow-hidden">
-              {currentPageData?.image ? (
+            <div className="flex-shrink-0 w-full h-56 sm:h-64 md:h-80 relative bg-gradient-to-br from-blue-200 to-purple-200 overflow-hidden flex items-center justify-center">
+              {currentPageData?.illustrationUrl ? (
+                <img
+                  src={currentPageData.illustrationUrl}
+                  alt={`Page ${currentPage + 1}`}
+                  className="w-full h-full object-cover"
+                  onError={(e) => {
+                    // Fallback to gradient placeholder if image fails
+                    e.target.style.display = 'none';
+                  }}
+                />
+              ) : currentPageData?.image ? (
                 <img
                   src={currentPageData.image}
                   alt={`Page ${currentPage + 1}`}
                   className="w-full h-full object-cover"
+                  onError={(e) => {
+                    // Fallback to gradient placeholder if image fails
+                    e.target.style.display = 'none';
+                  }}
                 />
               ) : (
-                <div className="w-full h-full flex items-center justify-center bg-gray-300 text-gray-600 text-2xl">
+                <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-blue-100 to-purple-100 text-gray-600 text-4xl font-bold">
                   📖
                 </div>
               )}
             </div>
 
             {/* Page Content Section */}
-            <div className="flex-1 overflow-y-auto p-6 flex flex-col justify-between">
+            <div className="flex-1 overflow-y-auto p-6 flex flex-col justify-between min-h-48">
               {/* Page Title */}
               {currentPageData?.title && (
-                <h3 className="text-xl font-bold text-gray-900 mb-3">
+                <h3 className="text-lg sm:text-xl font-bold text-gray-900 mb-3">
                   {currentPageData.title}
                 </h3>
               )}
 
               {/* Page Text */}
-              <p className="text-gray-700 leading-relaxed text-base flex-1 mb-4">
-                {currentPageData?.text || 'No content for this page'}
+              <p className="text-gray-700 leading-relaxed text-sm sm:text-base flex-1 mb-4">
+                {currentPageData?.text || currentPageData?.content || 'No content for this page'}
               </p>
 
               {/* Page Number - Bottom */}
               <div className="text-right text-xs font-semibold text-gray-400 pt-4 border-t border-gray-200">
-                Page {currentPage + 1}
+                Page {currentPage + 1} of {totalPages}
               </div>
             </div>
           </div>
