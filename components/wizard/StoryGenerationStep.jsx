@@ -289,7 +289,7 @@ export default function StoryGenerationStep({
         <StoryPreviewComponent
           story={generatedStory}
           theme={theme}
-          uploadedPhoto={uploadedImages[0] || null}
+          uploadedPhoto={uploadedImages[0] ? { ...uploadedImages[0], url: uploadedImages[0].preview } : null}
           childName={childName}
           onClose={backToUpload}
           onRegenerate={regenerateStory}
