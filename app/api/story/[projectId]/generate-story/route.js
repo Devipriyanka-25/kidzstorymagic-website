@@ -66,6 +66,7 @@ export async function POST(request, { params }) {
       family: 'a heartwarming family story',
       mystery: 'an intriguing mystery',
       motivational: 'an inspiring story',
+      friends: 'a story about friendship',
     };
 
     const themeDescription = themes[theme] || 'an amazing story';
@@ -125,7 +126,6 @@ export async function POST(request, { params }) {
       illustrations: [
         { pageNumber: 1, url: '/images/placeholder-1.png', description: 'Opening scene with ' + childName },
         { pageNumber: 2, url: '/images/placeholder-2.png', description: 'Adventure begins' },
-        // ... more illustrations would be generated
       ],
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),

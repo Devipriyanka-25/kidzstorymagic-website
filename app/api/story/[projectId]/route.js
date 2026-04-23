@@ -1,7 +1,8 @@
 /**
- * Get Single Story Details Endpoint
- * GET /api/story/[id]
- * Returns details of a specific story
+ * Dynamic Story Route Handler
+ * Handles GET, DELETE, and POST for story operations
+ * GET /api/story/[projectId] - Get story details
+ * DELETE /api/story/[projectId] - Delete story
  */
 
 import { NextResponse } from 'next/server';
@@ -12,7 +13,7 @@ export const dynamic = 'force-dynamic';
 
 export async function GET(request, { params }) {
   try {
-    const storyId = params.id;
+    const projectId = params.projectId;
 
     // Verify authentication
     const authHeader = request.headers.get('authorization');
@@ -36,9 +37,9 @@ export async function GET(request, { params }) {
       );
     }
 
-    console.log('[STORY_DETAIL] Fetching story:', storyId, 'for user:', decoded.id || decoded.email);
+    console.log('[STORY_DETAIL] Fetching story:', projectId, 'for user:', decoded.id || decoded.email);
 
-    // Mock stories database
+    // Mock stories database - support both fixed IDs and project IDs
     const mockStoriesDB = {
       'story_1': {
         id: 'story_1',
@@ -100,17 +101,17 @@ export async function GET(request, { params }) {
       }
     };
 
-    const story = mockStoriesDB[storyId];
+    const story = mockStoriesDB[projectId];
 
     if (!story) {
-      console.log('[STORY_DETAIL] Story not found:', storyId);
+      console.log('[STORY_DETAIL] Story not found:', projectId);
       return NextResponse.json(
         { error: 'Story not found' },
         { status: 404 }
       );
     }
 
-    console.log('[STORY_DETAIL] ✓ Story found:', storyId);
+    console.log('[STORY_DETAIL] ✓ Story found:', projectId);
 
     return NextResponse.json(
       {
@@ -133,7 +134,7 @@ export async function GET(request, { params }) {
 
 export async function DELETE(request, { params }) {
   try {
-    const storyId = params.id;
+    const projectId = params.projectId;
 
     // Verify authentication
     const authHeader = request.headers.get('authorization');
@@ -157,7 +158,7 @@ export async function DELETE(request, { params }) {
       );
     }
 
-    console.log('[STORY_DELETE] Deleting story:', storyId, 'by user:', decoded.id || decoded.email);
+    console.log('[STORY_DELETE] Deleting story:', projectId, 'by user:', decoded.id || decoded.email);
 
     // Mock delete - in production this would delete from database
     const mockStoriesDB = {
@@ -165,21 +166,21 @@ export async function DELETE(request, { params }) {
       'story_2': true,
     };
 
-    if (!mockStoriesDB[storyId]) {
-      console.log('[STORY_DELETE] Story not found:', storyId);
+    if (!mockStoriesDB[projectId]) {
+      console.log('[STORY_DELETE] Story not found:', projectId);
       return NextResponse.json(
         { error: 'Story not found' },
         { status: 404 }
       );
     }
 
-    console.log('[STORY_DELETE] ✓ Story deleted:', storyId);
+    console.log('[STORY_DELETE] ✓ Story deleted:', projectId);
 
     return NextResponse.json(
       {
         success: true,
         message: 'Story deleted successfully',
-        storyId: storyId,
+        projectId: projectId,
       },
       { status: 200 }
     );
