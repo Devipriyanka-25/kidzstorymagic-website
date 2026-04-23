@@ -1,121 +1,143 @@
 /**
  * Face Swap Endpoint - Integrate face into story illustrations
  * POST /api/photos/face-swap
- * Takes a detected face and swaps it into story illustrations
+ * Uses Replicate API (strmoder/roop v2) for real face swapping
  */
 
 import { NextResponse } from 'next/server';
-import sharp from 'sharp';
+import { faceSwapWithReplicate, imageUrlToBase64, validateImageUrl, getPricingInfo } from '../../lib/replicateService.js';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
-export const maxDuration = 30;
+export const maxDuration = 300; // 5 minutes for face swap processing
 
 export async function POST(request) {
   try {
-    console.log('[FACE_SWAP] Starting face swap...');
+    console.log('[FACE_SWAP] Starting real face swap with Replicate API...');
 
     const body = await request.json();
     const {
-      faceImageBase64,
+      faceImageUrl,
       illustrationImageUrl,
       storyId,
       photoId,
       pageNumber,
-      facePosition,
-      faceSize,
-      rotation = 0,
+      childName = 'Child',
     } = body;
 
-    if (!faceImageBase64 || !illustrationImageUrl) {
+    // Validate required fields
+    if (!faceImageUrl || !illustrationImageUrl) {
       return NextResponse.json(
-        { error: 'Face image and illustration URL required' },
+        { 
+          error: 'Missing required fields',
+          required: ['faceImageUrl', 'illustrationImageUrl'],
+          optional: ['storyId', 'photoId', 'pageNumber', 'childName']
+        },
         { status: 400 }
       );
     }
 
-    console.log(`[FACE_SWAP] Processing page ${pageNumber || 'unknown'}`);
+    console.log(`[FACE_SWAP] Processing page ${pageNumber || 'N/A'} for ${childName}`);
+    console.log(`[FACE_SWAP] Face image: ${faceImageUrl.substring(0, 80)}...`);
+    console.log(`[FACE_SWAP] Illustration: ${illustrationImageUrl.substring(0, 80)}...`);
 
-    // In a production implementation, you would:
-    // 1. Download the illustration image
-    // 2. Use a face swap library (like deepfacelab or insightface)
-    // 3. Process and blend the faces
-    // 4. Return the swapped image
+    // Validate image URLs are accessible
+    console.log('[FACE_SWAP] Validating image URLs...');
+    const faceValid = await validateImageUrl(faceImageUrl);
+    const illustrationValid = await validateImageUrl(illustrationImageUrl);
 
-    // For now, we'll create a mock response that demonstrates the process
-    // In production, integrate with:
-    // - Stripe's face swap API
-    // - Custom ML model using TensorFlow
-    // - Third-party face swap service
+    if (!faceValid) {
+      return NextResponse.json(
+        { error: 'Face image URL is not accessible' },
+        { status: 400 }
+      );
+    }
 
-    // Simulate processing
-    const faceBuffer = Buffer.from(
-      faceImageBase64.replace(/^data:image\/\w+;base64,/, ''),
-      'base64'
-    );
+    if (!illustrationValid) {
+      return NextResponse.json(
+        { error: 'Illustration image URL is not accessible' },
+        { status: 400 }
+      );
+    }
 
-    // Get face dimensions
-    const faceMetadata = await sharp(faceBuffer).metadata();
-    console.log(`[FACE_SWAP] Face dimensions: ${faceMetadata.width}x${faceMetadata.height}`);
+    console.log('[FACE_SWAP] ✓ Image URLs validated');
 
-    // Create a placeholder swapped image (in production, do actual face swapping)
-    const swappedBuffer = await sharp(faceBuffer)
-      .resize(512, 512)
-      .composite([
-        {
-          input: Buffer.from(
-            '<svg><rect fill="rgba(200,200,200,0.3)" width="512" height="512"/></svg>'
-          ),
-          blend: 'overlay',
+    // Check if Replicate API token is configured
+    if (!process.env.REPLICATE_API_TOKEN) {
+      console.warn('[FACE_SWAP] ⚠ REPLICATE_API_TOKEN not configured');
+      return NextResponse.json(
+        { 
+          error: 'Face swap service not configured',
+          message: 'REPLICATE_API_TOKEN environment variable is missing',
+          setup: 'Get your token from https://replicate.com/account/api-tokens'
         },
-      ])
-      .toBuffer();
+        { status: 503 }
+      );
+    }
 
-    const swappedBase64 = swappedBuffer.toString('base64');
+    // Perform face swap via Replicate
+    console.log('[FACE_SWAP] Calling Replicate API for face swap...');
+    const swapResult = await faceSwapWithReplicate(faceImageUrl, illustrationImageUrl, {
+      onlyCenterFace: true, // Focus on center face for story illustrations
+    });
 
-    console.log('[FACE_SWAP] ✓ Face swap simulation complete');
+    console.log('[FACE_SWAP] ✓ Face swap completed successfully');
+    console.log(`[FACE_SWAP] Result URL: ${swapResult.resultUrl.substring(0, 80)}...`);
 
     return NextResponse.json(
       {
         success: true,
-        message: 'Face swap processed successfully',
+        message: 'Face swap completed successfully',
         result: {
           storyId,
           photoId,
           pageNumber,
-          swappedImage: `data:image/png;base64,${swappedBase64}`,
-          metadata: {
-            width: 512,
-            height: 512,
-            format: 'png',
-            timestamp: new Date().toISOString(),
-          },
+          childName,
+          swappedImageUrl: swapResult.resultUrl,
+          predictionId: swapResult.predictionId,
+          processedAt: swapResult.processedAt,
+          model: 'strmoder/roop:v2',
         },
-        processedData: {
-          faceSize: {
-            width: faceMetadata.width,
-            height: faceMetadata.height,
-          },
-          positioning: {
-            facePosition: facePosition || { x: 0, y: 0 },
-            faceSize: faceSize || { width: 100, height: 100 },
-            rotation: rotation,
-          },
+        pricing: {
+          model: getPricingInfo().model,
+          estimatedCost: getPricingInfo().costPerCall,
+          currency: 'USD',
         },
-        source: 'mock-swap',
-        note: 'This is a demonstration. In production, integrate with real face swap ML models',
+        metadata: {
+          faceImageUrl: faceImageUrl.substring(0, 100),
+          illustrationImageUrl: illustrationImageUrl.substring(0, 100),
+          source: 'replicate-api',
+        },
       },
       { status: 200 }
     );
   } catch (error) {
     console.error('[FACE_SWAP] Error:', error.message);
+    console.error('[FACE_SWAP] Stack:', error.stack);
+
+    // Return appropriate error response
+    let statusCode = 500;
+    let errorMessage = 'Face swap failed';
+
+    if (error.message.includes('not configured')) {
+      statusCode = 503;
+      errorMessage = 'Face swap service not configured';
+    } else if (error.message.includes('timed out')) {
+      statusCode = 504;
+      errorMessage = 'Face swap processing timed out';
+    } else if (error.message.includes('not accessible')) {
+      statusCode = 400;
+      errorMessage = 'Invalid image URL';
+    }
+
     return NextResponse.json(
       {
-        error: 'Face swap failed',
+        error: errorMessage,
         message: error.message,
         details: process.env.NODE_ENV === 'development' ? error.stack : undefined,
+        support: 'Contact support@kidzstorymagic.com if the issue persists',
       },
-      { status: 500 }
+      { status: statusCode }
     );
   }
 }
