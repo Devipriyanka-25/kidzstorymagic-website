@@ -6,7 +6,6 @@ import { storyAPI, paymentAPI } from '@/utils/api';
 import { useLanguage } from '@/hooks/useLanguage';
 import { ILLUSTRATION_THEMES, getTheme } from '@/utils/themes';
 import PDFPreviewModal from './PDFPreviewModal';
-import { faceSwapAPI } from '@/utils/faceSwapAPI';
 
 export default function Step6ReviewCheckout() {
   const { formData, prevStep } = useWizardStore();
@@ -18,9 +17,6 @@ export default function Step6ReviewCheckout() {
   const [currentPage, setCurrentPage] = useState(0);
   const [flipAnimation, setFlipAnimation] = useState(false);
   const [showPDFPreview, setShowPDFPreview] = useState(false);
-  const [swappedPages, setSwappedPages] = useState({});
-  const [isFaceSwapping, setIsFaceSwapping] = useState(false);
-  const [faceSwapProgress, setFaceSwapProgress] = useState(0);
 
   // Calculate price
   const basePriceUSD = {
@@ -160,72 +156,6 @@ export default function Step6ReviewCheckout() {
     return () => window.removeEventListener('storyLanguageChanged', handleLanguageChange);
   }, [storyPreview, currentLanguage]);
 
-  /**
-   * Handle face swap for story pages
-   */
-  const handleFaceSwap = async () => {
-    // Check if we have uploaded photos
-    const uploadedImages = formData.uploadedImages || [];
-    const firstImage = uploadedImages[0];
-    
-    if (!firstImage) {
-      setError('❌ No photo uploaded. Please go back to upload a photo.');
-      return;
-    }
-
-    if (!storyPreview || storyPreview.length === 0) {
-      setError('❌ No story generated yet. Please generate the story first.');
-      return;
-    }
-
-    setIsFaceSwapping(true);
-    setError('');
-    setFaceSwapProgress(0);
-
-    try {
-      const faceImageUrl = firstImage.preview || firstImage.url;
-      
-      // Get all page illustration URLs with proper metadata
-      const pages = storyPreview.map((page, index) => ({
-        pageNumber: index + 1,
-        illustrationUrl: page.illustrationUrl || page.image || '',
-        content: page.content,
-      }));
-
-      console.log('[FACE_SWAP] Pages to process:', pages.length, pages);
-
-      // Call face swap API with progress callback
-      const result = await faceSwapAPI.swapFaceForStoryPages(
-        faceImageUrl,
-        pages,
-        {
-          onProgress: (percentage) => setFaceSwapProgress(percentage)
-        }
-      );
-
-      if (result.status === 'completed') {
-        // Update swapped pages with successful swaps
-        const newSwappedPages = {};
-        result.pages.forEach((page, index) => {
-          if (page.swappedUrl) {
-            newSwappedPages[index] = page.swappedUrl;
-          }
-        });
-        setSwappedPages(newSwappedPages);
-        
-        if (result.successCount > 0) {
-          setError(`✅ Face swap completed! ${result.successCount}/${result.totalPages} pages swapped.`);
-        }
-      }
-    } catch (err) {
-      console.error('[FACE_SWAP] Error:', err);
-      setError(`❌ Face swap failed: ${err.message}`);
-    } finally {
-      setIsFaceSwapping(false);
-      setFaceSwapProgress(0);
-    }
-  };
-
   const handleCheckout = async () => {
     setLoading(true);
     setError('');
@@ -338,14 +268,7 @@ export default function Step6ReviewCheckout() {
         >
           {/* Illustration - Full Width & Prominent (Like Image 1) */}
           <div className="w-full mb-3 flex-shrink-0 rounded-xl overflow-hidden shadow-2xl border-4 border-white/20">
-            {swappedPages[index] ? (
-              <img
-                src={swappedPages[index]}
-                alt={`Page ${index} - Face Swapped Illustration`}
-                className="w-full h-48 object-cover"
-                title="Face-swapped illustration"
-              />
-            ) : page.illustrationUrl ? (
+            {page.illustrationUrl ? (
               <img
                 src={page.illustrationUrl}
                 alt={`Page ${index} Illustration`}
@@ -610,30 +533,6 @@ export default function Step6ReviewCheckout() {
                     >
                       ← Back
                     </button>
-
-                    {/* Face Swap Button */}
-                    {formData.uploadedImages && formData.uploadedImages.length > 0 && (
-                      <>
-                        <button
-                          onClick={handleFaceSwap}
-                          disabled={isFaceSwapping}
-                          className="px-6 py-3 rounded-full font-bold text-white transition-all duration-300 transform hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed bg-purple-600 hover:bg-purple-700"
-                        >
-                          {isFaceSwapping ? '⏳ Swapping...' : '✨ Swap Face'}
-                        </button>
-                        
-                        {/* Face Swap Progress */}
-                        {isFaceSwapping && (
-                          <div className="w-full bg-gray-300 rounded-full overflow-hidden">
-                            <div 
-                              className="bg-purple-600 h-2 transition-all duration-300"
-                              style={{ width: `${faceSwapProgress}%` }}
-                            />
-                            <p className="text-xs text-center text-gray-600 mt-1">{faceSwapProgress}% Complete</p>
-                          </div>
-                        )}
-                      </>
-                    )}
 
                     {/* PDF Download/Preview Button */}
                     <button
