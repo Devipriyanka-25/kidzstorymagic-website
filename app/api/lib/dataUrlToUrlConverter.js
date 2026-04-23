@@ -1,11 +1,11 @@
 /**
  * Convert Data URL (base64) to publicly accessible URL
- * Uses free image hosting services
+ * Uses simple HTTP PUT/POST to transfer.sh
  */
 
 /**
  * Convert a data URL to a real HTTP URL
- * Uses imgur or similar free service
+ * Uses transfer.sh with direct binary upload (most reliable)
  * @param {string} dataUrl - Base64 data URL (data:image/png;base64,...)
  * @returns {Promise<string>} - Public HTTP URL of the image
  */
@@ -24,29 +24,18 @@ export async function convertDataUrlToHttpUrl(dataUrl) {
       throw new Error('Could not extract base64 data from data URL');
     }
 
-    // Try multiple free services in order
-    const services = [
-      () => uploadToFreeService1(base64String),
-      () => uploadToFreeService2(base64String),
-      () => uploadToFreeService3(base64String),
-    ];
-
-    let lastError;
-    for (const service of services) {
-      try {
-        const url = await service();
-        console.log('[DATA_URL_CONVERTER] ✓ Conversion successful');
-        console.log(`[DATA_URL_CONVERTER] URL: ${url}`);
-        return url;
-      } catch (error) {
-        console.warn(`[DATA_URL_CONVERTER] Service failed:`, error.message);
-        lastError = error;
-        // Try next service
-      }
+    // Convert base64 to Buffer (binary data)
+    let buffer;
+    try {
+      buffer = Buffer.from(base64String, 'base64');
+    } catch (error) {
+      throw new Error(`Failed to convert base64 to buffer: ${error.message}`);
     }
 
-    // If all services fail, throw the last error
-    throw lastError || new Error('All data URL conversion services failed');
+    console.log(`[DATA_URL_CONVERTER] Buffer size: ${buffer.length} bytes`);
+
+    // Use transfer.sh - simple file upload service (supports PUT with binary)
+    return await uploadToTransferSh(buffer);
   } catch (error) {
     console.error('[DATA_URL_CONVERTER] Error:', error.message);
     throw error;
@@ -54,100 +43,46 @@ export async function convertDataUrlToHttpUrl(dataUrl) {
 }
 
 /**
- * Try uploading to postimage.cc (no authentication required)
+ * Upload binary buffer to transfer.sh
+ * This is the most reliable service for binary uploads
  */
-async function uploadToFreeService1(base64String) {
+async function uploadToTransferSh(buffer) {
   try {
-    console.log('[DATA_URL_CONVERTER] Trying postimage.cc...');
+    console.log('[DATA_URL_CONVERTER] Uploading to transfer.sh...');
     
-    // Convert base64 to Buffer
-    const buffer = Buffer.from(base64String, 'base64');
+    const filename = `face-swap-${Date.now()}.png`;
+    const uploadUrl = `https://transfer.sh/${filename}`;
     
-    const formData = new URLSearchParams();
-    formData.append('image', buffer.toString('base64'));
-    
-    const response = await fetch('https://postimages.org/api/1/upload', {
-      method: 'POST',
-      body: formData,
-    });
-
-    if (!response.ok) {
-      throw new Error(`postimage.cc error: ${response.statusText}`);
-    }
-
-    const result = await response.json();
-    if (!result.image?.url) {
-      throw new Error('No URL in postimage.cc response');
-    }
-
-    return result.image.url;
-  } catch (error) {
-    throw new Error(`postimage.cc failed: ${error.message}`);
-  }
-}
-
-/**
- * Try uploading to transfer.sh (no authentication, simple endpoint)
- */
-async function uploadToFreeService2(base64String) {
-  try {
-    console.log('[DATA_URL_CONVERTER] Trying transfer.sh...');
-    
-    // Convert base64 to Buffer
-    const buffer = Buffer.from(base64String, 'base64');
-    
-    const filename = `image-${Date.now()}.png`;
-    
-    const response = await fetch(`https://transfer.sh/${filename}`, {
+    // Use PUT method with binary data
+    const response = await fetch(uploadUrl, {
       method: 'PUT',
-      body: buffer,
       headers: {
         'Content-Type': 'image/png',
+        'Max-Downloads': '50', // Allow multiple downloads
+        'Max-Days': '1', // Keep for 1 day
       },
+      body: buffer,
     });
 
     if (!response.ok) {
-      throw new Error(`transfer.sh error: ${response.statusText}`);
+      const error = await response.text();
+      throw new Error(`transfer.sh error ${response.status}: ${error || response.statusText}`);
     }
 
     const url = await response.text();
-    return url.trim();
-  } catch (error) {
-    throw new Error(`transfer.sh failed: ${error.message}`);
-  }
-}
-
-/**
- * Try uploading to catbox.moe (no authentication, simple endpoint)
- */
-async function uploadToFreeService3(base64String) {
-  try {
-    console.log('[DATA_URL_CONVERTER] Trying catbox.moe...');
+    const trimmedUrl = url.trim();
     
-    // Convert base64 to Buffer
-    const buffer = Buffer.from(base64String, 'base64');
-    
-    const formDataToSend = new URLSearchParams();
-    formDataToSend.append('reqtype', 'fileupload');
-    formDataToSend.append('fileToUpload', buffer.toString('base64'));
-    
-    const response = await fetch('https://catbox.moe/user/api.php', {
-      method: 'POST',
-      body: formDataToSend,
-    });
-
-    if (!response.ok) {
-      throw new Error(`catbox.moe error: ${response.statusText}`);
+    if (!trimmedUrl.startsWith('http')) {
+      throw new Error(`Invalid URL from transfer.sh: ${trimmedUrl}`);
     }
 
-    const url = await response.text();
-    if (!url.startsWith('http')) {
-      throw new Error('Invalid URL from catbox.moe');
-    }
+    console.log('[DATA_URL_CONVERTER] ✓ Upload successful');
+    console.log(`[DATA_URL_CONVERTER] URL: ${trimmedUrl}`);
 
-    return url.trim();
+    return trimmedUrl;
   } catch (error) {
-    throw new Error(`catbox.moe failed: ${error.message}`);
+    console.error('[DATA_URL_CONVERTER] transfer.sh failed:', error.message);
+    throw error;
   }
 }
 
