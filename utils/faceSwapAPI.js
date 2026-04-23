@@ -45,46 +45,128 @@ export const faceSwapAPI = {
   },
 
   /**
-   * Perform face swap on illustration
-   * @param {Object} params - Swap parameters
+   * Perform face swap on illustration (Simple - for DeepAI)
+   * @param {string} faceImageUrl - URL of face photo
+   * @param {string} illustrationImageUrl - URL of illustration
+   * @param {Object} options - Additional options
    * @returns {Promise} Face swap result
    */
-  async performFaceSwap(params) {
+  async swapFaceDeepAI(faceImageUrl, illustrationImageUrl, options = {}) {
     try {
-      const {
-        faceImageBase64,
-        illustrationImageUrl,
-        storyId,
-        photoId,
-        pageNumber,
-        facePosition,
-        faceSize,
-        rotation = 0,
-      } = params;
+      const token = typeof window !== 'undefined' ? localStorage.getItem('authToken') : null;
+      
+      if (!token) {
+        throw new Error('Authentication required');
+      }
 
-      const response = await axios.post(
-        '/api/photos/face-swap',
-        {
-          faceImageBase64,
-          illustrationImageUrl,
-          storyId,
-          photoId,
-          pageNumber,
-          facePosition,
-          faceSize,
-          rotation,
+      const response = await fetch('/api/photos/face-swap', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
         },
-        {
-          headers: {
-            'Content-Type': 'application/json',
-          },
-        }
-      );
+        body: JSON.stringify({
+          faceImageUrl,
+          illustrationImageUrl,
+          ...options,
+        }),
+      });
 
-      return response.data;
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || `Face swap failed: ${response.statusText}`);
+      }
+
+      const result = await response.json();
+      console.log('[FACE_API] ✓ Face swap successful');
+      
+      return result.result;
     } catch (error) {
-      console.error('[FACE_API] Face swap error:', error);
-      throw new Error(error.response?.data?.error || 'Face swap failed');
+      console.error('[FACE_API] DeepAI swap error:', error.message);
+      throw error;
+    }
+  },
+
+  /**
+   * Swap face for multiple story pages with proper error handling
+   * @param {string} faceImageUrl - URL of face photo
+   * @param {array} pages - Story pages with illustration URLs
+   * @param {Object} options - Additional options
+   * @returns {Promise} Batch processing result
+   */
+  async swapFaceForStoryPages(faceImageUrl, pages, options = {}) {
+    try {
+      const swappedPages = [];
+      let successCount = 0;
+      let errorCount = 0;
+
+      console.log(`[FACE_API] Processing ${pages.length} pages...`);
+
+      for (const page of pages) {
+        try {
+          const illustrationUrl = page.illustrationUrl || page.image;
+          
+          if (!illustrationUrl) {
+            console.warn(`[FACE_API] Page ${page.pageNumber} has no illustration URL`);
+            swappedPages.push({
+              ...page,
+              faceSwapped: false,
+              error: 'No illustration URL',
+            });
+            errorCount++;
+            continue;
+          }
+
+          const result = await this.swapFaceDeepAI(
+            faceImageUrl,
+            illustrationUrl,
+            {
+              pageNumber: page.pageNumber,
+              childName: options.childName,
+              ...options,
+            }
+          );
+
+          swappedPages.push({
+            ...page,
+            swappedImageUrl: result.swappedImageUrl,
+            originalIllustrationUrl: illustrationUrl,
+            faceSwapped: true,
+            processedAt: result.processedAt,
+            model: result.model,
+          });
+
+          successCount++;
+          console.log(`[FACE_API] ✓ Page ${page.pageNumber} completed`);
+
+          // Add delay between requests to avoid rate limiting (1-2 seconds)
+          await new Promise(resolve => setTimeout(resolve, 1500));
+        } catch (error) {
+          console.warn(`[FACE_API] ✗ Page ${page.pageNumber} failed:`, error.message);
+          errorCount++;
+
+          // Keep original page if swap fails
+          swappedPages.push({
+            ...page,
+            faceSwapped: false,
+            error: error.message,
+            originalIllustrationUrl: page.illustrationUrl || page.image,
+          });
+        }
+      }
+
+      console.log(`[FACE_API] Batch complete: ${successCount}/${pages.length} success`);
+
+      return {
+        pages: swappedPages,
+        successCount,
+        errorCount,
+        totalPages: pages.length,
+        status: errorCount === 0 ? 'success' : 'partial',
+      };
+    } catch (error) {
+      console.error('[FACE_API] Batch processing error:', error.message);
+      throw error;
     }
   },
 
