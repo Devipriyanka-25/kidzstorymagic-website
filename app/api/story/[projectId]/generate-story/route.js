@@ -163,18 +163,19 @@ export async function POST(request, { params }) {
       const arcEnd = Math.min((i + 1) * arcsPerPage, storyArcs.length);
       const pageArcs = storyArcs.slice(arcStart, arcEnd);
       const pageContent = pageArcs.join(' ');
+      const pageIllustration = `/images/illustration-${theme}-${(i % 5) + 1}.png`;
       
       pagesArray.push({
         pageNumber: i + 1,
         title: `${selectedTheme.title} - Page ${i + 1}`,
         content: pageContent || `${childName}'s story continues...`,
-        illustrationUrl: `/images/illustration-${theme}-${(i % 5) + 1}.png`,
+        illustrationUrl: pageIllustration,
         htmlContent: `
           <div style="padding: 20px; font-family: 'Comic Sans MS', cursive; line-height: 1.8;">
             <h3 style="color: #667eea; margin-bottom: 15px;">✨ Page ${i + 1}: ${selectedTheme.title}</h3>
             <p style="color: #333; font-size: 16px;">${pageContent || `${childName}'s amazing story unfolds...`}</p>
             <div style="margin-top: 20px; text-align: center;">
-              <img src="${pagesArray[i]?.illustrationUrl || '/images/illustration.png'}" alt="Page ${i + 1}" style="max-width: 100%; height: auto; border-radius: 10px;" />
+              <img src="${pageIllustration}" alt="Page ${i + 1}" style="max-width: 100%; height: auto; border-radius: 10px;" />
             </div>
           </div>
         `
