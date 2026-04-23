@@ -7,7 +7,7 @@ const REPLICATE_API_BASE = 'https://api.replicate.com/v1';
 
 /**
  * Call Replicate API to perform face swap
- * Using strmoder/roop v2 - Popular face swap model
+ * Using strmoder/roop - Popular face swap model
  */
 export async function faceSwapWithReplicate(faceImageUrl, targetImageUrl, options = {}) {
   const apiToken = process.env.REPLICATE_API_TOKEN;
@@ -21,7 +21,7 @@ export async function faceSwapWithReplicate(faceImageUrl, targetImageUrl, option
     console.log(`[REPLICATE] Face image: ${faceImageUrl.substring(0, 50)}...`);
     console.log(`[REPLICATE] Target image: ${targetImageUrl.substring(0, 50)}...`);
 
-    // Create prediction
+    // Create prediction using model path (gets latest version automatically)
     const predictionResponse = await fetch(`${REPLICATE_API_BASE}/predictions`, {
       method: 'POST',
       headers: {
@@ -29,7 +29,7 @@ export async function faceSwapWithReplicate(faceImageUrl, targetImageUrl, option
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        version: '9e7c2a91d928c03a0e68b1000aae75bc7be2e2db7ff5f30e79e2f53b6c8da0b6', // strmoder/roop:v2
+        model: 'strmoder/roop', // Use model path, Replicate uses latest version
         input: {
           source_url: faceImageUrl,
           target_url: targetImageUrl,

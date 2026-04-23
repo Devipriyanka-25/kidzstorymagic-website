@@ -1,7 +1,7 @@
 /**
  * Face Swap Endpoint - Integrate face into story illustrations
  * POST /api/photos/face-swap
- * Uses Replicate API (strmoder/roop v2) for real face swapping
+ * Uses Replicate API (strmoder/roop) for real face swapping
  */
 
 import { NextResponse } from 'next/server';
