@@ -1,11 +1,11 @@
 /**
  * Face Swap Endpoint - Integrate face into story illustrations
  * POST /api/photos/face-swap
- * Uses Replicate API (strmoder/roop) for real face swapping
+ * Uses DeepAI API for real face swapping (alternative to Replicate)
  */
 
 import { NextResponse } from 'next/server';
-import { faceSwapWithReplicate, imageUrlToBase64, validateImageUrl, getPricingInfo } from '../../lib/replicateService.js';
+import { faceSwapWithDeepAI, detectFacesWithDeepAI, getPricingInfo } from '../../lib/deepaiService.js';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -41,44 +41,30 @@ export async function POST(request) {
     console.log(`[FACE_SWAP] Face image: ${faceImageUrl.substring(0, 80)}...`);
     console.log(`[FACE_SWAP] Illustration: ${illustrationImageUrl.substring(0, 80)}...`);
 
-    // Validate image URLs are accessible
-    console.log('[FACE_SWAP] Validating image URLs...');
-    const faceValid = await validateImageUrl(faceImageUrl);
-    const illustrationValid = await validateImageUrl(illustrationImageUrl);
-
-    if (!faceValid) {
-      return NextResponse.json(
-        { error: 'Face image URL is not accessible' },
-        { status: 400 }
-      );
-    }
-
-    if (!illustrationValid) {
-      return NextResponse.json(
-        { error: 'Illustration image URL is not accessible' },
-        { status: 400 }
-      );
-    }
-
-    console.log('[FACE_SWAP] ✓ Image URLs validated');
-
-    // Check if Replicate API token is configured
-    if (!process.env.REPLICATE_API_TOKEN) {
-      console.warn('[FACE_SWAP] ⚠ REPLICATE_API_TOKEN not configured');
+    // Check if DeepAI API key is configured
+    if (!process.env.DEEPAI_API_KEY) {
+      console.warn('[FACE_SWAP] ⚠ DEEPAI_API_KEY not configured');
       return NextResponse.json(
         { 
           error: 'Face swap service not configured',
-          message: 'REPLICATE_API_TOKEN environment variable is missing',
-          setup: 'Get your token from https://replicate.com/account/api-tokens'
+          message: 'DEEPAI_API_KEY environment variable is missing',
+          setup: 'Get your free API key from https://deepai.org/account/profile',
+          alternatives: [
+            'AWS Rekognition + custom face swap implementation',
+            'Azure Face API + CompreFace for face swap',
+            'Run local face swap model using FastAPI'
+          ]
         },
         { status: 503 }
       );
     }
 
-    // Perform face swap via Replicate
-    console.log('[FACE_SWAP] Calling Replicate API for face swap...');
-    const swapResult = await faceSwapWithReplicate(faceImageUrl, illustrationImageUrl, {
-      onlyCenterFace: true, // Focus on center face for story illustrations
+    console.log('[FACE_SWAP] ✓ Configuration validated');
+
+    // Perform face swap via DeepAI
+    console.log('[FACE_SWAP] Calling DeepAI API for face swap...');
+    const swapResult = await faceSwapWithDeepAI(faceImageUrl, illustrationImageUrl, {
+      // DeepAI face swap options
     });
 
     console.log('[FACE_SWAP] ✓ Face swap completed successfully');
@@ -96,17 +82,18 @@ export async function POST(request) {
           swappedImageUrl: swapResult.resultUrl,
           predictionId: swapResult.predictionId,
           processedAt: swapResult.processedAt,
-          model: 'strmoder/roop:v2',
+          model: 'deepai-face-swap',
         },
         pricing: {
           model: getPricingInfo().model,
           estimatedCost: getPricingInfo().costPerCall,
           currency: 'USD',
+          provider: 'deepai.org',
         },
         metadata: {
           faceImageUrl: faceImageUrl.substring(0, 100),
           illustrationImageUrl: illustrationImageUrl.substring(0, 100),
-          source: 'replicate-api',
+          source: 'deepai-api',
         },
       },
       { status: 200 }
@@ -121,7 +108,7 @@ export async function POST(request) {
 
     if (error.message.includes('not configured')) {
       statusCode = 503;
-      errorMessage = 'Face swap service not configured';
+      errorMessage = 'Face swap service not configured - get API key from deepai.org';
     } else if (error.message.includes('timed out')) {
       statusCode = 504;
       errorMessage = 'Face swap processing timed out';
