@@ -260,47 +260,68 @@ export default function Step6ReviewCheckout() {
         </div>
       );
     } else {
-      // Story page
+      // Story page - Professional children's book layout like Thavanya
       return (
-        <div
-          className="w-full h-full rounded-r-3xl overflow-hidden flex flex-col p-4 text-white"
-          style={{ background: currentTheme.gradient }}
-        >
-          {/* Illustration - Full Width & Prominent (Like Image 1) */}
-          <div className="w-full mb-3 flex-shrink-0 rounded-xl overflow-hidden shadow-2xl border-4 border-white/20">
+        <div className="w-full h-full rounded-r-3xl overflow-hidden flex flex-col relative">
+          {/* Main Illustration - Full Height */}
+          <div className="relative flex-1 flex flex-col items-stretch">
             {page.illustrationUrl ? (
               <img
                 src={page.illustrationUrl}
-                alt={`Page ${index} Illustration`}
-                className="w-full h-48 object-cover"
+                alt={`Page ${index}`}
+                className="w-full h-full object-cover"
                 onError={(e) => {
                   e.target.style.display = 'none';
                 }}
               />
             ) : (
-              <div className="w-full h-48 flex items-center justify-center bg-white/10 rounded-xl border-4 border-white/30">
-                <span className="text-5xl">🖼️</span>
+              <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-blue-400 to-purple-500">
+                <span className="text-6xl">📚</span>
+              </div>
+            )}
+
+            {/* Title Overlay - Bold Text in Top Corner */}
+            {page.title && (
+              <div className="absolute top-6 left-6 z-10">
+                <h3 className="text-3xl md:text-4xl font-black text-white drop-shadow-lg" style={{ textShadow: '3px 3px 6px rgba(0,0,0,0.5)' }}>
+                  {page.title.toUpperCase()}
+                </h3>
+              </div>
+            )}
+
+            {/* Character Quote Bubble - On Illustration */}
+            {page.character_quote && (
+              <div className="absolute bottom-24 right-6 z-20 max-w-xs">
+                <div className="bg-cyan-400 text-gray-900 px-4 py-3 rounded-lg font-bold text-sm shadow-lg border-2 border-white" style={{ boxShadow: '0 4px 12px rgba(0,0,0,0.3)' }}>
+                  {page.character_quote}
+                </div>
               </div>
             )}
           </div>
 
-          {/* Title - Fixed height */}
-          {page.title && (
-            <h3 className="text-base font-black mb-2 text-center flex-shrink-0 line-clamp-2">
-              {page.title}
-            </h3>
-          )}
+          {/* Bottom Description Panel */}
+          <div className="bg-gradient-to-r from-blue-900 to-teal-800 text-white px-6 py-4 flex gap-4 items-start">
+            {/* Icon Circle */}
+            <div className="flex-shrink-0">
+              <div className="w-16 h-16 rounded-full bg-white/20 flex items-center justify-center border-2 border-white/40 flex-shrink-0">
+                <span className="text-2xl">✨</span>
+              </div>
+            </div>
 
-          {/* Story Text - Scrollable/Flexible with Visible Scrollbar */}
-          <div className="flex-1 overflow-y-auto text-center px-3 scrollbar-thin scrollbar-thumb-white/40 scrollbar-track-white/10">
-            <p className="text-base leading-relaxed whitespace-pre-wrap">
-              {page.page_text || page.text}
-            </p>
-          </div>
-
-          {/* Page Number - Fixed at bottom */}
-          <div className="text-center text-xs font-bold opacity-75 mt-4 flex-shrink-0">
-            Page {index + 1}
+            {/* Description Text */}
+            <div className="flex-1 min-w-0">
+              <p className="text-sm leading-relaxed mb-2 line-clamp-3">
+                {page.page_text || page.text}
+              </p>
+              
+              {/* What I Love Highlight */}
+              {page.what_i_love && (
+                <div className="text-xs font-bold text-cyan-300 mt-2">
+                  <span className="font-black text-white">What I love: </span>
+                  {page.what_i_love}
+                </div>
+              )}
+            </div>
           </div>
         </div>
       );
