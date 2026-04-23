@@ -2,10 +2,12 @@
  * Face Swap Endpoint - Integrate face into story illustrations
  * POST /api/photos/face-swap
  * Uses DeepAI API for real face swapping (alternative to Replicate)
+ * Handles both data URLs and HTTP URLs
  */
 
 import { NextResponse } from 'next/server';
 import { faceSwapWithDeepAI, detectFacesWithDeepAI, getPricingInfo } from '../../lib/deepaiService.js';
+import { convertDataUrlToHttpUrl } from '../../lib/dataUrlToUrlConverter.js';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -61,9 +63,23 @@ export async function POST(request) {
 
     console.log('[FACE_SWAP] ✓ Configuration validated');
 
+    // Convert data URLs to HTTP URLs if needed
+    let httpFaceUrl = faceImageUrl;
+    let httpIllustrationUrl = illustrationImageUrl;
+
+    if (faceImageUrl.startsWith('data:image/')) {
+      console.log('[FACE_SWAP] Converting face image data URL to HTTP URL...');
+      httpFaceUrl = await convertDataUrlToHttpUrl(faceImageUrl);
+    }
+
+    if (illustrationImageUrl.startsWith('data:image/')) {
+      console.log('[FACE_SWAP] Converting illustration data URL to HTTP URL...');
+      httpIllustrationUrl = await convertDataUrlToHttpUrl(illustrationImageUrl);
+    }
+
     // Perform face swap via DeepAI
     console.log('[FACE_SWAP] Calling DeepAI API for face swap...');
-    const swapResult = await faceSwapWithDeepAI(faceImageUrl, illustrationImageUrl, {
+    const swapResult = await faceSwapWithDeepAI(httpFaceUrl, httpIllustrationUrl, {
       // DeepAI face swap options
     });
 
