@@ -5,7 +5,7 @@
  */
 
 import { NextResponse } from 'next/server';
-import { getTranslatedStory } from '../../lib/storyTranslations.js';
+import { getTranslatedStory } from '../../../lib/storyTranslations.js';
 const jwt = require('jsonwebtoken');
 
 export const runtime = 'nodejs';
