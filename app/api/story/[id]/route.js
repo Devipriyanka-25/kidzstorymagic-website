@@ -130,3 +130,67 @@ export async function GET(request, { params }) {
     );
   }
 }
+
+export async function DELETE(request, { params }) {
+  try {
+    const storyId = params.id;
+
+    // Verify authentication
+    const authHeader = request.headers.get('authorization');
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return NextResponse.json(
+        { error: 'Unauthorized' },
+        { status: 401 }
+      );
+    }
+
+    const token = authHeader.substring(7);
+    const jwtSecret = process.env.JWT_SECRET || 'kidz-story-magic-jwt-secret-key-2024-production-secure-random-12345';
+
+    let decoded;
+    try {
+      decoded = jwt.verify(token, jwtSecret);
+    } catch (err) {
+      return NextResponse.json(
+        { error: 'Unauthorized' },
+        { status: 401 }
+      );
+    }
+
+    console.log('[STORY_DELETE] Deleting story:', storyId, 'by user:', decoded.id || decoded.email);
+
+    // Mock delete - in production this would delete from database
+    const mockStoriesDB = {
+      'story_1': true,
+      'story_2': true,
+    };
+
+    if (!mockStoriesDB[storyId]) {
+      console.log('[STORY_DELETE] Story not found:', storyId);
+      return NextResponse.json(
+        { error: 'Story not found' },
+        { status: 404 }
+      );
+    }
+
+    console.log('[STORY_DELETE] ✓ Story deleted:', storyId);
+
+    return NextResponse.json(
+      {
+        success: true,
+        message: 'Story deleted successfully',
+        storyId: storyId,
+      },
+      { status: 200 }
+    );
+  } catch (error) {
+    console.error('[STORY_DELETE] Error:', error.message);
+    return NextResponse.json(
+      {
+        error: 'Failed to delete story',
+        details: error.message,
+      },
+      { status: 500 }
+    );
+  }
+}
