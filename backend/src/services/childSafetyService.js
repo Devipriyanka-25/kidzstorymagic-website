@@ -40,7 +40,7 @@ class ChildSafetyService {
       const emailContent = `
         <h2>Parental Consent Confirmation</h2>
         <p>Hello,</p>
-        <p>This is to confirm that <strong>${childName}</strong> (Age ${age}) has used our Story Magic service with your consent.</p>
+        <p>This is to confirm that <strong>${childName}</strong> (Age ${age}) has used our Kidz Story Magic service with your consent.</p>
         
         <h3>What we do:</h3>
         <ul>
@@ -66,7 +66,7 @@ class ChildSafetyService {
       await transporter.sendMail({
         from: process.env.EMAIL_USER,
         to: parentEmail,
-        subject: `[Story Magic] Parental Consent Confirmation for ${childName}`,
+        subject: `[Kidz Story Magic] Parental Consent Confirmation for ${childName}`,
         html: emailContent,
       });
 

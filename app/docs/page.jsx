@@ -17,7 +17,7 @@ export default function DocsPage() {
           <section>
             <h2 className="text-3xl font-bold text-gray-900 mb-4">Getting Started</h2>
             <p className="text-gray-700 mb-4">
-              Story Magic makes it easy to create personalized, AI-powered storybooks for children. Follow these steps to get started:
+              Kidz Story Magic makes it easy to create personalized, AI-powered storybooks for children. Follow these steps to get started:
             </p>
             <ol className="list-decimal list-inside space-y-2 text-gray-700">
               <li>Sign up for a free account</li>

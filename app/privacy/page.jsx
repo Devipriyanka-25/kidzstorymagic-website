@@ -15,7 +15,7 @@ export default function PrivacyPage() {
           <section>
             <h2 className="text-2xl font-bold text-gray-900 mb-4">Introduction</h2>
             <p className="text-gray-700 leading-relaxed">
-              At Story Magic, we take your privacy seriously. This Privacy Policy explains how we collect, use, disclose, and safeguard your information when you use our website and services.
+              At Kidz Story Magic, we take your privacy seriously. This Privacy Policy explains how we collect, use, disclose, and safeguard your information when you use our website and services.
             </p>
           </section>
 
@@ -69,7 +69,7 @@ export default function PrivacyPage() {
           <section>
             <h2 className="text-2xl font-bold text-gray-900 mb-4">Children's Privacy</h2>
             <p className="text-gray-700 leading-relaxed">
-              Story Magic is designed for use by parents and guardians. We do not knowingly collect personal information from children under 13. Parents who believe their child has provided information to us should contact us immediately.
+              Kidz Story Magic is designed for use by parents and guardians. We do not knowingly collect personal information from children under 13. Parents who believe their child has provided information to us should contact us immediately.
             </p>
           </section>
 
@@ -112,7 +112,7 @@ export default function PrivacyPage() {
             </p>
             <div className="mt-4 text-gray-700">
               <p><strong>Email:</strong> privacy@kidzstorymagic.com</p>
-              <p><strong>Address:</strong> Story Magic, Inc.</p>
+              <p><strong>Address:</strong> Kidz Story Magic, Inc.</p>
               <p className="mt-4 text-sm italic">This Privacy Policy may be updated periodically. We will notify you of material changes via email.</p>
             </div>
           </section>

@@ -97,7 +97,7 @@ export default function LoginPage() {
               <div className="relative w-32 h-32 bg-white rounded-xl p-3 shadow-lg">
                 <Image
                   src="/logo.png"
-                  alt="Story Magic Logo"
+                  alt="Kidz Story Magic Logo"
                   width={128}
                   height={128}
                   className="w-full h-full object-contain"
@@ -106,7 +106,7 @@ export default function LoginPage() {
               
               {/* Title and Subtitle */}
               <div className="text-center">
-                <h2 className="text-3xl font-black text-white mb-2">Story Magic</h2>
+                <h2 className="text-3xl font-black text-white mb-2">Kidz Story Magic</h2>
                 <p className="text-blue-100 text-sm">AI-Powered Stories for Kids</p>
               </div>
               

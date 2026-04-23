@@ -109,14 +109,14 @@ export default function FeaturesPage() {
       {/* Comparison Table */}
       <section className="py-20 px-6 bg-gray-50">
         <div className="max-w-6xl mx-auto">
-          <h2 className="text-4xl font-black text-gray-900 text-center mb-16">Story Magic vs. Traditional Books</h2>
+          <h2 className="text-4xl font-black text-gray-900 text-center mb-16">Kidz Story Magic vs. Traditional Books</h2>
           
           <div className="overflow-x-auto rounded-2xl shadow-lg">
             <table className="w-full bg-white">
               <thead className="bg-blue-600 text-white">
                 <tr>
                   <th className="px-6 py-4 text-left font-bold">Feature</th>
-                  <th className="px-6 py-4 text-center font-bold">Story Magic</th>
+                  <th className="px-6 py-4 text-center font-bold">Kidz Story Magic</th>
                   <th className="px-6 py-4 text-center font-bold">Traditional Books</th>
                 </tr>
               </thead>

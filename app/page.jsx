@@ -45,7 +45,7 @@ export default function HomePage() {
                   >
                     <Image
                       src="/logo.png"
-                      alt="Story Magic Logo"
+                      alt="Kidz Story Magic Logo"
                       width={80}
                       height={80}
                       className="w-full h-full object-contain"
@@ -53,7 +53,7 @@ export default function HomePage() {
                   </motion.div>
                   <div>
                     <p className="text-sm font-semibold text-blue-100">Welcome to</p>
-                    <h2 className="text-3xl font-black text-white">Story Magic</h2>
+                    <h2 className="text-3xl font-black text-white">Kidz Story Magic</h2>
                   </div>
                 </div>
                 <h1 className="text-5xl lg:text-6xl xl:text-7xl font-black leading-tight">
@@ -150,7 +150,7 @@ export default function HomePage() {
               >
                 <Image
                   src="/logo.png"
-                  alt="Story Magic - Create Magical Stories"
+                  alt="Kidz Story Magic - Create Magical Stories"
                   width={350}
                   height={350}
                   className="drop-shadow-2xl filter brightness-110"

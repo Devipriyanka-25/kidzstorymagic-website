@@ -54,7 +54,7 @@ export default function BlogPostPage() {
       sections: [
         {
           heading: 'Most Popular Themes',
-          content: 'Over the past year, Story Magic has analyzed thousands of stories created on our platform. Here are the top 10 themes that kids absolutely love:'
+          content: 'Over the past year, Kidz Story Magic has analyzed thousands of stories created on our platform. Here are the top 10 themes that kids absolutely love:'
         },
         {
           heading: '1. Adventure & Exploration',
@@ -169,7 +169,7 @@ export default function BlogPostPage() {
               </div>
               <div>
                 <p className="font-semibold text-gray-900">{post.author}</p>
-                <p className="text-sm text-gray-600">Story Magic Editor</p>
+                <p className="text-sm text-gray-600">Kidz Story Magic Editor</p>
               </div>
             </div>
           </div>

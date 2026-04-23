@@ -17,7 +17,7 @@ export default function BlogPage() {
       title: 'Top 10 Themes That Kids Love',
       date: 'March 28, 2026',
       category: 'Stories',
-      excerpt: 'Explore the most popular themes on Story Magic and find the perfect adventure for your child.',
+      excerpt: 'Explore the most popular themes on Kidz Story Magic and find the perfect adventure for your child.',
       image: '✨'
     },
     {
@@ -46,7 +46,7 @@ export default function BlogPage() {
     },
     {
       id: 6,
-      title: 'Success Stories: How Story Magic Changed Bedtime',
+      title: 'Success Stories: How Kidz Story Magic Changed Bedtime',
       date: 'February 28, 2026',
       category: 'Stories',
       excerpt: 'Real stories from parents about how personalized books transformed their children\'s reading habits.',
@@ -60,7 +60,7 @@ export default function BlogPage() {
         {/* Header */}
         <div className="text-center mb-16">
           <h1 className="text-5xl font-black text-gray-900 mb-4">Blog</h1>
-          <p className="text-xl text-gray-600">Tips, insights, and stories from the Story Magic community</p>
+          <p className="text-xl text-gray-600">Tips, insights, and stories from the Kidz Story Magic community</p>
         </div>
 
         {/* Blog Posts */}

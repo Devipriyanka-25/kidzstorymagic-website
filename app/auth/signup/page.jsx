@@ -119,7 +119,7 @@ export default function SignupPage() {
             <div className="relative w-16 h-16">
               <Image
                 src="/logo.png"
-                alt="Story Magic Logo"
+                alt="Kidz Story Magic Logo"
                 width={64}
                 height={64}
                 className="w-full h-full object-contain"

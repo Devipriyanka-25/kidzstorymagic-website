@@ -48,14 +48,14 @@ export default function RootLayout({ children }) {
                       <div className="relative w-10 h-10">
                         <Image
                           src="/logo.png"
-                          alt="Story Magic Logo"
+                          alt="Kidz Story Magic Logo"
                           width={40}
                           height={40}
                           className="w-full h-full object-contain"
                         />
                       </div>
                       <div>
-                        <h3 className="font-bold text-lg">Story Magic</h3>
+                        <h3 className="font-bold text-lg">Kidz Story Magic</h3>
                         <p className="text-xs text-gray-400">Magical Stories</p>
                       </div>
                     </div>
