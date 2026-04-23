@@ -185,10 +185,14 @@ export default function Step6ReviewCheckout() {
     try {
       const faceImageUrl = firstImage.preview || firstImage.url;
       
-      // Get all page illustration URLs
-      const pages = storyPreview.map(page => ({
-        illustrationUrl: page.illustrationUrl || page.image || ''
+      // Get all page illustration URLs with proper metadata
+      const pages = storyPreview.map((page, index) => ({
+        pageNumber: index + 1,
+        illustrationUrl: page.illustrationUrl || page.image || '',
+        content: page.content,
       }));
+
+      console.log('[FACE_SWAP] Pages to process:', pages.length, pages);
 
       // Call face swap API with progress callback
       const result = await faceSwapAPI.swapFaceForStoryPages(
