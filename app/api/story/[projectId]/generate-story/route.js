@@ -63,7 +63,7 @@ export async function POST(request, { params }) {
       );
     }
 
-    // Generate mock story content
+    // Generate mock story content with pages array
     const themes = {
       adventure: 'an exciting adventure',
       fantasy: 'a magical fantasy tale',
@@ -77,6 +77,18 @@ export async function POST(request, { params }) {
     const themeDescription = themes[theme] || 'an amazing story';
     const pages = pageCount || 20;
 
+    // Create pages array for the component to iterate over
+    const pagesArray = [];
+    for (let i = 0; i < pages; i++) {
+      pagesArray.push({
+        pageNumber: i + 1,
+        title: `Page ${i + 1}`,
+        content: `This is page ${i + 1} of ${childName}'s story.`,
+        illustrationUrl: `/images/placeholder-${(i % 10) + 1}.png`,
+        htmlContent: `<h3>Page ${i + 1}</h3><p>${childName}'s adventure continues...</p>`
+      });
+    }
+
     // Mock story generation
     const generatedStory = {
       id: projectId,
@@ -86,6 +98,7 @@ export async function POST(request, { params }) {
       ageGroup: ageGroup,
       theme: theme,
       pageCount: pages,
+      pages: pagesArray,  // Pages array for iteration
       status: 'draft',
       content: `
         <h2>${childName}'s ${theme.charAt(0).toUpperCase() + theme.slice(1)} Story</h2>

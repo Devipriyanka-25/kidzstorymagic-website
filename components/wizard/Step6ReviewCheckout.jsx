@@ -71,6 +71,16 @@ export default function Step6ReviewCheckout() {
       console.log('[STEP6] Generating story for project:', formData.projectId);
       console.log('[STEP6] Form data:', formData);
 
+      // Check if token exists
+      const token = typeof window !== 'undefined' ? localStorage.getItem('authToken') : null;
+      console.log('[STEP6] Token in localStorage:', token ? 'Present' : 'Missing');
+      
+      if (!token) {
+        setError('⚠️ Authentication required. Please login again.');
+        setLoading(false);
+        return;
+      }
+
       // Pass custom illustration prompt if custom theme selected
       const customPrompt = formData.theme === 'customizable' ? formData.customIllustrationPrompt : null;
 
@@ -85,10 +95,15 @@ export default function Step6ReviewCheckout() {
 
       const storyResponse = await storyAPI.generateStory(formData.projectId, customPrompt, currentLanguage || 'en', storyData);
 
-      setStoryPreview(storyResponse.data.story);
+      // Extract pages array from response
+      const pages = storyResponse.data.story.pages || [];
+      console.log('[STEP6] Story generated with', pages.length, 'pages');
+      
+      setStoryPreview(pages.length > 0 ? pages : [{}]); // Default to at least one page
       setCurrentPage(0); // Reset to first page
     } catch (err) {
       console.error('[GENERATE_STORY_ERROR]', err);
+      console.error('[GENERATE_STORY_ERROR] Response:', err.response?.data);
       setError(err.response?.data?.error || err.message || 'Failed to generate story preview');
     } finally {
       setLoading(false);
