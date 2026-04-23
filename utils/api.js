@@ -13,22 +13,9 @@ export const getAuthToken = () => {
 // Get API base URL dynamically at RUNTIME, not at build time
 // This ensures environment variables and window detection work correctly
 function getAPIBaseURL() {
-  // In server-side rendering, default to /api
-  if (typeof window === 'undefined') {
-    return '/api';
-  }
-  
-  const hostname = window.location.hostname;
-  
-  // Local development
-  if (hostname === 'localhost' || hostname === '127.0.0.1' || hostname.startsWith('192.168')) {
-    return 'http://localhost:5000/api';
-  }
-  
-  // Production: Use Vercel proxy first, fallback to CORS proxy
-  // Try Vercel proxy routes first (/api -> Vercel -> Railway)
-  // If that fails, fallback will use CORS proxy
-  return '/api'; // This will be /api in production
+  // Use local /api routes (Next.js serverless functions)
+  // This works for both localhost and production
+  return '/api';
 }
 
 // Create API client dynamically at runtime

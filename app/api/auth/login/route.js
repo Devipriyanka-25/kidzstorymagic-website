@@ -5,7 +5,7 @@
  */
 
 import { NextResponse } from 'next/server';
-import { userStore } from '../shared/userStore.js';
+import { userStore } from '../../shared/userStore.js';
 
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
