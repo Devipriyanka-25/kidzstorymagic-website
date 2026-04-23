@@ -131,9 +131,13 @@ export const storyAPI = {
     );
   },
   
-  generateStory: (projectId, customPrompt = null, storyLanguage = 'en') => 
+  generateStory: (projectId, customPrompt = null, storyLanguage = 'en', storyData = {}) => 
     retryWithBackoff(
-      () => createAPIClient().post(`/story/${projectId}/generate-story`, { customPrompt, storyLanguage }, {
+      () => createAPIClient().post(`/story/${projectId}/generate-story`, { 
+        ...storyData,
+        customPrompt, 
+        storyLanguage 
+      }, {
         timeout: 120000
       }),
       2,

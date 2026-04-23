@@ -69,12 +69,21 @@ export default function Step6ReviewCheckout() {
       }
 
       console.log('[STEP6] Generating story for project:', formData.projectId);
+      console.log('[STEP6] Form data:', formData);
 
       // Pass custom illustration prompt if custom theme selected
       const customPrompt = formData.theme === 'customizable' ? formData.customIllustrationPrompt : null;
 
-      // Generate story with the existing projectId and language
-      const storyResponse = await storyAPI.generateStory(formData.projectId, customPrompt, currentLanguage || 'en');
+      // Generate story with all required data
+      const storyData = {
+        childName: formData.childName || 'Child',
+        childGender: formData.childGender || 'child',
+        ageGroup: formData.ageGroup || '5-8',
+        theme: formData.theme || 'fantasy',
+        pageCount: formData.pageCount || 20,
+      };
+
+      const storyResponse = await storyAPI.generateStory(formData.projectId, customPrompt, currentLanguage || 'en', storyData);
 
       setStoryPreview(storyResponse.data.story);
       setCurrentPage(0); // Reset to first page
