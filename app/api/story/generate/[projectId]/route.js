@@ -112,16 +112,7 @@ export async function POST(request, { params }) {
             <p style="color: #333; font-size: 16px; line-height: 1.8;">
               Friends were made, lessons were learned, and ${childName} proved to be brave, kind, and wise beyond measure.
             </p>
-            <h2 style="color: #667eea; font-size: 28px; margin-top: 30px; text-align: center;">The Happy Ending</h2>
-            <p style="color: #333; font-size: 16px; line-height: 1.8; text-align: center;">
-              And so, ${childName}'s story came to a wonderful conclusion. The world was forever changed by their kindness and courage.
-            </p>
-            <p style="color: #667eea; font-size: 18px; font-weight: bold; text-align: center; margin-top: 20px;">
-              The End 🌟
-            </p>
-          </div>
-        </div>
-      `,
+            <h2 style="color: #667eea; font-size: 28px; margin-top: 30px; text-align: center;\">The Happy Ending</h2>\n            <p style=\"color: #333; font-size: 16px; line-height: 1.8; text-align: center;\">\n              And so, ${childName}'s story came to a wonderful conclusion. The world was forever changed by their kindness and courage.\n            </p>\n            <p style=\"color: #667eea; font-size: 18px; font-weight: bold; text-align: center; margin-top: 20px;\">\n              The End 🌟\n            </p>\n          </div>\n        </div>\n      `,
       illustrations: [
         { pageNumber: 1, url: '/images/placeholder-1.png', description: 'Opening scene with ' + childName },
         { pageNumber: 2, url: '/images/placeholder-2.png', description: 'Adventure begins' },
