@@ -1,10 +1,9 @@
 /**
  * DeepAI Face Swap Service
  * Alternative to Replicate - more reliable face swapping
- * API: https://deepai.org/api/deepdream (or face swap endpoints)
+ * API: https://deepai.org/api/face-swap
  */
 
-const DEEPAI_API_BASE = 'https://api.deepai.org/api';
 const DEEPAI_FACE_SWAP_ENDPOINT = 'https://api.deepai.org/api/face-swap';
 
 /**
@@ -26,22 +25,24 @@ export async function faceSwapWithDeepAI(sourceImageUrl, targetImageUrl, options
     console.log(`[DEEPAI] Source: ${sourceImageUrl.substring(0, 60)}...`);
     console.log(`[DEEPAI] Target: ${targetImageUrl.substring(0, 60)}...`);
 
-    const formData = new FormData();
-    formData.append('source_url', sourceImageUrl);
-    formData.append('target_url', targetImageUrl);
+    // Use URL-encoded form data for DeepAI API
+    const params = new URLSearchParams();
+    params.append('source_url', sourceImageUrl);
+    params.append('target_url', targetImageUrl);
 
     const response = await fetch(DEEPAI_FACE_SWAP_ENDPOINT, {
       method: 'POST',
       headers: {
         'api-key': apiKey,
+        'Content-Type': 'application/x-www-form-urlencoded',
       },
-      body: formData,
+      body: params.toString(),
     });
 
     if (!response.ok) {
-      const error = await response.text();
-      console.error('[DEEPAI] API error:', error);
-      throw new Error(`DeepAI API error: ${response.statusText}`);
+      const errorText = await response.text();
+      console.error('[DEEPAI] API error:', errorText);
+      throw new Error(`DeepAI API error (${response.status}): ${response.statusText}`);
     }
 
     const result = await response.json();
