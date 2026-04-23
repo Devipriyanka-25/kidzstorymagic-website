@@ -194,8 +194,8 @@ export async function POST(request, { params }) {
       pages: pagesArray,  // Pages array for iteration
       status: 'draft',
       content: `
-        <h2>${childName}'s ${theme.charAt(0).toUpperCase() + theme.slice(1)} Story</h2>
-        <p>Once upon a time, there was a special child named ${childName}. This is ${themeDescription} created just for them.</p>
+        <h2>${childName}'s ${selectedTheme.title}</h2>
+        <p>Once upon a time, there was a special child named ${childName}. This is a special story created just for them.</p>
         <p>In this wonderful journey, ${childName} experiences amazing things and learns valuable lessons. 
         Every page brings new excitement, new friends, and new discoveries.</p>
         <p>${childName} shows remarkable courage, kindness, and determination throughout this tale. 
