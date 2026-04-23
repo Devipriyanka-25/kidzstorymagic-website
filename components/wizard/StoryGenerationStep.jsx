@@ -289,6 +289,8 @@ export default function StoryGenerationStep({
         <StoryPreviewComponent
           story={generatedStory}
           theme={theme}
+          uploadedPhoto={uploadedImages[0] || null}
+          childName={childName}
           onClose={backToUpload}
           onRegenerate={regenerateStory}
           onSaveDraft={saveDraft}

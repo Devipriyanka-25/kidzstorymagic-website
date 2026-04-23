@@ -9,6 +9,7 @@
  * - Page counter
  * - Animated page transitions
  * - Full-screen option
+ * - Face swap integration with DeepAI
  */
 
 'use client';
@@ -17,6 +18,7 @@ import { useState, useEffect } from 'react';
 import Image from 'next/image';
 import PDFSettingsModal from '@/components/story/PDFSettingsModal';
 import usePDFGenerator from '@/hooks/usePDFGenerator';
+import { faceSwapAPI } from '@/utils/faceSwapAPI';
 
 export default function StoryPreviewComponent({ 
   story = {
@@ -34,10 +36,16 @@ export default function StoryPreviewComponent({
   onClose = () => {},
   onRegenerate = () => {},
   onSaveDraft = () => {},
+  uploadedPhoto = null,
+  childName = 'Child',
 }) {
   const [currentPage, setCurrentPage] = useState(0);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [flipAnimation, setFlipAnimation] = useState(false);
+  const [swappedPages, setSwappedPages] = useState({});
+  const [isFaceSwapping, setIsFaceSwapping] = useState(false);
+  const [faceSwapError, setFaceSwapError] = useState('');
+  const [faceSwapProgress, setFaceSwapProgress] = useState(0);
   
   // PDF Generation states
   const [showPDFModal, setShowPDFModal] = useState(false);
@@ -71,6 +79,59 @@ export default function StoryPreviewComponent({
     } catch (err) {
       console.error('[PDF] Generation error:', err);
       alert('❌ Failed to generate PDF. ' + (err.message || ''));
+    }
+  };
+
+  /**
+   * Handle face swap for all story pages
+   */
+  const handleFaceSwap = async () => {
+    if (!uploadedPhoto?.watermarkedUrl && !uploadedPhoto?.url) {
+      setFaceSwapError('❌ No photo uploaded. Please upload a photo first.');
+      return;
+    }
+
+    setIsFaceSwapping(true);
+    setFaceSwapError('');
+    setFaceSwapProgress(0);
+
+    try {
+      const faceImageUrl = uploadedPhoto.watermarkedUrl || uploadedPhoto.url;
+      
+      // Use batch processing for all pages
+      const result = await faceSwapAPI.swapFaceForStoryPages(
+        faceImageUrl,
+        story.pages,
+        {
+          childName,
+          onProgress: (current, total) => {
+            setFaceSwapProgress(Math.round((current / total) * 100));
+          }
+        }
+      );
+
+      // Store swapped images
+      const newSwappedPages = {};
+      result.pages.forEach((page, index) => {
+        if (page.swappedImageUrl) {
+          newSwappedPages[index] = page.swappedImageUrl;
+        }
+      });
+
+      setSwappedPages(newSwappedPages);
+      
+      if (result.successCount > 0) {
+        setFaceSwapError(`✅ Successfully swapped ${result.successCount}/${result.totalPages} pages`);
+      }
+      if (result.errorCount > 0) {
+        setFaceSwapError(`⚠️ ${result.errorCount} pages failed to swap. Showing originals.`);
+      }
+    } catch (err) {
+      console.error('[FaceSwap] Error:', err);
+      setFaceSwapError(`❌ Face swap failed: ${err.message}`);
+    } finally {
+      setIsFaceSwapping(false);
+      setFaceSwapProgress(0);
     }
   };
 
@@ -169,7 +230,14 @@ export default function StoryPreviewComponent({
           <div className={`w-full bg-white rounded-lg shadow-lg overflow-hidden flex flex-col transition-opacity duration-300 ${flipAnimation ? 'opacity-50' : 'opacity-100'}`}>
             {/* Page Image Section */}
             <div className="flex-shrink-0 w-full h-56 sm:h-64 md:h-80 relative bg-gradient-to-br from-blue-200 to-purple-200 overflow-hidden flex items-center justify-center">
-              {currentPageData?.illustrationUrl ? (
+              {swappedPages[currentPage] ? (
+                <img
+                  src={swappedPages[currentPage]}
+                  alt={`Page ${currentPage + 1} - Swapped`}
+                  className="w-full h-full object-cover"
+                  title="Face-swapped illustration"
+                />
+              ) : currentPageData?.illustrationUrl ? (
                 <img
                   src={currentPageData.illustrationUrl}
                   alt={`Page ${currentPage + 1}`}
@@ -273,6 +341,32 @@ export default function StoryPreviewComponent({
 
           {/* Action Buttons */}
           <div className="bg-gray-800 rounded-lg p-4 space-y-2">
+            {uploadedPhoto && (
+              <>
+                <button
+                  onClick={handleFaceSwap}
+                  disabled={isFaceSwapping}
+                  className="w-full px-4 py-2 bg-purple-600 hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg transition-colors font-medium text-sm flex items-center justify-center gap-2"
+                >
+                  {isFaceSwapping ? '⏳ Swapping...' : '✨ Swap Face'}
+                </button>
+                
+                {isFaceSwapping && (
+                  <div className="w-full bg-gray-700 rounded-lg overflow-hidden">
+                    <div 
+                      className="bg-purple-600 h-2 transition-all duration-300"
+                      style={{ width: `${faceSwapProgress}%` }}
+                    />
+                    <p className="text-xs text-center text-gray-300 mt-1">{faceSwapProgress}% Complete</p>
+                  </div>
+                )}
+                
+                {swappedPages[currentPage] && (
+                  <p className="text-xs text-purple-300 text-center">✨ Face-swapped version</p>
+                )}
+              </>
+            )}
+            
             <button
               onClick={onRegenerate}
               className="w-full px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-lg transition-colors font-medium text-sm"
@@ -326,6 +420,12 @@ export default function StoryPreviewComponent({
       {error && (
         <div className="fixed bottom-4 right-4 bg-red-500 text-white p-4 rounded-lg shadow-lg">
           <p className="font-semibold">❌ {error}</p>
+        </div>
+      )}
+
+      {faceSwapError && (
+        <div className={`fixed bottom-4 right-4 ${faceSwapError.includes('✅') ? 'bg-green-500' : faceSwapError.includes('⚠️') ? 'bg-yellow-500' : 'bg-red-500'} text-white p-4 rounded-lg shadow-lg max-w-xs`}>
+          <p className="font-semibold text-sm">{faceSwapError}</p>
         </div>
       )}
     </div>
