@@ -1,11 +1,11 @@
 /**
  * Convert Data URL (base64) to publicly accessible URL
- * Uses simple HTTP PUT/POST to transfer.sh
+ * Uses multiple fallback services for reliability
  */
 
 /**
  * Convert a data URL to a real HTTP URL
- * Uses transfer.sh with direct binary upload (most reliable)
+ * Tries multiple services in order of reliability
  * @param {string} dataUrl - Base64 data URL (data:image/png;base64,...)
  * @returns {Promise<string>} - Public HTTP URL of the image
  */
@@ -34,8 +34,27 @@ export async function convertDataUrlToHttpUrl(dataUrl) {
 
     console.log(`[DATA_URL_CONVERTER] Buffer size: ${buffer.length} bytes`);
 
-    // Use transfer.sh - simple file upload service (supports PUT with binary)
-    return await uploadToTransferSh(buffer);
+    // Try services in order
+    const services = [
+      { name: 'transfer.sh', fn: () => uploadToTransferSh(buffer) },
+      { name: 'file.io', fn: () => uploadToFileIo(buffer) },
+      { name: 'temp-file', fn: () => uploadToTempFile(buffer) },
+    ];
+
+    let lastError;
+    for (const service of services) {
+      try {
+        console.log(`[DATA_URL_CONVERTER] Trying ${service.name}...`);
+        const url = await service.fn();
+        console.log(`[DATA_URL_CONVERTER] ✓ Upload successful via ${service.name}`);
+        return url;
+      } catch (error) {
+        console.warn(`[DATA_URL_CONVERTER] ${service.name} failed:`, error.message);
+        lastError = error;
+      }
+    }
+
+    throw lastError || new Error('All data URL conversion services failed');
   } catch (error) {
     console.error('[DATA_URL_CONVERTER] Error:', error.message);
     throw error;
@@ -43,46 +62,100 @@ export async function convertDataUrlToHttpUrl(dataUrl) {
 }
 
 /**
- * Upload binary buffer to transfer.sh
- * This is the most reliable service for binary uploads
+ * Upload binary buffer to transfer.sh with timeout
  */
 async function uploadToTransferSh(buffer) {
   try {
-    console.log('[DATA_URL_CONVERTER] Uploading to transfer.sh...');
-    
     const filename = `face-swap-${Date.now()}.png`;
     const uploadUrl = `https://transfer.sh/${filename}`;
     
-    // Use PUT method with binary data
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 10000);
+    
     const response = await fetch(uploadUrl, {
       method: 'PUT',
       headers: {
         'Content-Type': 'image/png',
-        'Max-Downloads': '50', // Allow multiple downloads
-        'Max-Days': '1', // Keep for 1 day
+        'Max-Downloads': '50',
+        'Max-Days': '1',
       },
       body: buffer,
+      signal: controller.signal,
     });
 
+    clearTimeout(timeout);
+
     if (!response.ok) {
-      const error = await response.text();
-      throw new Error(`transfer.sh error ${response.status}: ${error || response.statusText}`);
+      const error = await response.text().catch(() => response.statusText);
+      throw new Error(`transfer.sh ${response.status}: ${error}`);
     }
 
     const url = await response.text();
     const trimmedUrl = url.trim();
     
     if (!trimmedUrl.startsWith('http')) {
-      throw new Error(`Invalid URL from transfer.sh: ${trimmedUrl}`);
+      throw new Error(`Invalid URL: ${trimmedUrl}`);
     }
-
-    console.log('[DATA_URL_CONVERTER] ✓ Upload successful');
-    console.log(`[DATA_URL_CONVERTER] URL: ${trimmedUrl}`);
 
     return trimmedUrl;
   } catch (error) {
-    console.error('[DATA_URL_CONVERTER] transfer.sh failed:', error.message);
-    throw error;
+    throw new Error(`transfer.sh error: ${error.message}`);
+  }
+}
+
+/**
+ * Upload to file.io (alternative service)
+ */
+async function uploadToFileIo(buffer) {
+  try {
+    const formData = new URLSearchParams();
+    formData.append('file', buffer.toString('base64'));
+    
+    const response = await fetch('https://file.io/?expires=1h', {
+      method: 'POST',
+      body: formData,
+    });
+
+    if (!response.ok) {
+      throw new Error(`file.io ${response.status}`);
+    }
+
+    const data = await response.json();
+    if (!data.link) {
+      throw new Error('No link in response');
+    }
+
+    return data.link;
+  } catch (error) {
+    throw new Error(`file.io error: ${error.message}`);
+  }
+}
+
+/**
+ * Upload to temp-file service (fallback)
+ */
+async function uploadToTempFile(buffer) {
+  try {
+    const response = await fetch('https://tmpfiles.org/api/v1/upload', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/octet-stream',
+      },
+      body: buffer,
+    });
+
+    if (!response.ok) {
+      throw new Error(`tmpfiles ${response.status}`);
+    }
+
+    const data = await response.json();
+    if (!data.data?.file?.url?.short_url) {
+      throw new Error('Invalid response format');
+    }
+
+    return data.data.file.url.short_url;
+  } catch (error) {
+    throw new Error(`tmpfiles error: ${error.message}`);
   }
 }
 
