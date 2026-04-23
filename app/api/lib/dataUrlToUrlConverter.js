@@ -1,15 +1,31 @@
 /**
  * Convert Data URL (base64) to publicly accessible URL
- * Uses multiple fallback services for reliability
+ * Uses local file storage + public serving for maximum reliability
  */
+
+import fs from 'fs';
+import path from 'path';
+
+// Use a simple approach that works with Next.js
+const publicDir = path.join(process.cwd(), 'public/temp-faces');
+
+// Ensure temp directory exists
+try {
+  if (!fs.existsSync(publicDir)) {
+    fs.mkdirSync(publicDir, { recursive: true });
+  }
+} catch (err) {
+  console.warn('[DATA_URL_CONVERTER] Could not create temp directory:', err.message);
+}
 
 /**
  * Convert a data URL to a real HTTP URL
- * Tries multiple services in order of reliability
+ * Tries local file storage first, then fallback services
  * @param {string} dataUrl - Base64 data URL (data:image/png;base64,...)
+ * @param {string} host - Request host for building absolute URL
  * @returns {Promise<string>} - Public HTTP URL of the image
  */
-export async function convertDataUrlToHttpUrl(dataUrl) {
+export async function convertDataUrlToHttpUrl(dataUrl, host = 'www.kidzstorymagic.org') {
   try {
     console.log('[DATA_URL_CONVERTER] Converting data URL to HTTP URL...');
 
@@ -36,9 +52,9 @@ export async function convertDataUrlToHttpUrl(dataUrl) {
 
     // Try services in order
     const services = [
+      { name: 'local-file', fn: () => saveToLocalFile(buffer, host) },
       { name: 'transfer.sh', fn: () => uploadToTransferSh(buffer) },
       { name: 'file.io', fn: () => uploadToFileIo(buffer) },
-      { name: 'temp-file', fn: () => uploadToTempFile(buffer) },
     ];
 
     let lastError;
@@ -62,6 +78,27 @@ export async function convertDataUrlToHttpUrl(dataUrl) {
 }
 
 /**
+ * Save image to local public directory
+ */
+async function saveToLocalFile(buffer, host) {
+  try {
+    const filename = `face-${Date.now()}-${Math.random().toString(36).substr(2, 9)}.png`;
+    const filepath = path.join(publicDir, filename);
+    
+    // Write file
+    fs.writeFileSync(filepath, buffer);
+    console.log(`[LOCAL_FILE] Saved to ${filepath}`);
+    
+    // Return public URL
+    const protocol = host.includes('localhost') ? 'http' : 'https';
+    const publicUrl = `${protocol}://${host}/temp-faces/${filename}`;
+    return publicUrl;
+  } catch (error) {
+    throw new Error(`local-file error: ${error.message}`);
+  }
+}
+
+/**
  * Upload binary buffer to transfer.sh with timeout
  */
 async function uploadToTransferSh(buffer) {
@@ -78,6 +115,7 @@ async function uploadToTransferSh(buffer) {
         'Content-Type': 'image/png',
         'Max-Downloads': '50',
         'Max-Days': '1',
+        'User-Agent': 'Kidz-Story-Magic/1.0',
       },
       body: buffer,
       signal: controller.signal,
@@ -104,16 +142,25 @@ async function uploadToTransferSh(buffer) {
 }
 
 /**
- * Upload to file.io (alternative service)
+ * Upload to file.io using multipart form data
  */
 async function uploadToFileIo(buffer) {
   try {
-    const formData = new URLSearchParams();
-    formData.append('file', buffer.toString('base64'));
+    // Create a proper FormData with the binary buffer
+    const boundary = `----WebKitFormBoundary${Math.random().toString(36).substr(2, 16)}`;
+    const body = Buffer.concat([
+      Buffer.from(`--${boundary}\r\nContent-Disposition: form-data; name="file"; filename="image.png"\r\nContent-Type: image/png\r\n\r\n`),
+      buffer,
+      Buffer.from(`\r\n--${boundary}--\r\n`),
+    ]);
     
     const response = await fetch('https://file.io/?expires=1h', {
       method: 'POST',
-      body: formData,
+      headers: {
+        'Content-Type': `multipart/form-data; boundary=${boundary}`,
+        'User-Agent': 'Kidz-Story-Magic/1.0',
+      },
+      body: body,
     });
 
     if (!response.ok) {
@@ -132,58 +179,13 @@ async function uploadToFileIo(buffer) {
 }
 
 /**
- * Upload to temp-file service (fallback)
- */
-async function uploadToTempFile(buffer) {
-  try {
-    const response = await fetch('https://tmpfiles.org/api/v1/upload', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/octet-stream',
-      },
-      body: buffer,
-    });
-
-    if (!response.ok) {
-      throw new Error(`tmpfiles ${response.status}`);
-    }
-
-    const data = await response.json();
-    if (!data.data?.file?.url?.short_url) {
-      throw new Error('Invalid response format');
-    }
-
-    return data.data.file.url.short_url;
-  } catch (error) {
-    throw new Error(`tmpfiles error: ${error.message}`);
-  }
-}
-
-/**
- * Alternative: Use a Blob conversion approach
- * This might work better for some cases
- */
-export async function convertDataUrlUsingBlobHandler(dataUrl) {
-  try {
-    console.log('[BLOB_CONVERTER] Converting data URL using blob handler...');
-
-    // In Node.js, we can't directly use Blob API
-    // So we'll use the urlencoded approach instead
-    throw new Error('Blob conversion not supported in Node.js environment');
-  } catch (error) {
-    console.error('[BLOB_CONVERTER] Error:', error.message);
-    throw error;
-  }
-}
-
-/**
  * Batch convert multiple data URLs
  */
-export async function convertMultipleDataUrls(dataUrls) {
+export async function convertMultipleDataUrls(dataUrls, host = 'www.kidzstorymagic.org') {
   try {
     console.log(`[DATA_URL_CONVERTER] Converting ${dataUrls.length} data URLs...`);
 
-    const promises = dataUrls.map(url => convertDataUrlToHttpUrl(url));
+    const promises = dataUrls.map(url => convertDataUrlToHttpUrl(url, host));
     const httpUrls = await Promise.all(promises);
 
     console.log(`[DATA_URL_CONVERTER] ✓ All ${httpUrls.length} URLs converted`);

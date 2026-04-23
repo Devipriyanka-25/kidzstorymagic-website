@@ -63,18 +63,21 @@ export async function POST(request) {
 
     console.log('[FACE_SWAP] ✓ Configuration validated');
 
+    // Get host from request headers for building URLs
+    const host = request.headers.get('host') || 'www.kidzstorymagic.org';
+
     // Convert data URLs to HTTP URLs if needed
     let httpFaceUrl = faceImageUrl;
     let httpIllustrationUrl = illustrationImageUrl;
 
     if (faceImageUrl.startsWith('data:image/')) {
       console.log('[FACE_SWAP] Converting face image data URL to HTTP URL...');
-      httpFaceUrl = await convertDataUrlToHttpUrl(faceImageUrl);
+      httpFaceUrl = await convertDataUrlToHttpUrl(faceImageUrl, host);
     }
 
     if (illustrationImageUrl.startsWith('data:image/')) {
       console.log('[FACE_SWAP] Converting illustration data URL to HTTP URL...');
-      httpIllustrationUrl = await convertDataUrlToHttpUrl(illustrationImageUrl);
+      httpIllustrationUrl = await convertDataUrlToHttpUrl(illustrationImageUrl, host);
     }
 
     // Perform face swap via DeepAI
