@@ -218,7 +218,7 @@ export async function POST(request, { params }) {
             </p>
             <h2 style="color: #667eea; font-size: 28px; margin-top: 30px;">The Adventure Unfolds</h2>
             <p style="color: #333; font-size: 16px; line-height: 1.8;">
-              ${childName}'s journey was filled with ${themeDescription}. With each new challenge, 
+              ${childName}'s journey was filled with magic and wonder. With each new challenge, 
               ${childName} discovered inner strength and made wonderful discoveries.
             </p>
             <p style="color: #333; font-size: 16px; line-height: 1.8;">
