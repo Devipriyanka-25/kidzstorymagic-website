@@ -22,19 +22,27 @@ export default function DashboardPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [showSupport, setShowSupport] = useState(false);
 
-  // Check authentication and redirect if needed
+  // Check authentication - check localStorage first, then store
   useEffect(() => {
-    // Wait for auth initialization to complete
-    if (isInitializing) {
-      console.log('[DASHBOARD] Still initializing auth...');
+    if (typeof window === 'undefined') return;
+    
+    // Check if token exists in localStorage
+    const hasToken = typeof localStorage !== 'undefined' && localStorage.getItem('authToken');
+    
+    console.log('[DASHBOARD] hasToken:', !!hasToken, 'isAuthenticated:', isAuthenticated, 'isInitializing:', isInitializing);
+
+    // If we have a token but store isn't initialized yet, wait a bit
+    if (hasToken && isInitializing) {
+      console.log('[DASHBOARD] Token found, waiting for initialization...');
       return;
     }
 
-    if (!isAuthenticated || !user) {
-      console.log('[DASHBOARD] User not authenticated, redirecting to login');
+    // If no token and no store auth, redirect to login
+    if (!hasToken && !isAuthenticated) {
+      console.log('[DASHBOARD] No token and not authenticated, redirecting to login');
       router.push('/auth/login');
     }
-  }, [isInitializing, isAuthenticated, user, router]);
+  }, [isInitializing, isAuthenticated, router]);
 
   // Fetch stories on mount
   useEffect(() => {
