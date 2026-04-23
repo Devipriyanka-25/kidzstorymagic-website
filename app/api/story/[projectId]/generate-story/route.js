@@ -5,6 +5,7 @@
  */
 
 import { NextResponse } from 'next/server';
+import { getTranslatedStory } from '../../lib/storyTranslations.js';
 const jwt = require('jsonwebtoken');
 
 export const runtime = 'nodejs';
@@ -53,7 +54,10 @@ export async function POST(request, { params }) {
       theme,
       pageCount,
       storyPrompt,
+      storyLanguage = 'en',
     } = body;
+
+    console.log('[GENERATE_STORY] Story language:', storyLanguage);
 
     // Validate required fields
     if (!childName || !ageGroup || !theme) {
@@ -63,83 +67,27 @@ export async function POST(request, { params }) {
       );
     }
 
-    // Generate real story content based on theme and age group
-    const themeContent = {
-      adventure: {
-        title: `${childName}'s Amazing Adventure`,
-        storyArcs: [
-          `${childName} wakes up to discover an ancient map hidden in the attic!`,
-          `Following the map, ${childName} ventures into an enchanted forest full of mysteries.`,
-          `${childName} befriends a wise owl who reveals secrets about the hidden treasure.`,
-          `Deep in the forest, ${childName} encounters challenges but never loses courage.`,
-          `${childName} discovers a hidden cave sparkling with magical crystals!`,
-          `Inside the cave, ${childName} finds an ancient guardian of the treasures.`,
-          `With quick thinking and bravery, ${childName} solves the guardian's riddle.`,
-          `The treasures are revealed - but ${childName} discovers the real treasure is friendship!`,
-          `${childName} helps other lost travelers find their way home with the map.`,
-          `Heroes return home celebrated for their bravery and kindness.`
-        ]
-      },
-      fantasy: {
-        title: `${childName} in the Magical Kingdom`,
-        storyArcs: [
-          `${childName} finds a shimmering portal leading to the Magic Kingdom!`,
-          `A friendly dragon named Sparkle greets ${childName} at the kingdom gates.`,
-          `${childName} learns about the ancient magic that protects the kingdom.`,
-          `The kingdom's magic is fading - only a pure heart can help!`,
-          `${childName} sets out on a quest to restore the Crystal of Light.`,
-          `Along the way, ${childName} makes friends with elves, fairies, and talking animals.`,
-          `Together, they face magical challenges and puzzles.`,
-          `${childName} discovers their inner magic is stronger than ever believed!`,
-          `With friends' help, ${childName} restores the Crystal of Light.`,
-          `The kingdom celebrates ${childName} as a true hero of magic!`
-        ]
-      },
-      friends: {
-        title: `${childName} and the Circle of Friends`,
-        storyArcs: [
-          `${childName} starts a new adventure in a sunny town full of possibilities.`,
-          `${childName} meets Alex, a cheerful adventurer who loves exploring.`,
-          `Soon, Jordan joins - they all share a love for helping others.`,
-          `The trio discovers they work best as a team tackling challenges.`,
-          `Together they organize a festival to bring the whole community together.`,
-          `Each friend contributes their special talent to make it amazing.`,
-          `${childName} learns that true friendship makes everything better.`,
-          `Friends support each other through tough times and celebrate victories.`,
-          `The bond between these friends grows stronger every day.`,
-          `They promise to be friends forever, no matter what comes next!`
-        ]
-      },
-      family: {
-        title: `${childName}'s Family Adventure`,
-        storyArcs: [
-          `${childName}'s family plans a special adventure together!`,
-          `Each family member brings unique talents to the journey.`,
-          `${childName} learns that family is the greatest treasure.`,
-          `Together they overcome obstacles with love and teamwork.`,
-          `Grandparents share wisdom from their own adventures.`,
-          `Younger siblings look up to ${childName} with admiration.`,
-          `${childName} realizes how each family member is special.`,
-          `Through challenges and laughter, bonds grow stronger.`,
-          `${childName} discovers home is where the heart is.`,
-          `The family adventure creates memories that last forever!`
-        ]
-      },
-      motivational: {
-        title: `${childName}: The Journey to Greatness`,
-        storyArcs: [
-          `${childName} has a big dream that seems impossible at first.`,
-          `Doubts creep in, but ${childName} decides to believe in themselves.`,
-          `${childName} takes the first brave step toward their dream.`,
-          `Obstacles appear, but ${childName} learns to see them as chances to grow.`,
-          `A mentor appears and teaches ${childName} valuable life lessons.`,
-          `${childName} works hard, stays focused, and never gives up.`,
-          `Progress comes slowly, but ${childName} celebrates every small win.`,
-          `${childName} discovers their true strength was inside all along.`,
-          `The dream becomes reality through courage and determination.`,
-          `${childName} inspires others to believe in their own dreams too!`
-        ]
-      }
+    // Get translated story content based on language
+    console.log('[GENERATE_STORY] Getting translated story for:', { language: storyLanguage, theme, childName });
+    
+    // Map theme names if needed (for compatibility)
+    const themeMap = {
+      family: 'family',
+      friends: 'friends',
+      motivational: 'motivational',
+      adventure: 'adventure',
+      fantasy: 'fantasy',
+      fairytale: 'fantasy', // Fallback fairytale to fantasy
+      behavioural: 'friends', // Fallback behavioral to friends
+      customizable: 'adventure' // Fallback customizable to adventure
+    };
+    
+    const mappedTheme = themeMap[theme] || 'adventure';
+    const translatedStory = getTranslatedStory(storyLanguage, mappedTheme, childName);
+    
+    const selectedTheme = {
+      title: translatedStory.title,
+      storyArcs: translatedStory.arcs
     };
 
     const ageGroupHint = {
@@ -149,7 +97,6 @@ export async function POST(request, { params }) {
       '8-12': 'adventurous and thought-provoking'
     };
 
-    const selectedTheme = themeContent[theme] || themeContent.adventure;
     const storyArcs = selectedTheme.storyArcs || [];
     const pages = pageCount || 20;
     const ageHint = ageGroupHint[ageGroup] || 'engaging and meaningful';

@@ -31,8 +31,7 @@ export default function Navbar() {
             />
           </div>
           <div className="hidden sm:block">
-            <h1 className="text-xl font-black text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-purple-600">
-              Kidz Story Magic
+            <h1 className="text-xl font-black text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-purple-600">              Kidz Story Magic
             </h1>
             <p className="text-xs text-gray-600">Magical Stories for Kids</p>
           </div>
