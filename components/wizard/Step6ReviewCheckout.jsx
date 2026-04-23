@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useWizardStore, useCurrencyStore } from '@/utils/store';
-import { storyAPI, paymentAPI } from '@/utils/api';
+import { storyAPI, paymentAPI, faceSwapAPI } from '@/utils/api';
 import { useLanguage } from '@/hooks/useLanguage';
 import { ILLUSTRATION_THEMES, getTheme } from '@/utils/themes';
 import PDFPreviewModal from './PDFPreviewModal';
@@ -17,6 +17,12 @@ export default function Step6ReviewCheckout() {
   const [currentPage, setCurrentPage] = useState(0);
   const [flipAnimation, setFlipAnimation] = useState(false);
   const [showPDFPreview, setShowPDFPreview] = useState(false);
+  
+  // Face swap state
+  const [isFaceSwapping, setIsFaceSwapping] = useState(false);
+  const [faceSwapProgress, setFaceSwapProgress] = useState(0);
+  const [swappedPages, setSwappedPages] = useState({});
+  const [selectedFaceImage, setSelectedFaceImage] = useState(null);
 
   // Calculate price
   const basePriceUSD = {
@@ -128,6 +134,72 @@ export default function Step6ReviewCheckout() {
         setFlipAnimation(false);
       }, 200);
     }
+  };
+
+  // Handle face swap for current page
+  const handleFaceSwap = async () => {
+    if (!selectedFaceImage || !storyPreview || currentPage === 0 || currentPage === storyPreview.length - 1) {
+      setError('Please select a face image and a story page (not cover or end page)');
+      return;
+    }
+
+    setIsFaceSwapping(true);
+    setFaceSwapProgress(0);
+    setError('');
+    
+    try {
+      const page = storyPreview[currentPage];
+      
+      if (!page.illustrationUrl) {
+        setError('This page does not have an illustration');
+        setIsFaceSwapping(false);
+        return;
+      }
+
+      console.log('[FACE_SWAP] Starting face swap for page', currentPage);
+      setFaceSwapProgress(25);
+
+      // Perform face swap
+      const result = await faceSwapAPI.swapFaceDeepAI(
+        selectedFaceImage,
+        page.illustrationUrl,
+        {
+          pageNumber: currentPage,
+          childName: formData.childName,
+          storyId: formData.projectId
+        }
+      );
+
+      setFaceSwapProgress(100);
+
+      // Update the page with swapped illustration
+      if (result && result.swappedUrl) {
+        const updatedPages = [...storyPreview];
+        updatedPages[currentPage].illustrationUrl = result.swappedUrl;
+        setStoryPreview(updatedPages);
+        
+        // Track swapped pages
+        setSwappedPages(prev => ({
+          ...prev,
+          [currentPage]: true
+        }));
+
+        console.log('[FACE_SWAP] ✓ Face swap successful for page', currentPage);
+      }
+
+    } catch (err) {
+      console.error('[FACE_SWAP_ERROR]', err);
+      setError(err.message || 'Face swap failed. Please try again.');
+    } finally {
+      setIsFaceSwapping(false);
+      setFaceSwapProgress(0);
+    }
+  };
+
+  // Handle face image selection from uploaded photos
+  const handleSelectFaceImage = (imageUrl) => {
+    setSelectedFaceImage(imageUrl);
+    setSwappedPages({}); // Reset swapped pages when changing face image
   };
 
   // Handle keyboard navigation
@@ -375,7 +447,7 @@ export default function Step6ReviewCheckout() {
                 <button
                   key={index}
                   onClick={() => goToPage(index)}
-                  className={`flex-shrink-0 w-24 h-24 rounded-lg border-3 overflow-hidden transition-all duration-300 transform ${
+                  className={`flex-shrink-0 w-24 h-24 rounded-lg border-3 overflow-hidden transition-all duration-300 transform relative ${
                     currentPage === index ? 'ring-4 scale-105' : 'opacity-60 hover:opacity-100'
                   }`}
                   style={{
@@ -394,14 +466,21 @@ export default function Step6ReviewCheckout() {
                       🌟
                     </div>
                   ) : (
-                    <img
-                      src={storyPreview[index].illustrationUrl || `data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100'%3E%3Crect fill='%23e5e7eb' width='100' height='100'/%3E%3C/svg%3E`}
-                      alt={`Page ${index + 1}`}
-                      className="w-full h-full object-cover"
-                      onError={(e) => {
-                        e.target.style.display = 'none';
-                      }}
-                    />
+                    <>
+                      <img
+                        src={storyPreview[index].illustrationUrl || `data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100'%3E%3Crect fill='%23e5e7eb' width='100' height='100'/%3E%3C/svg%3E`}
+                        alt={`Page ${index + 1}`}
+                        className="w-full h-full object-cover"
+                        onError={(e) => {
+                          e.target.style.display = 'none';
+                        }}
+                      />
+                      {swappedPages[index] && (
+                        <div className="absolute top-1 right-1 bg-green-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold">
+                          ✓
+                        </div>
+                      )}
+                    </>
                   )}
                 </button>
               ))}
@@ -483,7 +562,7 @@ export default function Step6ReviewCheckout() {
                         <button
                           key={index}
                           onClick={() => goToPage(index)}
-                          className={`flex-shrink-0 w-14 h-14 rounded-lg border-2 overflow-hidden transition-all duration-300 ${
+                          className={`flex-shrink-0 w-14 h-14 rounded-lg border-2 overflow-hidden transition-all duration-300 relative ${
                             currentPage === index ? 'ring-2 border-2' : 'opacity-60 hover:opacity-100'
                           }`}
                           style={{
@@ -501,14 +580,21 @@ export default function Step6ReviewCheckout() {
                               🌟
                             </div>
                           ) : (
-                            <img
-                              src={storyPreview[index].illustrationUrl || `data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='80' height='80'%3E%3Crect fill='%23e5e7eb' width='80' height='80'/%3E%3C/svg%3E`}
-                              alt={`Page ${index + 1}`}
-                              className="w-full h-full object-cover"
-                              onError={(e) => {
-                                e.target.style.display = 'none';
-                              }}
-                            />
+                            <div className="relative w-full h-full">
+                              <img
+                                src={storyPreview[index].illustrationUrl || `data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='80' height='80'%3E%3Crect fill='%23e5e7eb' width='80' height='80'/%3E%3C/svg%3E`}
+                                alt={`Page ${index + 1}`}
+                                className="w-full h-full object-cover"
+                                onError={(e) => {
+                                  e.target.style.display = 'none';
+                                }}
+                              />
+                              {swappedPages[index] && (
+                                <div className="absolute top-0 right-0 bg-green-500 text-white rounded-full w-4 h-4 flex items-center justify-center text-xs font-bold">
+                                  ✓
+                                </div>
+                              )}
+                            </div>
                           )}
                         </button>
                       ))}
@@ -545,6 +631,77 @@ export default function Step6ReviewCheckout() {
                       </p>
                     </div>
                   </div>
+
+                  {/* Face Swap Section */}
+                  {formData.uploadedPhotos && formData.uploadedPhotos.length > 0 && (
+                    <div className="bg-gradient-to-r from-purple-50 to-pink-50 rounded-2xl p-6 mb-6 border-2" style={{ borderColor: currentTheme.primary }}>
+                      <h3 className="text-xl font-bold mb-4 flex items-center gap-2" style={{ color: currentTheme.primary }}>
+                        ✨ Face Swap Integration
+                      </h3>
+
+                      {/* Face Image Selector */}
+                      <div className="mb-4">
+                        <p className="text-sm font-semibold text-gray-700 mb-3">Select a face to swap into story pages:</p>
+                        <div className="flex gap-3 overflow-x-auto pb-2">
+                          {formData.uploadedPhotos.map((photo, idx) => (
+                            <button
+                              key={idx}
+                              onClick={() => handleSelectFaceImage(photo.url)}
+                              className={`flex-shrink-0 w-20 h-20 rounded-lg overflow-hidden border-3 transition-all duration-300 transform ${
+                                selectedFaceImage === photo.url
+                                  ? 'scale-110 ring-2'
+                                  : 'opacity-70 hover:opacity-100'
+                              }`}
+                              style={{
+                                borderColor: selectedFaceImage === photo.url ? currentTheme.primary : '#ccc',
+                                ringColor: currentTheme.primary
+                              }}
+                              title={`Face ${idx + 1}`}
+                            >
+                              <img
+                                src={photo.url}
+                                alt={`Face ${idx + 1}`}
+                                className="w-full h-full object-cover"
+                              />
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Face Swap Action */}
+                      <div className="flex gap-3 items-center">
+                        <button
+                          onClick={handleFaceSwap}
+                          disabled={isFaceSwapping || !selectedFaceImage || currentPage === 0 || currentPage === storyPreview.length - 1}
+                          className="flex-1 px-4 py-3 rounded-lg font-bold text-white transition-all duration-300 transform hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+                          style={{
+                            background: isFaceSwapping
+                              ? '#999'
+                              : currentTheme.gradient
+                          }}
+                        >
+                          {isFaceSwapping ? (
+                            <>⏳ Swapping... {faceSwapProgress}%</>
+                          ) : swappedPages[currentPage] ? (
+                            '✓ Face Swapped'
+                          ) : (
+                            '🔄 Swap Face on This Page'
+                          )}
+                        </button>
+                      </div>
+
+                      {/* Status Message */}
+                      {currentPage === 0 && (
+                        <p className="text-xs text-gray-600 mt-2">💡 Cover page - select a story page to swap</p>
+                      )}
+                      {currentPage === storyPreview.length - 1 && (
+                        <p className="text-xs text-gray-600 mt-2">💡 End page - select a story page to swap</p>
+                      )}
+                      {selectedFaceImage && currentPage !== 0 && currentPage !== storyPreview.length - 1 && (
+                        <p className="text-xs text-green-700 mt-2">✓ Ready to swap! Click button or select another page</p>
+                      )}
+                    </div>
+                  )}
 
                   {/* Action Buttons */}
                   <div className="flex gap-3 justify-center flex-wrap">
