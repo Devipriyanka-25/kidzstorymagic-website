@@ -122,22 +122,43 @@ export async function POST(request, { params }) {
       const pageArcs = storyArcs.slice(arcStart, arcEnd);
       const pageContent = pageArcs.join(' ');
       
-      // Use placeholder image service for better illustrations
-      const pageIllustration = `https://via.placeholder.com/600x400/${colorScheme}?text=${encodeURIComponent(`Page ${i + 1}`)}`;
+      // Generate SVG placeholder with better reliability
+      const colors = themeColors[theme] ? themeColors[theme].split('-') : ['667EEA', '764BA2'];
+      const gradientSVG = `
+        <svg width="600" height="400" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <linearGradient id="grad${i}" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" style="stop-color:#${colors[0]};stop-opacity:1" />
+              <stop offset="100%" style="stop-color:#${colors[1]};stop-opacity:1" />
+            </linearGradient>
+          </defs>
+          <rect width="600" height="400" fill="url(#grad${i})"/>
+          <text x="50%" y="50%" font-size="36" font-family="Arial" fill="white" text-anchor="middle" dominant-baseline="middle">
+            📖 Page ${i + 1}
+          </text>
+          <text x="50%" y="70%" font-size="18" font-family="Arial" fill="rgba(255,255,255,0.8)" text-anchor="middle">
+            ${childName}'s Story
+          </text>
+        </svg>
+      `;
+      const svgDataUrl = `data:image/svg+xml;base64,${Buffer.from(gradientSVG).toString('base64')}`;
+      
+      // Fallback to a reliable image service (DiceBear for variety)
+      const reliableImageUrl = `https://api.dicebear.com/7.x/avataaars/svg?seed=${projectId}-page${i+1}&scale=90`;
       
       pagesArray.push({
         pageNumber: i + 1,
         title: `${selectedTheme.title} - Page ${i + 1}`,
         content: pageContent || `${childName}'s story continues...`,
         text: pageContent || `${childName}'s story continues...`,
-        illustrationUrl: pageIllustration,
-        image: pageIllustration,
+        illustrationUrl: svgDataUrl,
+        image: reliableImageUrl,
         htmlContent: `
           <div style="padding: 20px; font-family: 'Comic Sans MS', cursive; line-height: 1.8;">
             <h3 style="color: #667eea; margin-bottom: 15px;">✨ Page ${i + 1}: ${selectedTheme.title}</h3>
             <p style="color: #333; font-size: 16px;">${pageContent || `${childName}'s amazing story unfolds...`}</p>
             <div style="margin-top: 20px; text-align: center;">
-              <img src="${pageIllustration}" alt="Page ${i + 1}" style="max-width: 100%; height: auto; border-radius: 10px;" />
+              <img src="${reliableImageUrl}" alt="Page ${i + 1}" style="max-width: 100%; height: auto; border-radius: 10px;" />
             </div>
           </div>
         `
