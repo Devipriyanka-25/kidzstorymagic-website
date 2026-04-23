@@ -1,11 +1,11 @@
 /**
  * Convert Data URL (base64) to publicly accessible URL
- * Uses temporary URL hosting service for data URLs
+ * Uses free image hosting services
  */
 
 /**
  * Convert a data URL to a real HTTP URL
- * Uses imgbb.com free API to temporarily host the image
+ * Uses imgur or similar free service
  * @param {string} dataUrl - Base64 data URL (data:image/png;base64,...)
  * @returns {Promise<string>} - Public HTTP URL of the image
  */
@@ -24,44 +24,130 @@ export async function convertDataUrlToHttpUrl(dataUrl) {
       throw new Error('Could not extract base64 data from data URL');
     }
 
-    // Use ImgBB API (free service, 32MB limit)
-    // Get API key from environment or use free tier
-    const imgbbApiKey = process.env.IMGBB_API_KEY || 'e14f9b3087869f7'; // Free API key
+    // Try multiple free services in order
+    const services = [
+      () => uploadToFreeService1(base64String),
+      () => uploadToFreeService2(base64String),
+      () => uploadToFreeService3(base64String),
+    ];
 
-    const formData = new FormData();
-    formData.append('image', base64String);
-    formData.append('expiration', '3600'); // 1 hour expiration
-
-    console.log('[DATA_URL_CONVERTER] Uploading to imgbb.com...');
-
-    const response = await fetch('https://api.imgbb.com/1/upload', {
-      method: 'POST',
-      body: new URLSearchParams({
-        image: base64String,
-        key: imgbbApiKey,
-        expiration: '3600',
-      }),
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(`ImgBB API error: ${errorData.error?.message || response.statusText}`);
+    let lastError;
+    for (const service of services) {
+      try {
+        const url = await service();
+        console.log('[DATA_URL_CONVERTER] ✓ Conversion successful');
+        console.log(`[DATA_URL_CONVERTER] URL: ${url}`);
+        return url;
+      } catch (error) {
+        console.warn(`[DATA_URL_CONVERTER] Service failed:`, error.message);
+        lastError = error;
+        // Try next service
+      }
     }
 
-    const result = await response.json();
-    
-    if (!result.success) {
-      throw new Error(`ImgBB upload failed: ${result.error?.message}`);
-    }
-
-    const httpUrl = result.data.image.url;
-    console.log('[DATA_URL_CONVERTER] ✓ Conversion successful');
-    console.log(`[DATA_URL_CONVERTER] URL: ${httpUrl}`);
-
-    return httpUrl;
+    // If all services fail, throw the last error
+    throw lastError || new Error('All data URL conversion services failed');
   } catch (error) {
     console.error('[DATA_URL_CONVERTER] Error:', error.message);
     throw error;
+  }
+}
+
+/**
+ * Try uploading to postimage.cc (no authentication required)
+ */
+async function uploadToFreeService1(base64String) {
+  try {
+    console.log('[DATA_URL_CONVERTER] Trying postimage.cc...');
+    
+    // Convert base64 to Buffer
+    const buffer = Buffer.from(base64String, 'base64');
+    
+    const formData = new URLSearchParams();
+    formData.append('image', buffer.toString('base64'));
+    
+    const response = await fetch('https://postimages.org/api/1/upload', {
+      method: 'POST',
+      body: formData,
+    });
+
+    if (!response.ok) {
+      throw new Error(`postimage.cc error: ${response.statusText}`);
+    }
+
+    const result = await response.json();
+    if (!result.image?.url) {
+      throw new Error('No URL in postimage.cc response');
+    }
+
+    return result.image.url;
+  } catch (error) {
+    throw new Error(`postimage.cc failed: ${error.message}`);
+  }
+}
+
+/**
+ * Try uploading to transfer.sh (no authentication, simple endpoint)
+ */
+async function uploadToFreeService2(base64String) {
+  try {
+    console.log('[DATA_URL_CONVERTER] Trying transfer.sh...');
+    
+    // Convert base64 to Buffer
+    const buffer = Buffer.from(base64String, 'base64');
+    
+    const filename = `image-${Date.now()}.png`;
+    
+    const response = await fetch(`https://transfer.sh/${filename}`, {
+      method: 'PUT',
+      body: buffer,
+      headers: {
+        'Content-Type': 'image/png',
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error(`transfer.sh error: ${response.statusText}`);
+    }
+
+    const url = await response.text();
+    return url.trim();
+  } catch (error) {
+    throw new Error(`transfer.sh failed: ${error.message}`);
+  }
+}
+
+/**
+ * Try uploading to catbox.moe (no authentication, simple endpoint)
+ */
+async function uploadToFreeService3(base64String) {
+  try {
+    console.log('[DATA_URL_CONVERTER] Trying catbox.moe...');
+    
+    // Convert base64 to Buffer
+    const buffer = Buffer.from(base64String, 'base64');
+    
+    const formDataToSend = new URLSearchParams();
+    formDataToSend.append('reqtype', 'fileupload');
+    formDataToSend.append('fileToUpload', buffer.toString('base64'));
+    
+    const response = await fetch('https://catbox.moe/user/api.php', {
+      method: 'POST',
+      body: formDataToSend,
+    });
+
+    if (!response.ok) {
+      throw new Error(`catbox.moe error: ${response.statusText}`);
+    }
+
+    const url = await response.text();
+    if (!url.startsWith('http')) {
+      throw new Error('Invalid URL from catbox.moe');
+    }
+
+    return url.trim();
+  } catch (error) {
+    throw new Error(`catbox.moe failed: ${error.message}`);
   }
 }
 
