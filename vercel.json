@@ -4,9 +4,7 @@
   "outputDirectory": ".next",
   "framework": "nextjs",
   "public": true,
-  "nodejs": "18.x",
   "env": {
     "NODE_ENV": "production"
-  },
-  "ignoreCommand": "git diff --quiet $VERCEL_GIT_PREV_COMMIT $VERCEL_GIT_COMMIT -- ."
+  }
 }
