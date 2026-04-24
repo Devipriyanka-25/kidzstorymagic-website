@@ -1,7 +1,12 @@
 {
   "version": 2,
-  "buildCommand": "npm ci --legacy-peer-deps && npm run build",
+  "buildCommand": "npm install --legacy-peer-deps && npm run build",
   "outputDirectory": ".next",
   "framework": "nextjs",
-  "public": true
+  "public": true,
+  "nodejs": "18.x",
+  "env": {
+    "NODE_ENV": "production"
+  },
+  "ignoreCommand": "git diff --quiet $VERCEL_GIT_PREV_COMMIT $VERCEL_GIT_COMMIT -- ."
 }
