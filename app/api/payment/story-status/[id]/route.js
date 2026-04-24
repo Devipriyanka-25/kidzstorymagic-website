@@ -45,6 +45,10 @@ export async function GET(request, { params }) {
     let orderData = null;
 
     try {
+      if (!supabaseClient) {
+        throw new Error('Supabase client not configured');
+      }
+
       const { data: orders, error } = await supabaseClient
         .from('orders')
         .select('*')

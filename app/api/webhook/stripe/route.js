@@ -81,6 +81,10 @@ export async function POST(request) {
 
         console.log('[WEBHOOK] Creating order:', order);
 
+        if (!supabaseClient) {
+          throw new Error('Supabase client not configured');
+        }
+
         // Insert order using supabaseClient
         const { data, error } = await supabaseClient
           .from('orders')
