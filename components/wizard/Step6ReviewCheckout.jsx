@@ -88,7 +88,7 @@ export default function Step6ReviewCheckout() {
     });
   };
 
-  const handleGenerateStory = async () => {
+  const handleGenerateStory = async (languageOverride = currentLanguage) => {
     setLoading(true);
     setError('');
 
@@ -124,7 +124,7 @@ export default function Step6ReviewCheckout() {
       const storyResponse = await storyAPI.generateStory(
         formData.projectId,
         customPrompt,
-        currentLanguage || 'en',
+        languageOverride || 'en',
         storyData
       );
 
@@ -248,9 +248,11 @@ export default function Step6ReviewCheckout() {
   }, [currentPage, storyPreview]);
 
   useEffect(() => {
-    const handleLanguageChange = () => {
+    const handleLanguageChange = (event) => {
+      const nextLanguage = event?.detail?.language || currentLanguage;
+
       if (storyPreview) {
-        handleGenerateStory();
+        handleGenerateStory(nextLanguage);
       }
     };
 

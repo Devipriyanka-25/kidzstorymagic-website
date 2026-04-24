@@ -67,7 +67,10 @@ export default function StoryGenerationStep({
   /**
    * Generate story from uploaded images
    */
-  const generateStory = async (nextRegenerateCount = regenerateCount) => {
+  const generateStory = async (
+    nextRegenerateCount = regenerateCount,
+    languageOverride = currentLanguage
+  ) => {
     if (uploadedImages.length < MIN_IMAGES) {
       setError(`Please upload at least ${MIN_IMAGES} images to generate a story`);
       return;
@@ -92,7 +95,7 @@ export default function StoryGenerationStep({
         theme,
         images: imageData,
         regenerationCount: nextRegenerateCount,
-        storyLanguage: currentLanguage || 'en',
+        storyLanguage: languageOverride || 'en',
       });
 
       const story = normalizeGeneratedStory(response.data);
@@ -171,17 +174,19 @@ export default function StoryGenerationStep({
    */
   useEffect(() => {
     const handleLanguageChange = (event) => {
-      console.log('[StoryGeneration] Language changed to:', event.detail.language);
+      const nextLanguage = event?.detail?.language || currentLanguage;
+      console.log('[StoryGeneration] Language changed to:', nextLanguage);
+
       // If we have a generated story, regenerate it in the new language
       if (generatedStory && step === 'preview' && uploadedImages.length >= MIN_IMAGES) {
         console.log('[StoryGeneration] Regenerating story in new language');
-        generateStory(regenerateCount);
+        generateStory(regenerateCount, nextLanguage);
       }
     };
 
     window.addEventListener('storyLanguageChanged', handleLanguageChange);
     return () => window.removeEventListener('storyLanguageChanged', handleLanguageChange);
-  }, [generatedStory, step, uploadedImages, regenerateCount]);
+  }, [generatedStory, step, uploadedImages, regenerateCount, currentLanguage]);
 
   return (
     <div className="w-full min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 py-8 px-4">

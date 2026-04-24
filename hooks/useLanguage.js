@@ -67,6 +67,47 @@ export const useLanguage = () => {
   }, []);
 
   /**
+   * Keep all hook consumers in sync when another component changes language.
+   */
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return undefined;
+    }
+
+    const syncLanguageState = (languageCode) => {
+      const validLanguage = getValidLanguage(languageCode);
+
+      setCurrentLanguage((previousLanguage) =>
+        previousLanguage === validLanguage ? previousLanguage : validLanguage
+      );
+      setIsInitialized(true);
+      setIsLoading(false);
+    };
+
+    const handleLanguageChanged = (event) => {
+      const nextLanguage = event?.detail?.language;
+
+      if (nextLanguage) {
+        syncLanguageState(nextLanguage);
+      }
+    };
+
+    const handleStorageChange = (event) => {
+      if (event.key === LANGUAGE_STORAGE_KEY && event.newValue) {
+        syncLanguageState(event.newValue);
+      }
+    };
+
+    window.addEventListener('languageChanged', handleLanguageChanged);
+    window.addEventListener('storage', handleStorageChange);
+
+    return () => {
+      window.removeEventListener('languageChanged', handleLanguageChanged);
+      window.removeEventListener('storage', handleStorageChange);
+    };
+  }, []);
+
+  /**
    * Change current language
    * @param {string} languageCode - Language code
    */
