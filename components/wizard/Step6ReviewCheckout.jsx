@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import PDFPreviewModal from './PDFPreviewModal';
 import CharacterConsistentStoryPage from '@/components/story/CharacterConsistentStoryPage';
 import { useLanguage } from '@/hooks/useLanguage';
@@ -9,6 +9,25 @@ import { useWizardStore, useCurrencyStore } from '@/utils/store';
 import { getTheme } from '@/utils/themes';
 
 const isIllustratedStoryPage = (page) => page?.pageType === 'story';
+const PREVIEW_SUPPORT_EMAIL = 'support@kidzstorymagic.com';
+const PREVIEW_POLL_INTERVAL_MS = 3000;
+const PREVIEW_QUOTES = [
+  {
+    quote:
+      "My son was absolutely fascinated by the story and himself being the main character.",
+    author: 'Teddy',
+  },
+  {
+    quote:
+      'The personalized preview felt magical and kept my daughter smiling the whole time.',
+    author: 'Maya',
+  },
+  {
+    quote:
+      'Seeing the first illustrated page made us want to keep turning pages right away.',
+    author: 'Arun',
+  },
+];
 
 const buildInitialPageGenerationStates = (
   pages = [],
@@ -27,6 +46,105 @@ const buildInitialPageGenerationStates = (
     return states;
   }, {});
 
+function waitForDelay(ms, signal) {
+  return new Promise((resolve, reject) => {
+    const timeoutId = window.setTimeout(() => {
+      cleanup();
+      resolve();
+    }, ms);
+
+    const handleAbort = () => {
+      window.clearTimeout(timeoutId);
+      cleanup();
+      reject(new DOMException('Request aborted', 'AbortError'));
+    };
+
+    const cleanup = () => {
+      signal?.removeEventListener('abort', handleAbort);
+    };
+
+    if (signal) {
+      signal.addEventListener('abort', handleAbort, { once: true });
+    }
+  });
+}
+
+async function pollStoryPageIllustration(predictionId, signal, onPending) {
+  for (let attempt = 0; ; attempt += 1) {
+    if (attempt > 0) {
+      await waitForDelay(PREVIEW_POLL_INTERVAL_MS, signal);
+    }
+
+    const response = await fetch(
+      `/api/generate-story-page/${encodeURIComponent(predictionId)}`,
+      {
+        method: 'GET',
+        cache: 'no-store',
+        signal,
+      }
+    );
+    const payload = await response.json();
+
+    if (!response.ok) {
+      throw new Error(
+        payload?.details ||
+          payload?.error ||
+          'Illustration generation failed for this page.'
+      );
+    }
+
+    if (payload?.pending) {
+      onPending?.(payload);
+      continue;
+    }
+
+    if (typeof payload?.imageUrl === 'string' && payload.imageUrl) {
+      return payload.imageUrl;
+    }
+
+    throw new Error('Illustration generation completed without an image.');
+  }
+}
+
+async function createStoryPageIllustration({
+  prompt,
+  subjectImage,
+  signal,
+  onPending,
+}) {
+  const response = await fetch('/api/generate-story-page', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    signal,
+    body: JSON.stringify({
+      prompt,
+      subjectImage,
+    }),
+  });
+  const payload = await response.json();
+
+  if (!response.ok) {
+    throw new Error(
+      payload?.details ||
+        payload?.error ||
+        'Illustration generation failed for this page.'
+    );
+  }
+
+  if (typeof payload?.imageUrl === 'string' && payload.imageUrl) {
+    return payload.imageUrl;
+  }
+
+  if (payload?.pending && typeof payload?.predictionId === 'string') {
+    onPending?.(payload);
+    return pollStoryPageIllustration(payload.predictionId, signal, onPending);
+  }
+
+  throw new Error('Illustration generation completed without an image.');
+}
+
 export default function Step6ReviewCheckout() {
   const { formData, prevStep } = useWizardStore();
   const { currency = 'USD', exchangeRates } = useCurrencyStore();
@@ -35,9 +153,18 @@ export default function Step6ReviewCheckout() {
   const [error, setError] = useState('');
   const [storyPreview, setStoryPreview] = useState(null);
   const [pageGenerationStates, setPageGenerationStates] = useState({});
+  const [activeGenerationPageIndex, setActiveGenerationPageIndex] =
+    useState(null);
   const [currentPage, setCurrentPage] = useState(0);
   const [flipAnimation, setFlipAnimation] = useState(false);
   const [showPDFPreview, setShowPDFPreview] = useState(false);
+  const [previewPrepProgress, setPreviewPrepProgress] = useState(12);
+  const [previewPrepTitle, setPreviewPrepTitle] = useState('Creating your book');
+  const [previewPrepDetail, setPreviewPrepDetail] = useState(
+    'We are writing your story and preparing the first illustrated page.'
+  );
+  const [showEmailFallback, setShowEmailFallback] = useState(false);
+  const [quoteIndex, setQuoteIndex] = useState(0);
 
   // Face swap state
   const [isFaceSwapping, setIsFaceSwapping] = useState(false);
@@ -130,7 +257,7 @@ export default function Step6ReviewCheckout() {
       return false;
     }
 
-    for (let pageIndex = 0; pageIndex < targetPageIndex; pageIndex += 1) {
+    for (let pageIndex = 0; pageIndex <= targetPageIndex; pageIndex += 1) {
       if (!isPageIllustrationReady(storyPreview[pageIndex], pageIndex)) {
         return false;
       }
@@ -142,13 +269,31 @@ export default function Step6ReviewCheckout() {
   const currentPageData = Array.isArray(storyPreview)
     ? storyPreview[currentPage]
     : null;
+  const firstIllustratedPageIndex = Array.isArray(storyPreview)
+    ? storyPreview.findIndex((page) => isIllustratedStoryPage(page))
+    : -1;
+  const firstIllustratedPageReady =
+    !Array.isArray(storyPreview) ||
+    firstIllustratedPageIndex === -1 ||
+    isPageIllustrationReady(
+      storyPreview[firstIllustratedPageIndex],
+      firstIllustratedPageIndex
+    );
   const currentPageState = currentPageData
     ? pageGenerationStates[currentPage]
     : null;
   const currentPageRequiresIllustration =
     shouldGateIllustrations && isIllustratedStoryPage(currentPageData);
-  const canMoveToNextPage =
+  const isPreparingInitialPreview =
     Array.isArray(storyPreview) &&
+    shouldGateIllustrations &&
+    firstIllustratedPageIndex !== -1 &&
+    !firstIllustratedPageReady;
+  const shouldShowStoryPreview =
+    Array.isArray(storyPreview) &&
+    (!shouldGateIllustrations || firstIllustratedPageReady);
+  const canMoveToNextPage =
+    shouldShowStoryPreview &&
     currentPage < storyPreview.length - 1 &&
     canAccessPage(currentPage + 1);
   const allIllustratedPagesReady = Array.isArray(storyPreview)
@@ -161,6 +306,54 @@ export default function Step6ReviewCheckout() {
         (page, pageIndex) => !isPageIllustrationReady(page, pageIndex)
       ).length
     : 0;
+  const currentQuote = PREVIEW_QUOTES[quoteIndex % PREVIEW_QUOTES.length];
+  const showPreviewPreparationScreen =
+    (loading && !storyPreview) || isPreparingInitialPreview;
+  const supportMailtoLink = useMemo(() => {
+    const requestedRecipient = formData.parentEmail || 'my login email';
+    const body = [
+      'Hi Kidz Story Magic team,',
+      '',
+      'My preview is still generating. Please email the preview when it is ready.',
+      '',
+      `Project ID: ${formData.projectId || 'Unavailable'}`,
+      `Child name: ${formData.childName || 'Unavailable'}`,
+      `Theme: ${formData.theme || 'Unavailable'}`,
+      `Page count: ${formData.pageCount || 'Unavailable'}`,
+      `Preferred recipient: ${requestedRecipient}`,
+      '',
+      'Thank you!',
+    ].join('\n');
+
+    return `mailto:${PREVIEW_SUPPORT_EMAIL}?subject=${encodeURIComponent(
+      `Preview request for ${formData.childName || 'storybook'}`
+    )}&body=${encodeURIComponent(body)}`;
+  }, [
+    formData.childName,
+    formData.pageCount,
+    formData.parentEmail,
+    formData.projectId,
+    formData.theme,
+  ]);
+
+  const handleRetryPreviewPreparation = () => {
+    if (firstIllustratedPageIndex === -1) {
+      return;
+    }
+
+    setError('');
+    setPreviewPrepProgress(42);
+    setPreviewPrepDetail(
+      'Painting the first page now. Your preview will open as soon as it is ready.'
+    );
+    updatePageGenerationState(firstIllustratedPageIndex, {
+      status: 'idle',
+      message: '',
+    });
+    setStoryPreview((currentPages) =>
+      Array.isArray(currentPages) ? [...currentPages] : currentPages
+    );
+  };
 
   const handleIllustrationReady = (pageIndex, imageUrl) => {
     setStoryPreview((currentPages) => {
@@ -191,12 +384,45 @@ export default function Step6ReviewCheckout() {
     updatePageGenerationState(pageIndex, nextState);
   };
 
+  const getNextPendingIllustrationPageIndex = () => {
+    if (!Array.isArray(storyPreview)) {
+      return -1;
+    }
+
+    for (let index = 0; index < storyPreview.length; index += 1) {
+      const page = storyPreview[index];
+      if (!isIllustratedStoryPage(page) || page?.illustrationUrl) {
+        continue;
+      }
+
+      if (pageGenerationStates[index]?.status === 'error') {
+        return -1;
+      }
+
+      return index;
+    }
+
+    return -1;
+  };
+
   const handleGenerateStory = async (languageOverride = currentLanguage) => {
     const resolvedLanguage =
       typeof languageOverride === 'string' ? languageOverride : currentLanguage;
 
     setLoading(true);
     setError('');
+    setStoryPreview(null);
+    setPageGenerationStates({});
+    setActiveGenerationPageIndex(null);
+    setCurrentPage(0);
+    setPreviewPrepProgress(14);
+    setPreviewPrepTitle(
+      `Creating ${formData.childName || 'your child'}'s book preview`
+    );
+    setPreviewPrepDetail(
+      'We are writing the story and preparing the first illustrated page.'
+    );
+    setShowEmailFallback(false);
 
     try {
       if (!formData.projectId) {
@@ -240,6 +466,12 @@ export default function Step6ReviewCheckout() {
       setPageGenerationStates(
         buildInitialPageGenerationStates(nextPages, shouldGateIllustrations)
       );
+      setPreviewPrepProgress(42);
+      setPreviewPrepDetail(
+        shouldGateIllustrations
+          ? 'Painting the first page now. Your preview will open as soon as it is ready.'
+          : 'Your preview is almost ready.'
+      );
       setCurrentPage(0);
     } catch (err) {
       console.error('[GENERATE_STORY_ERROR]', err);
@@ -253,6 +485,131 @@ export default function Step6ReviewCheckout() {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    if (!Array.isArray(storyPreview) || !shouldGateIllustrations) {
+      return;
+    }
+
+    if (activeGenerationPageIndex !== null) {
+      return;
+    }
+
+    const nextPageIndex = getNextPendingIllustrationPageIndex();
+    if (nextPageIndex === -1) {
+      return;
+    }
+
+    const page = storyPreview[nextPageIndex];
+    const prompt =
+      page?.illustrationPrompt ||
+      [page?.title, page?.page_text || page?.text].filter(Boolean).join('. ');
+
+    if (!prompt || !storySubjectImage) {
+      return;
+    }
+
+    let cancelled = false;
+    const controller = new AbortController();
+    const pageLabel = page?.pageNumber || nextPageIndex + 1;
+
+    setActiveGenerationPageIndex(nextPageIndex);
+    updatePageGenerationState(nextPageIndex, {
+      status: 'loading',
+      message: `Painting page ${pageLabel} of your storybook.`,
+    });
+
+    if (nextPageIndex === firstIllustratedPageIndex) {
+      setPreviewPrepTitle(
+        `Creating ${formData.childName || 'your child'}'s book preview`
+      );
+      setPreviewPrepDetail(
+        'Painting the first page now. Your preview will open as soon as it is ready.'
+      );
+    }
+
+    createStoryPageIllustration({
+      prompt,
+      subjectImage: storySubjectImage,
+      signal: controller.signal,
+      onPending: () => {
+        if (cancelled) {
+          return;
+        }
+
+        updatePageGenerationState(nextPageIndex, {
+          status: 'loading',
+          message:
+            nextPageIndex === firstIllustratedPageIndex
+              ? 'The first page is taking a little longer than usual, but it is still processing.'
+              : `Page ${pageLabel} is still processing in the background.`,
+        });
+
+        if (nextPageIndex === firstIllustratedPageIndex) {
+          setPreviewPrepDetail(
+            'The first page is taking a little longer than usual, but it is still processing.'
+          );
+        }
+      },
+    })
+      .then((imageUrl) => {
+        if (cancelled) {
+          return;
+        }
+
+        handleIllustrationReady(nextPageIndex, imageUrl);
+
+        if (nextPageIndex === firstIllustratedPageIndex) {
+          setPreviewPrepProgress(100);
+          setPreviewPrepDetail('Your preview is ready.');
+        }
+      })
+      .catch((generationError) => {
+        if (
+          generationError instanceof DOMException &&
+          generationError.name === 'AbortError'
+        ) {
+          return;
+        }
+
+        if (cancelled) {
+          return;
+        }
+
+        const message =
+          generationError instanceof Error
+            ? generationError.message
+            : 'Illustration generation failed for this page.';
+
+        updatePageGenerationState(nextPageIndex, {
+          status: 'error',
+          message,
+        });
+
+        if (nextPageIndex === firstIllustratedPageIndex) {
+          setError(
+            'We could not finish the first preview page right now. You can try again or request the preview by email.'
+          );
+        }
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setActiveGenerationPageIndex(null);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+      controller.abort();
+    };
+  }, [
+    activeGenerationPageIndex,
+    firstIllustratedPageIndex,
+    formData.childName,
+    shouldGateIllustrations,
+    storyPreview,
+    storySubjectImage,
+  ]);
 
   const handleNextPage = () => {
     if (canMoveToNextPage) {
@@ -346,6 +703,33 @@ export default function Step6ReviewCheckout() {
     setSelectedFaceImage(imageUrl);
     setSwappedPages({});
   };
+
+  useEffect(() => {
+    const isPreparingStoryText = loading && !storyPreview;
+    if (!isPreparingStoryText && !isPreparingInitialPreview) {
+      setShowEmailFallback(false);
+      return;
+    }
+
+    const maxProgress = isPreparingInitialPreview ? 88 : 34;
+    const progressInterval = window.setInterval(() => {
+      setPreviewPrepProgress((currentProgress) =>
+        Math.min(maxProgress, currentProgress + 2)
+      );
+    }, 1200);
+    const quoteInterval = window.setInterval(() => {
+      setQuoteIndex((currentIndex) => currentIndex + 1);
+    }, 5000);
+    const emailTimeout = window.setTimeout(() => {
+      setShowEmailFallback(true);
+    }, 12000);
+
+    return () => {
+      window.clearInterval(progressInterval);
+      window.clearInterval(quoteInterval);
+      window.clearTimeout(emailTimeout);
+    };
+  }, [isPreparingInitialPreview, loading, storyPreview]);
 
   useEffect(() => {
     const handleKeyPress = (event) => {
@@ -532,7 +916,7 @@ export default function Step6ReviewCheckout() {
           </div>
         )}
 
-        {!storyPreview && (
+        {!storyPreview && !showPreviewPreparationScreen && (
           <div className="text-center">
             <button
               onClick={() => handleGenerateStory()}
@@ -547,9 +931,89 @@ export default function Step6ReviewCheckout() {
             </button>
           </div>
         )}
+
+        {showPreviewPreparationScreen && (
+          <div className="mx-auto max-w-4xl overflow-hidden rounded-[32px] border border-white/70 bg-white/90 p-6 shadow-[0_25px_70px_rgba(15,23,42,0.12)] backdrop-blur-md sm:p-10">
+            <div className="text-center">
+              <h3 className="text-3xl font-black text-slate-900 sm:text-4xl">
+                {formData.childName || 'Your Child'}&apos;s Book Preview
+              </h3>
+              <div className="mt-6 space-y-3 text-sm font-semibold text-slate-600 sm:text-lg">
+                <p>Pages unlock one by one as each illustration is ready.</p>
+                <p>Swipe and stop on any finished page when you like it best.</p>
+              </div>
+            </div>
+
+            <div className="mt-10 flex flex-col items-center">
+              <div
+                className="relative flex h-28 w-28 items-center justify-center rounded-full"
+                style={{
+                  background: `conic-gradient(${currentTheme.primary} ${
+                    Math.max(8, Math.min(100, previewPrepProgress)) * 3.6
+                  }deg, rgba(148,163,184,0.18) 0deg)`,
+                }}
+              >
+                <div className="flex h-20 w-20 items-center justify-center rounded-full bg-white text-2xl font-bold text-slate-700">
+                  {Math.max(8, Math.min(100, Math.round(previewPrepProgress)))}%
+                </div>
+              </div>
+
+              <p className="mt-8 text-2xl font-semibold text-slate-800">
+                {previewPrepTitle}
+              </p>
+              <p className="mt-3 max-w-xl text-center text-base leading-7 text-slate-600">
+                {pageGenerationStates[firstIllustratedPageIndex]?.status === 'error'
+                  ? pageGenerationStates[firstIllustratedPageIndex]?.message ||
+                    'The first preview page could not be generated right now.'
+                  : previewPrepDetail}
+              </p>
+            </div>
+
+            <div className="mx-auto mt-10 max-w-md rounded-[28px] bg-slate-900 px-6 py-8 text-center text-white shadow-xl">
+              <p className="text-xl font-semibold italic leading-9">
+                &ldquo;{currentQuote.quote}&rdquo;
+              </p>
+              <p className="mt-4 text-base font-bold text-amber-300">
+                {currentQuote.author}
+              </p>
+            </div>
+
+            {pageGenerationStates[firstIllustratedPageIndex]?.status === 'error' && (
+              <div className="mt-8 flex flex-wrap justify-center gap-3">
+                <button
+                  type="button"
+                  onClick={handleRetryPreviewPreparation}
+                  className="rounded-full border-2 border-slate-900 px-6 py-3 font-bold text-slate-900 transition hover:bg-slate-100"
+                >
+                  Retry First Page
+                </button>
+              </div>
+            )}
+
+            {showEmailFallback && (
+              <div className="mx-auto mt-8 max-w-md rounded-[24px] border border-slate-200 bg-slate-50 px-6 py-6 text-center shadow-sm">
+                <p className="text-2xl font-semibold text-slate-900">
+                  Don&apos;t have time to wait?
+                </p>
+                <p className="mt-2 text-sm text-slate-600">
+                  We&apos;ll open your email app with the project details so support can send the preview when it&apos;s ready.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    window.location.href = supportMailtoLink;
+                  }}
+                  className="mt-4 rounded-xl bg-blue-600 px-6 py-3 font-semibold text-white transition hover:bg-blue-700"
+                >
+                  Email Me The Preview Instead
+                </button>
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
-      {storyPreview && (
+      {shouldShowStoryPreview && (
         <div className="w-full">
           <div
             className="flex min-h-screen w-full flex-col lg:flex-row"
