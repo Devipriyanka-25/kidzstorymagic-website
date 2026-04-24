@@ -231,6 +231,18 @@ export const paymentAPI = {
     createAPIClient().get(`/story/preview-with-payment/${storyId}`)
 };
 
+export const emailAPI = {
+  requestPreviewEmail: (data) =>
+    retryWithBackoff(
+      () =>
+        createAPIClient().post('/email/preview-request', data, {
+          timeout: 30000,
+        }),
+      2,
+      1500
+    ),
+};
+
 // Currency APIs
 export const currencyAPI = {
   getSupportedCurrencies: () => createAPIClient().get('/currency/supported'),

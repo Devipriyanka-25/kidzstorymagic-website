@@ -4,8 +4,12 @@ import { useEffect, useMemo, useState } from 'react';
 import PDFPreviewModal from './PDFPreviewModal';
 import CharacterConsistentStoryPage from '@/components/story/CharacterConsistentStoryPage';
 import { useLanguage } from '@/hooks/useLanguage';
-import { storyAPI, paymentAPI, faceSwapAPI } from '@/utils/api';
-import { useWizardStore, useCurrencyStore } from '@/utils/store';
+import { storyAPI, paymentAPI, faceSwapAPI, emailAPI } from '@/utils/api';
+import {
+  useWizardStore,
+  useCurrencyStore,
+  useAuthStore,
+} from '@/utils/store';
 import { getTheme } from '@/utils/themes';
 
 const isIllustratedStoryPage = (page) => page?.pageType === 'story';
@@ -148,6 +152,7 @@ async function createStoryPageIllustration({
 export default function Step6ReviewCheckout() {
   const { formData, prevStep } = useWizardStore();
   const { currency = 'USD', exchangeRates } = useCurrencyStore();
+  const authUser = useAuthStore((state) => state.user);
   const { currentLanguage } = useLanguage();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -164,6 +169,9 @@ export default function Step6ReviewCheckout() {
     'We are writing your story and preparing the first illustrated page.'
   );
   const [showEmailFallback, setShowEmailFallback] = useState(false);
+  const [previewEmailStatus, setPreviewEmailStatus] = useState('idle');
+  const [previewEmailFeedback, setPreviewEmailFeedback] = useState('');
+  const [previewEmailSentTo, setPreviewEmailSentTo] = useState('');
   const [quoteIndex, setQuoteIndex] = useState(0);
 
   // Face swap state
@@ -309,8 +317,11 @@ export default function Step6ReviewCheckout() {
   const currentQuote = PREVIEW_QUOTES[quoteIndex % PREVIEW_QUOTES.length];
   const showPreviewPreparationScreen =
     (loading && !storyPreview) || isPreparingInitialPreview;
+  const previewEmailRecipient = useMemo(() => {
+    const candidate = formData.parentEmail || authUser?.email || '';
+    return String(candidate || '').trim();
+  }, [authUser?.email, formData.parentEmail]);
   const supportMailtoLink = useMemo(() => {
-    const requestedRecipient = formData.parentEmail || 'my login email';
     const body = [
       'Hi Kidz Story Magic team,',
       '',
@@ -320,7 +331,7 @@ export default function Step6ReviewCheckout() {
       `Child name: ${formData.childName || 'Unavailable'}`,
       `Theme: ${formData.theme || 'Unavailable'}`,
       `Page count: ${formData.pageCount || 'Unavailable'}`,
-      `Preferred recipient: ${requestedRecipient}`,
+      `Preferred recipient: ${previewEmailRecipient || 'Unavailable'}`,
       '',
       'Thank you!',
     ].join('\n');
@@ -331,9 +342,9 @@ export default function Step6ReviewCheckout() {
   }, [
     formData.childName,
     formData.pageCount,
-    formData.parentEmail,
     formData.projectId,
     formData.theme,
+    previewEmailRecipient,
   ]);
 
   const handleRetryPreviewPreparation = () => {
@@ -346,6 +357,8 @@ export default function Step6ReviewCheckout() {
     setPreviewPrepDetail(
       'Painting the first page now. Your preview will open as soon as it is ready.'
     );
+    setPreviewEmailStatus('idle');
+    setPreviewEmailFeedback('');
     updatePageGenerationState(firstIllustratedPageIndex, {
       status: 'idle',
       message: '',
@@ -423,6 +436,9 @@ export default function Step6ReviewCheckout() {
       'We are writing the story and preparing the first illustrated page.'
     );
     setShowEmailFallback(false);
+    setPreviewEmailStatus('idle');
+    setPreviewEmailFeedback('');
+    setPreviewEmailSentTo('');
 
     try {
       if (!formData.projectId) {
@@ -483,6 +499,49 @@ export default function Step6ReviewCheckout() {
       );
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleSendPreviewEmail = async () => {
+    if (!previewEmailRecipient) {
+      setPreviewEmailStatus('error');
+      setPreviewEmailFeedback(
+        'Add a valid parent or account email before requesting the preview by email.'
+      );
+      return;
+    }
+
+    setPreviewEmailStatus('sending');
+    setPreviewEmailFeedback('');
+
+    try {
+      const previewUrl =
+        typeof window !== 'undefined' ? window.location.href : undefined;
+      const response = await emailAPI.requestPreviewEmail({
+        childName: formData.childName,
+        pageCount: formData.pageCount,
+        projectId: formData.projectId,
+        previewUrl,
+        recipientEmail: previewEmailRecipient,
+        theme: formData.theme,
+      });
+
+      const sentRecipient =
+        response?.data?.recipientEmail || previewEmailRecipient;
+      setPreviewEmailSentTo(sentRecipient);
+      setPreviewEmailStatus('sent');
+      setPreviewEmailFeedback(
+        `We emailed the preview link to ${sentRecipient}. You can reopen this project later from that email.`
+      );
+    } catch (requestError) {
+      const message =
+        requestError?.response?.data?.details ||
+        requestError?.response?.data?.error ||
+        requestError?.message ||
+        'Failed to send the preview email right now.';
+
+      setPreviewEmailStatus('error');
+      setPreviewEmailFeedback(message);
     }
   };
 
@@ -996,17 +1055,54 @@ export default function Step6ReviewCheckout() {
                   Don&apos;t have time to wait?
                 </p>
                 <p className="mt-2 text-sm text-slate-600">
-                  We&apos;ll open your email app with the project details so support can send the preview when it&apos;s ready.
+                  We&apos;ll email the preview link to{' '}
+                  <span className="font-semibold text-slate-900">
+                    {previewEmailRecipient || 'your saved email'}
+                  </span>{' '}
+                  so you can reopen this project later without losing your place.
                 </p>
                 <button
                   type="button"
-                  onClick={() => {
-                    window.location.href = supportMailtoLink;
-                  }}
-                  className="mt-4 rounded-xl bg-blue-600 px-6 py-3 font-semibold text-white transition hover:bg-blue-700"
+                  onClick={handleSendPreviewEmail}
+                  disabled={
+                    previewEmailStatus === 'sending' || !previewEmailRecipient
+                  }
+                  className="mt-4 rounded-xl bg-blue-600 px-6 py-3 font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
                 >
-                  Email Me The Preview Instead
+                  {previewEmailStatus === 'sending'
+                    ? 'Sending Preview Email...'
+                    : previewEmailStatus === 'sent'
+                      ? 'Preview Email Sent'
+                      : 'Email Me The Preview Instead'}
                 </button>
+                {previewEmailFeedback && (
+                  <p
+                    className={`mt-3 text-sm ${
+                      previewEmailStatus === 'error'
+                        ? 'text-red-600'
+                        : 'text-emerald-700'
+                    }`}
+                  >
+                    {previewEmailFeedback}
+                  </p>
+                )}
+                {previewEmailStatus === 'sent' && previewEmailSentTo && (
+                  <p className="mt-2 text-xs text-slate-500">
+                    Delivery sent to {previewEmailSentTo}
+                  </p>
+                )}
+                {previewEmailStatus === 'error' &&
+                  previewEmailFeedback.toLowerCase().includes('not configured') && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        window.location.href = supportMailtoLink;
+                      }}
+                      className="mt-3 text-sm font-semibold text-blue-700 underline underline-offset-4"
+                    >
+                      Open Support Email Instead
+                    </button>
+                  )}
               </div>
             )}
           </div>
