@@ -1,12 +1,16 @@
-export default async function handler(req, res) {
-  if (req.method !== 'GET') {
-    return res.status(405).json({ error: 'Method not allowed' });
-  }
+import { NextResponse } from 'next/server';
 
+export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
+
+export async function GET(request) {
   try {
-    const authHeader = req.headers.authorization;
+    const authHeader = request.headers.get('authorization');
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return res.status(401).json({ error: 'Missing or invalid authorization header' });
+      return NextResponse.json(
+        { error: 'Missing or invalid authorization header' },
+        { status: 401 }
+      );
     }
 
     const token = authHeader.substring(7);
@@ -18,7 +22,10 @@ export default async function handler(req, res) {
     try {
       decoded = jwt.verify(token, jwtSecret);
     } catch (error) {
-      return res.status(401).json({ error: 'Invalid or expired token' });
+      return NextResponse.json(
+        { error: 'Invalid or expired token' },
+        { status: 401 }
+      );
     }
 
     const supabaseUrl = 'https://wwninqezevmxlvtjhruo.supabase.co';
@@ -36,16 +43,22 @@ export default async function handler(req, res) {
     );
 
     if (!getUserResponse.ok) {
-      return res.status(404).json({ error: 'User not found' });
+      return NextResponse.json(
+        { error: 'User not found' },
+        { status: 404 }
+      );
     }
 
     const users = await getUserResponse.json();
     if (!Array.isArray(users) || users.length === 0) {
-      return res.status(404).json({ error: 'User not found' });
+      return NextResponse.json(
+        { error: 'User not found' },
+        { status: 404 }
+      );
     }
 
     const user = users[0];
-    return res.status(200).json({
+    return NextResponse.json({
       success: true,
       user: {
         id: user.id,
@@ -57,12 +70,15 @@ export default async function handler(req, res) {
         createdAt: user.created_at,
       },
       message: 'User profile retrieved successfully using REST API',
-    });
+    }, { status: 200 });
   } catch (error) {
     console.error('Get user error:', error);
-    return res.status(500).json({
-      error: 'Failed to retrieve user',
-      message: error.message,
-    });
+    return NextResponse.json(
+      {
+        error: 'Failed to retrieve user',
+        message: error.message,
+      },
+      { status: 500 }
+    );
   }
 }

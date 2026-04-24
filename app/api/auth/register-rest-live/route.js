@@ -1,13 +1,17 @@
-export default async function handler(req, res) {
-  if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed' });
-  }
+import { NextResponse } from 'next/server';
 
-  const { email, password, name, preferredCurrency } = req.body;
+export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
+
+export async function POST(request) {
+  const { email, password, name, preferredCurrency } = await request.json();
 
   // Validate inputs
   if (!email || !password || !name) {
-    return res.status(400).json({ error: 'Missing required fields: email, password, name' });
+    return NextResponse.json(
+      { error: 'Missing required fields: email, password, name' },
+      { status: 400 }
+    );
   }
 
   try {
@@ -41,7 +45,10 @@ export default async function handler(req, res) {
     if (!response.ok) {
       const errorData = await response.json();
       console.error('Supabase error:', errorData);
-      return res.status(response.status).json({ error: 'Failed to create user', details: errorData });
+      return NextResponse.json(
+        { error: 'Failed to create user', details: errorData },
+        { status: response.status }
+      );
     }
 
     const user = await response.json();
@@ -55,7 +62,7 @@ export default async function handler(req, res) {
       { expiresIn: '7d' }
     );
 
-    return res.status(201).json({
+    return NextResponse.json({
       success: true,
       user: {
         id: user[0]?.id,
@@ -65,13 +72,16 @@ export default async function handler(req, res) {
       },
       token,
       message: 'User registered successfully using REST API',
-    });
+    }, { status: 201 });
   } catch (error) {
     console.error('Registration error:', error);
-    return res.status(500).json({
-      error: 'Registration failed',
-      message: error.message,
-      details: error.toString(),
-    });
+    return NextResponse.json(
+      {
+        error: 'Registration failed',
+        message: error.message,
+        details: error.toString(),
+      },
+      { status: 500 }
+    );
   }
 }

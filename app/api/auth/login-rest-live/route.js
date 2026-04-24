@@ -1,12 +1,16 @@
-export default async function handler(req, res) {
-  if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed' });
-  }
+import { NextResponse } from 'next/server';
 
-  const { email, password } = req.body;
+export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
+
+export async function POST(request) {
+  const { email, password } = await request.json();
 
   if (!email || !password) {
-    return res.status(400).json({ error: 'Missing email or password' });
+    return NextResponse.json(
+      { error: 'Missing email or password' },
+      { status: 400 }
+    );
   }
 
   try {
@@ -28,12 +32,18 @@ export default async function handler(req, res) {
     );
 
     if (!getUserResponse.ok) {
-      return res.status(401).json({ error: 'Invalid email or password' });
+      return NextResponse.json(
+        { error: 'Invalid email or password' },
+        { status: 401 }
+      );
     }
 
     const users = await getUserResponse.json();
     if (!Array.isArray(users) || users.length === 0) {
-      return res.status(401).json({ error: 'Invalid email or password' });
+      return NextResponse.json(
+        { error: 'Invalid email or password' },
+        { status: 401 }
+      );
     }
 
     const user = users[0];
@@ -41,7 +51,10 @@ export default async function handler(req, res) {
     // Compare password
     const passwordMatch = await bcrypt.compare(password, user.password_hash);
     if (!passwordMatch) {
-      return res.status(401).json({ error: 'Invalid email or password' });
+      return NextResponse.json(
+        { error: 'Invalid email or password' },
+        { status: 401 }
+      );
     }
 
     // Generate JWT
@@ -52,7 +65,7 @@ export default async function handler(req, res) {
       { expiresIn: '7d' }
     );
 
-    return res.status(200).json({
+    return NextResponse.json({
       success: true,
       user: {
         id: user.id,
@@ -62,12 +75,15 @@ export default async function handler(req, res) {
       },
       token,
       message: 'Login successful using REST API',
-    });
+    }, { status: 200 });
   } catch (error) {
     console.error('Login error:', error);
-    return res.status(500).json({
-      error: 'Login failed',
-      message: error.message,
-    });
+    return NextResponse.json(
+      {
+        error: 'Login failed',
+        message: error.message,
+      },
+      { status: 500 }
+    );
   }
 }

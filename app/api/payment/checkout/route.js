@@ -127,8 +127,10 @@ export async function POST(request) {
         success_url: `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3001'}/success?session_id={CHECKOUT_SESSION_ID}`,
         cancel_url: `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3001'}/wizard?step=6`,
         metadata: {
+          storyId: projectId,  // Use storyId for webhook processing
           projectId: projectId,
           userId: decoded.id || decoded.email,
+          userEmail: decoded.email,
           currency: currency,
         },
       });

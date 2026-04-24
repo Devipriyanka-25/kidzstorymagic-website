@@ -220,7 +220,15 @@ export const paymentAPI = {
   getPDF: (projectId) => 
     createAPIClient().get(`/payment/pdf/${projectId}`, {
       responseType: 'blob'
-    })
+    }),
+
+  // NEW: Check payment status for a specific story
+  getStoryPaymentStatus: (storyId) =>
+    createAPIClient().get(`/payment/story-status/${storyId}`),
+
+  // NEW: Get story preview with payment details
+  getStoryPreviewWithPayment: (storyId) =>
+    createAPIClient().get(`/story/preview-with-payment/${storyId}`)
 };
 
 // Currency APIs

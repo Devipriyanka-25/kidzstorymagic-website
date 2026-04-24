@@ -1,14 +1,32 @@
 // Wizard Step Component 4: Child Details
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { useWizardStore } from '@/utils/store';
-import { storyAPI } from '@/utils/api';
+import { storyAPI, getAuthToken } from '@/utils/api';
 
 export default function Step4ChildDetails() {
+  const router = useRouter();
   const { formData, updateFormData, nextStep, prevStep } = useWizardStore();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [isAuthChecked, setIsAuthChecked] = useState(false);
+
+  // Check authentication on component mount
+  useEffect(() => {
+    const token = getAuthToken();
+    if (!token) {
+      console.warn('[STEP4] No auth token found, redirecting to login');
+      setError('Session expired. Please log in again.');
+      // Redirect after a brief delay so user sees the message
+      setTimeout(() => {
+        router.push('/auth/login');
+      }, 1500);
+    } else {
+      setIsAuthChecked(true);
+    }
+  }, [router]);
 
   const handleInputChange = (field, value) => {
     updateFormData(field, value);
@@ -19,6 +37,14 @@ export default function Step4ChildDetails() {
 
   const handleContinue = async () => {
     if (!isFormValid) return;
+
+    // Double-check auth token before making API call
+    const token = getAuthToken();
+    if (!token) {
+      setError('Session expired. Please log in again.');
+      router.push('/auth/login');
+      return;
+    }
 
     setLoading(true);
     setError('');
@@ -67,7 +93,18 @@ export default function Step4ChildDetails() {
       nextStep();
     } catch (err) {
       console.error('[STEP4_ERROR]', err);
-      setError(err.response?.data?.error || err.message || 'Failed to create project');
+      console.error('[STEP4_ERROR] Status:', err.response?.status);
+      console.error('[STEP4_ERROR] Data:', err.response?.data);
+
+      // Handle 401 Unauthorized specifically
+      if (err.response?.status === 401) {
+        setError('⚠️ Session expired or authentication failed. Please log in again.');
+        setTimeout(() => {
+          router.push('/auth/login');
+        }, 2000);
+      } else {
+        setError(err.response?.data?.error || err.message || 'Failed to create project. Please try again.');
+      }
     } finally {
       setLoading(false);
     }
@@ -75,6 +112,13 @@ export default function Step4ChildDetails() {
 
   return (
     <div className="step-container w-full max-w-4xl mx-auto px-4 py-10 bg-white rounded-2xl shadow-2xl">
+      {!isAuthChecked && (
+        <div className="text-center py-10">
+          <p className="text-lg text-gray-600">Verifying authentication...</p>
+        </div>
+      )}
+
+      {isAuthChecked && (
       <div className="space-y-8">
         <div className="text-center">
           <h2 className="text-4xl font-bold mb-4 text-gray-900">Step 4: Additional Details</h2>
@@ -159,6 +203,7 @@ export default function Step4ChildDetails() {
           </div>
         )}
       </div>
+      )}
     </div>
   );
 }

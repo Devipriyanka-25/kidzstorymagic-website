@@ -1,0 +1,61 @@
+{
+  "baseUrl": "http://127.0.0.1:3002",
+  "consoleEvents": [
+    {
+      "type": "info",
+      "message": "%cDownload the React DevTools for a better development experience: https://reactjs.org/link/react-devtools font-weight:bold"
+    },
+    {
+      "type": "log",
+      "message": "[INITAUTH] No token in localStorage"
+    },
+    {
+      "type": "log",
+      "message": "[INITAUTH] No token in localStorage"
+    },
+    {
+      "type": "info",
+      "message": "%cDownload the React DevTools for a better development experience: https://reactjs.org/link/react-devtools font-weight:bold"
+    },
+    {
+      "type": "log",
+      "message": "[INITAUTH] Found token in localStorage, verifying..."
+    },
+    {
+      "type": "log",
+      "message": "🔍 [createAPIClient] API Base URL: /api"
+    },
+    {
+      "type": "log",
+      "message": "[INITAUTH] Found token in localStorage, verifying..."
+    },
+    {
+      "type": "log",
+      "message": "🔍 [createAPIClient] API Base URL: /api"
+    },
+    {
+      "type": "log",
+      "message": "[INITAUTH] Token verification failed: Request failed with status code 404"
+    },
+    {
+      "type": "log",
+      "message": "[DRAFT] Loaded draft at step: 6"
+    },
+    {
+      "type": "log",
+      "message": "[INITAUTH] Token verification failed: Request failed with status code 404"
+    },
+    {
+      "type": "log",
+      "message": "🔍 [createAPIClient] API Base URL: /api"
+    }
+  ],
+  "previewState": "loaded",
+  "screenshots": {
+    "resumeScreenshot": "S:\\Priya\\Project\\Kidz Story Magic\\.ui-check\\wizard-resume.png",
+    "reviewLandingScreenshot": "S:\\Priya\\Project\\Kidz Story Magic\\.ui-check\\step6-review-landing.png",
+    "previewScreenshot": "S:\\Priya\\Project\\Kidz Story Magic\\.ui-check\\step6-preview.png",
+    "pageTwoScreenshot": "S:\\Priya\\Project\\Kidz Story Magic\\.ui-check\\step6-page-2.png"
+  },
+  "pageTwoText": "Kidz Story Magic\n\nMagical Stories for Kids\n\nSign In\nGet Started Free\n✨ Create Your Child's Story\n\nPersonalized, AI-powered storybooks for children\n\nStory Language:\nEnglish / English\nTamil / தமிழ்\nHindi / हिन्दी\nTelugu / తెలుగు\nKannada / ಕನ್ನಡ\nMalayalam / മലയാളം\nSpanish / Español\nEnglish\nStep 1\nStep 2\nStep 3\nStep 4\nStep 5\nStep 6\nReview Your Storybook\n\nYour personalized book preview\n\nC\nScene\nScene\nScene\nScene\nScene\nScene\nScene\nScene\nE\n\nPage 2 of 10\n\nIllustration unavailable\n\nRequest to https://api.replicate.com/v1/predictions failed with status 402 Payment Required: {\"title\":\"Insufficient credit\",\"detail\":\"You have insufficient credit to run this model. Go to https://replicate.com/account/billing#billing to purchase credit. Once you purchase credit, please wait a few minutes before trying again.\",\"status\":402} .\n\nSTORYBOOK SCENE\n\nPAGE 2\n\nMIA IN THE MAGICAL KINGDOM - PAGE 1\n\nMia finds a shimmering portal leading to the Magic Kingdom! A friendly dragon named Sparkle greets Mia at the kingdom gates.\n\nILLUSTRATION PROMPT\n\nMia is the hero of this fantasy story scene. Scene title: Mia in the Magical Kingdom - Page 1. Story moment: Mia finds a shimmering portal leading to the Magic Kingdom! A friendly dragon named Sparkle greets Mia at the kingdom gates. Illustration style: soft painted children's storybook, whimsical, warm lighting, expressive faces, gentle shapes, child-safe. Reading level mood: exciting with good lessons.\n\nPrevious\nNext\n\nChild\n\nMia\n\nAge\n\n5-8\n\nTheme\n\nFantasy\n\nPrice\n\n$9.99\n\nFace Swap Integration\n\nSelect a face to swap into generated story pages:\n\nSwap Face on This Page\nBack\nView PDF Preview\nDraft Saved\n$9.99 - Checkout\n\nTip: Use the left and right arrow keys to navigate pages.\n\nNeed help? Email us at support@kidzstorymagic.com\n\nSecure payment powered by Stripe\n\nKidz Story Magic\n\nMagical Stories\n\nCreating magical personalized storybooks for children worldwide.\n\nProduct\nCreate Story\nMy Stories\nFeatures\nResources\nDocumentation\nBlog\nPrivacy\nContact\nEmail: support@kidzstorymagic.com\nTwitter\nFacebook\n\n© 2026 Kidz Story Magic. All rights reserved.\n\nTermsPrivacy"
+}

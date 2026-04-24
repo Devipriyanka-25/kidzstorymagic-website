@@ -71,53 +71,130 @@ export async function POST(request, { params }) {
     const themeDescription = themes[theme] || 'an amazing story';
     const pages = pageCount || 20;
 
-    // Mock story generation
+    // Generate story pages structure
+    const storyTitles = {
+      family: `${childName}'s Family Adventure`,
+      friends: `${childName}'s Quest for Friendship`,
+      motivational: `${childName} the Hero`,
+      behavioural: `${childName} Learns & Grows`,
+      fairytale: `${childName}'s Fairy Tale`,
+      customizable: `${childName}'s Amazing Journey`,
+      adventure: `${childName}'s Great Adventure`,
+      fantasy: `${childName}'s Magical World`,
+      friendship: `${childName}'s Friendship Quest`,
+      mystery: `${childName}'s Mystery Adventure`,
+    };
+
+    const title = storyTitles[theme] || `${childName}'s Wonderful Story`;
+    
+    // Generate structured story pages
+    const storyPages = [];
+    
+    // Cover page
+    storyPages.push({
+      pageNumber: 0,
+      pageType: 'cover',
+      title: title,
+      text: `A magical story for ${childName}`,
+      illustrationUrl: null, // Will use placeholder
+      characterDescription: `${childName}, age ${ageGroup}, is the hero of this story!`,
+    });
+
+    // Body pages - create rich content pages
+    const themeContent = {
+      family: [
+        {
+          text: `${childName} woke up on a beautiful morning. Today was going to be special! With their family by their side, they were ready for an amazing adventure. Every moment with loved ones is magical.`,
+          lesson: 'Family is always there for us',
+        },
+        {
+          text: `Together, they discovered a hidden garden full of wonders. ${childName} learned that teamwork and love make everything better. With family, there's nothing you can't do!`,
+          lesson: 'Togetherness creates magic',
+        },
+        {
+          text: `As the sun set, ${childName} realized that the greatest treasure is having people who love you. They knew that no matter what happens, their family will always be their greatest adventure.`,
+          lesson: 'Love is the greatest gift',
+        }
+      ],
+      friends: [
+        {
+          text: `${childName} met some amazing friends on a sunny day. Together they decided to go on an adventure. With friends, anything is possible!`,
+          lesson: 'Friendship makes life fun',
+        },
+        {
+          text: `They faced challenges together, helped each other, and discovered that true friends make you stronger. ${childName} learned that loyalty and kindness are the foundation of true friendship.`,
+          lesson: 'Friends support each other',
+        },
+        {
+          text: `By the end of their adventure, ${childName} realized that friends are like stars - they make the sky beautiful even on the darkest nights.`,
+          lesson: 'Friends light up our lives',
+        }
+      ],
+      motivational: [
+        {
+          text: `${childName} discovered they had special powers within! With courage and determination, they faced every challenge with a smile. ${childName} knew they could do anything they set their mind to!`,
+          lesson: 'You have incredible potential',
+        },
+        {
+          text: `When things got tough, ${childName} didn't give up. They remembered that every superhero has struggled but never stopped believing in themselves. That belief is what made them truly super!`,
+          lesson: 'Perseverance makes you strong',
+        },
+        {
+          text: `${childName} learned that being a hero isn't about being perfect - it's about being kind, brave, and believing in yourself. And that's what made ${childName} a true hero!`,
+          lesson: 'You are the hero of your story',
+        }
+      ],
+      default: [
+        {
+          text: `Once upon a time, ${childName} began an incredible journey. The world was full of possibilities and ${childName} was ready for anything!`,
+          lesson: 'Every adventure starts with a step',
+        },
+        {
+          text: `Along the way, ${childName} met wonderful characters and faced exciting challenges. Each moment taught them something new and special.`,
+          lesson: 'Learning happens everywhere',
+        },
+        {
+          text: `${childName} discovered that they were braver, kinder, and more amazing than they ever imagined. This was just the beginning of their greatest adventures!`,
+          lesson: 'You are amazing just as you are',
+        }
+      ]
+    };
+
+    const pageContent = themeContent[theme] || themeContent.default;
+    
+    // Add body pages
+    pageContent.forEach((content, index) => {
+      storyPages.push({
+        pageNumber: index + 1,
+        pageType: 'story',
+        title: `Chapter ${index + 1}`,
+        text: content.text,
+        lesson: content.lesson,
+        illustrationUrl: null, // Will be generated or filled from uploads
+        characterQuote: `"${content.lesson}" - ${childName}`,
+      });
+    });
+
+    // End page
+    storyPages.push({
+      pageNumber: storyPages.length,
+      pageType: 'end',
+      title: 'The End',
+      text: `${childName}'s adventure was amazing! Every page of their story shows how special they truly are. This is a story to remember forever.`,
+      illustrationUrl: null,
+      message: `Written especially for ${childName}. You are loved, appreciated, and absolutely amazing!`,
+    });
+
     const generatedStory = {
       id: projectId,
-      title: `${childName}'s ${theme.charAt(0).toUpperCase() + theme.slice(1)} Story`,
+      title: title,
       childName: childName,
       childGender: childGender,
       ageGroup: ageGroup,
       theme: theme,
-      pageCount: pages,
-      status: 'draft',
-      content: `
-        <h2>${childName}'s ${theme.charAt(0).toUpperCase() + theme.slice(1)} Story</h2>
-        <p>Once upon a time, there was a special child named ${childName}. This is ${themeDescription} created just for them.</p>
-        <p>In this wonderful journey, ${childName} experiences amazing things and learns valuable lessons. 
-        Every page brings new excitement, new friends, and new discoveries.</p>
-        <p>${childName} shows remarkable courage, kindness, and determination throughout this tale. 
-        From the beginning to the end, this story celebrates what makes ${childName} unique and special.</p>
-        <p>With beautiful illustrations and heartwarming moments, this story is designed to inspire, 
-        entertain, and create lasting memories for ${childName}.</p>
-      `,
-      htmlContent: `
-        <div style="font-family: 'Comic Sans MS', cursive; padding: 40px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); min-height: 100vh;">
-          <h1 style="color: white; text-align: center; font-size: 48px; margin-bottom: 30px;">✨ ${childName}'s ${theme.charAt(0).toUpperCase() + theme.slice(1)} Story ✨</h1>
-          <div style="background: white; border-radius: 20px; padding: 40px; max-width: 800px; margin: 0 auto; box-shadow: 0 10px 30px rgba(0,0,0,0.3);">
-            <h2 style="color: #667eea; font-size: 28px;">Chapter 1: The Beginning</h2>
-            <p style="color: #333; font-size: 16px; line-height: 1.8;">
-              Once upon a time, in a magical place, there lived an amazing child named ${childName}. 
-              ${childName} had a special gift - the ability to see wonder in the world around them.
-            </p>
-            <p style="color: #333; font-size: 16px; line-height: 1.8;">
-              One day, something extraordinary happened. A magical adventure was about to begin, 
-              and ${childName} was chosen to be the hero of this incredible story.
-            </p>
-            <h2 style="color: #667eea; font-size: 28px; margin-top: 30px;">The Adventure Unfolds</h2>
-            <p style="color: #333; font-size: 16px; line-height: 1.8;">
-              ${childName}'s journey was filled with ${themeDescription}. With each new challenge, 
-              ${childName} discovered inner strength and made wonderful discoveries.
-            </p>
-            <p style="color: #333; font-size: 16px; line-height: 1.8;">
-              Friends were made, lessons were learned, and ${childName} proved to be brave, kind, and wise beyond measure.
-            </p>
-            <h2 style="color: #667eea; font-size: 28px; margin-top: 30px; text-align: center;\">The Happy Ending</h2>\n            <p style=\"color: #333; font-size: 16px; line-height: 1.8; text-align: center;\">\n              And so, ${childName}'s story came to a wonderful conclusion. The world was forever changed by their kindness and courage.\n            </p>\n            <p style=\"color: #667eea; font-size: 18px; font-weight: bold; text-align: center; margin-top: 20px;\">\n              The End 🌟\n            </p>\n          </div>\n        </div>\n      `,
-      illustrations: [
-        { pageNumber: 1, url: '/images/placeholder-1.png', description: 'Opening scene with ' + childName },
-        { pageNumber: 2, url: '/images/placeholder-2.png', description: 'Adventure begins' },
-        // ... more illustrations would be generated
-      ],
+      pageCount: pageCount || pages,
+      status: 'generated',
+      pages: storyPages,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
       previewUrl: `/api/story/preview/${projectId}`,

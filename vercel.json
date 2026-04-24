@@ -3,12 +3,5 @@
   "framework": "nextjs",
   "public": true,
   "buildCommand": "npm run build",
-  "installCommand": "npm install --legacy-peer-deps",
-  "outputDirectory": ".next",
-  "roots": [
-    {
-      "src": ".",
-      "use": "@vercel/next"
-    }
-  ]
+  "installCommand": "npm install --legacy-peer-deps"
 }

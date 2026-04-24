@@ -1,42 +1,48 @@
-export default async function handler(req, res) {
-  if (req.method !== 'GET') {
-    return res.status(405).json({ error: 'Method not allowed' });
-  }
+import { NextResponse } from 'next/server';
+
+export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
+
+const SUPABASE_URL = 'https://wwninqezevmxlvtjhruo.supabase.co';
+const SUPABASE_ANON_KEY =
+  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind3bmlucWV6ZXZteGx2dGpocnVvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY0NTI0MjUsImV4cCI6MjA5MjAyODQyNX0.sUJDiz980D3q-Lpt_R-ndJcojZD4dOZZr1nnB5d5IvA';
+
+export async function GET() {
+  const results = {
+    timestamp: new Date().toISOString(),
+    status: 'TESTING',
+    tests: {},
+    supabaseConnection: {},
+    readiness: {},
+  };
 
   try {
-    const results = {
-      timestamp: new Date().toISOString(),
-      status: 'TESTING',
-      tests: {},
-      supabaseConnection: {},
-      readiness: {},
-    };
-
-    // Test 1: Supabase REST API connection
     try {
-      const supabaseUrl = 'https://wwninqezevmxlvtjhruo.supabase.co';
-      const anonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind3bmlucWV6ZXZteGx2dGpocnVvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY0NTI0MjUsImV4cCI6MjA5MjAyODQyNX0.sUJDiz980D3q-Lpt_R-ndJcojZD4dOZZr1nnB5d5IvA';
-
-      const testResponse = await fetch(`${supabaseUrl}/rest/v1/auth_users?limit=1`, {
+      const testResponse = await fetch(`${SUPABASE_URL}/rest/v1/auth_users?limit=1`, {
         headers: {
-          'apikey': anonKey,
-          'Authorization': `Bearer ${anonKey}`,
+          apikey: SUPABASE_ANON_KEY,
+          Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
         },
       });
 
       if (testResponse.ok) {
-        results.supabaseConnection.status = 'CONNECTED';
-        results.supabaseConnection.message = 'Successfully connected to Supabase REST API';
+        results.supabaseConnection = {
+          status: 'CONNECTED',
+          message: 'Successfully connected to Supabase REST API.',
+        };
       } else {
-        results.supabaseConnection.status = 'FAILED';
-        results.supabaseConnection.message = `Status ${testResponse.status}: ${testResponse.statusText}`;
+        results.supabaseConnection = {
+          status: 'FAILED',
+          message: `Status ${testResponse.status}: ${testResponse.statusText}`,
+        };
       }
     } catch (error) {
-      results.supabaseConnection.status = 'ERROR';
-      results.supabaseConnection.message = error.message;
+      results.supabaseConnection = {
+        status: 'ERROR',
+        message: error instanceof Error ? error.message : 'Unknown error',
+      };
     }
 
-    // Test 2: Signup flow
     try {
       const signupResponse = await fetch(
         `${process.env.NEXT_PUBLIC_API_URL || 'https://www.kidzstorymagic.org'}/api/auth/register-rest-live`,
@@ -55,27 +61,26 @@ export default async function handler(req, res) {
       if (signupResponse.ok) {
         const data = await signupResponse.json();
         results.tests.signup = {
-          status: '✅ PASS',
+          status: 'PASS',
           description: 'Signup with REST API',
           userId: data.user?.id,
           message: 'User created successfully',
         };
       } else {
         results.tests.signup = {
-          status: '❌ FAIL',
+          status: 'FAIL',
           description: 'Signup with REST API',
           statusCode: signupResponse.status,
         };
       }
     } catch (error) {
       results.tests.signup = {
-        status: '❌ ERROR',
+        status: 'ERROR',
         description: 'Signup with REST API',
-        message: error.message,
+        message: error instanceof Error ? error.message : 'Unknown error',
       };
     }
 
-    // Test 3: Login flow
     try {
       const loginResponse = await fetch(
         `${process.env.NEXT_PUBLIC_API_URL || 'https://www.kidzstorymagic.org'}/api/auth/login-rest-live`,
@@ -92,45 +97,52 @@ export default async function handler(req, res) {
       if (loginResponse.ok) {
         const data = await loginResponse.json();
         results.tests.login = {
-          status: '✅ PASS',
+          status: 'PASS',
           description: 'Login with REST API',
           message: 'Login successful',
-          hasToken: !!data.token,
+          hasToken: Boolean(data.token),
         };
       } else {
         results.tests.login = {
-          status: '⏸️ SKIP',
+          status: 'SKIP',
           description: 'Login with REST API',
           reason: 'Test user may not exist',
         };
       }
     } catch (error) {
       results.tests.login = {
-        status: '❌ ERROR',
+        status: 'ERROR',
         description: 'Login with REST API',
-        message: error.message,
+        message: error instanceof Error ? error.message : 'Unknown error',
       };
     }
 
-    // Overall status
-    const allPassed = Object.values(results.tests).every((t) => t.status.includes('PASS') || t.status.includes('SKIP'));
-    results.status = allPassed && results.supabaseConnection.status === 'CONNECTED' ? 'SUCCESS' : 'PARTIAL';
+    const testStatuses = Object.values(results.tests);
+    const allPassed = testStatuses.every((test) => {
+      const status = typeof test?.status === 'string' ? test.status : '';
+      return status.includes('PASS') || status.includes('SKIP');
+    });
+    const connectionReady = results.supabaseConnection.status === 'CONNECTED';
 
+    results.status = allPassed && connectionReady ? 'SUCCESS' : 'PARTIAL';
     results.readiness = {
-      supabaseConnection: results.supabaseConnection.status === 'CONNECTED' ? '✅ READY' : '❌ NOT READY',
-      restApiSignup: results.tests.signup?.status?.includes('PASS') ? '✅ READY' : '❌ NOT READY',
-      restApiLogin: results.tests.login?.status?.includes('PASS') ? '✅ READY' : '⏸️ NEEDS TEST',
-      recommendation: results.supabaseConnection.status === 'CONNECTED' 
-        ? 'Real database integration is working! Ready for end-to-end testing.'
+      supabaseConnection: connectionReady ? 'READY' : 'NOT READY',
+      restApiSignup: results.tests.signup?.status?.includes('PASS') ? 'READY' : 'NOT READY',
+      restApiLogin: results.tests.login?.status?.includes('PASS') ? 'READY' : 'NEEDS TEST',
+      recommendation: connectionReady
+        ? 'Real database integration is working. Ready for end-to-end testing.'
         : 'Supabase connection failed. Check network and API key.',
     };
 
-    return res.status(200).json(results);
+    return NextResponse.json(results, { status: 200 });
   } catch (error) {
-    return res.status(500).json({
-      status: 'ERROR',
-      error: error.message,
-      timestamp: new Date().toISOString(),
-    });
+    return NextResponse.json(
+      {
+        status: 'ERROR',
+        error: error instanceof Error ? error.message : 'Unknown error',
+        timestamp: new Date().toISOString(),
+      },
+      { status: 500 }
+    );
   }
 }
