@@ -2,15 +2,15 @@ import { NextRequest, NextResponse } from "next/server";
 
 import {
   createFallbackStoryPageIllustration,
+  createStoryPageIllustrationPrediction,
   DEFAULT_STORYBOOK_NEGATIVE_PROMPT,
-  generateStoryPageIllustration,
   getReplicateErrorMessage,
   isReplicateBillingError,
 } from "@/lib/replicate/storyIllustrations";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-export const maxDuration = 60;
+export const maxDuration = 15;
 
 export async function POST(request: NextRequest) {
   let prompt = "";
@@ -41,10 +41,38 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const result = await generateStoryPageIllustration({
+    const result = await createStoryPageIllustrationPrediction({
       prompt,
       subjectImage,
       negativePrompt,
+    });
+
+    if (result.pending) {
+      console.log("[GENERATE_STORY_PAGE] Prediction started", {
+        predictionId: result.predictionId,
+        status: result.status,
+        model: result.model,
+        version: result.version,
+      });
+
+      return NextResponse.json(
+        {
+          success: true,
+          pending: true,
+          status: result.status,
+          predictionId: result.predictionId,
+          prompt: result.prompt,
+          model: result.model,
+          version: result.version,
+        },
+        { status: 202 }
+      );
+    }
+
+    console.log("[GENERATE_STORY_PAGE] Illustration ready immediately", {
+      predictionId: result.predictionId,
+      model: result.model,
+      version: result.version,
     });
 
     return NextResponse.json({
@@ -94,7 +122,8 @@ export async function POST(request: NextRequest) {
 
 export async function GET() {
   return NextResponse.json({
-    message: "POST a prompt and subjectImage to generate a storybook illustration.",
+    message:
+      "POST a prompt and subjectImage to start storybook illustration generation. Poll /api/generate-story-page/[predictionId] until the image is ready.",
     model: "sdxl-based/consistent-character",
     expectedBody: {
       prompt: "A whimsical forest adventure scene featuring the child hero",

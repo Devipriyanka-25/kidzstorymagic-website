@@ -71,6 +71,9 @@ export default function StoryGenerationStep({
     nextRegenerateCount = regenerateCount,
     languageOverride = currentLanguage
   ) => {
+    const resolvedLanguage =
+      typeof languageOverride === 'string' ? languageOverride : currentLanguage;
+
     if (uploadedImages.length < MIN_IMAGES) {
       setError(`Please upload at least ${MIN_IMAGES} images to generate a story`);
       return;
@@ -95,7 +98,7 @@ export default function StoryGenerationStep({
         theme,
         images: imageData,
         regenerationCount: nextRegenerateCount,
-        storyLanguage: languageOverride || 'en',
+        storyLanguage: resolvedLanguage || 'en',
       });
 
       const story = normalizeGeneratedStory(response.data);
@@ -248,7 +251,7 @@ export default function StoryGenerationStep({
           {uploadedImages.length > 0 && (
             <div className="mt-6 flex justify-center">
               <button
-                onClick={generateStory}
+                onClick={() => generateStory()}
                 disabled={loading || uploadedImages.length < MIN_IMAGES}
                 className={`px-8 py-3 rounded-lg font-semibold text-white transition-all transform hover:scale-105 ${
                   loading || uploadedImages.length < MIN_IMAGES

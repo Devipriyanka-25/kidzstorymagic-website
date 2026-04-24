@@ -1,10 +1,9 @@
-/**
- * Auth Login Endpoint - IMPROVED
- * POST /api/auth/login
- * Strategy: Demo User → Supabase REST API → Shared User Store
- */
-
 import { NextResponse } from 'next/server';
+import {
+  findAuthUserByEmail,
+  isPersistentAuthAvailable,
+  normalizeEmail,
+} from '../../shared/authUsers.js';
 import { userStore } from '../../shared/userStore.js';
 
 const bcrypt = require('bcryptjs');
@@ -32,12 +31,14 @@ export async function POST(request) {
       );
     }
 
-    console.log('[LOGIN] Login attempt for:', email);
-    const jwtSecret = process.env.JWT_SECRET || 'kidz-story-magic-jwt-secret-key-2024-production-secure-random-12345';
+    const normalizedEmail = normalizeEmail(email);
+    const jwtSecret =
+      process.env.JWT_SECRET ||
+      'kidz-story-magic-jwt-secret-key-2024-production-secure-random-12345';
 
-    // Check demo user
-    if (email === DEMO_USER.email && password === DEMO_USER.password) {
-      console.log('[LOGIN] ✓ Demo user login');
+    console.log('[LOGIN] Login attempt for:', normalizedEmail);
+
+    if (normalizedEmail === DEMO_USER.email && password === DEMO_USER.password) {
       userStore.addUser(DEMO_USER.email, {
         id: DEMO_USER.id,
         name: DEMO_USER.name,
@@ -45,150 +46,114 @@ export async function POST(request) {
         preferredCurrency: 'USD',
         createdAt: new Date().toISOString(),
       });
-      
+
       const token = jwt.sign(
         { id: DEMO_USER.id, email: DEMO_USER.email, name: DEMO_USER.name },
         jwtSecret,
         { expiresIn: '7d' }
       );
 
-      return NextResponse.json({
-        message: 'Login successful',
-        user: {
-          id: DEMO_USER.id,
-          name: DEMO_USER.name,
-          email: DEMO_USER.email,
-          preferredCurrency: 'USD',
+      return NextResponse.json(
+        {
+          message: 'Login successful',
+          user: {
+            id: DEMO_USER.id,
+            name: DEMO_USER.name,
+            email: DEMO_USER.email,
+            preferredCurrency: 'USD',
+          },
+          token,
+          source: 'demo',
         },
-        token,
-        source: 'demo',
-      }, { status: 200 });
+        { status: 200 }
+      );
     }
 
-    // Try Supabase
-    let supabaseError = null;
-    try {
-      console.log('[LOGIN] Checking Supabase...');
-      const supabaseUrl = 'https://wwninqezevmxlvtjhruo.supabase.co';
-      const anonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind3bmlucWV6ZXZteGx2dGpocnVvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY0NTI0MjUsImV4cCI6MjA5MjAyODQyNX0.sUJDiz980D3q-Lpt_R-ndJcojZD4dOZZr1nnB5d5IvA';
+    if (isPersistentAuthAvailable()) {
+      try {
+        const user = await findAuthUserByEmail(normalizedEmail);
 
-      const queryUrl = `${supabaseUrl}/rest/v1/auth_users?email=eq.${encodeURIComponent(email)}&select=*`;
-      const response = await fetch(queryUrl, {
-        method: 'GET',
-        headers: {
-          'apikey': anonKey,
-          'Authorization': `Bearer ${anonKey}`,
-          'Content-Type': 'application/json',
-        },
-      });
-
-      console.log('[LOGIN] Supabase status:', response.status);
-
-      if (!response.ok) {
-        throw new Error(`Supabase ${response.status}`);
-      }
-
-      const users = await response.json();
-
-      if (users && users.length > 0) {
-        const user = users[0];
-        console.log('[LOGIN] Found user in Supabase');
-        
-        if (!user.password_hash) {
-          throw new Error('User account corrupted');
-        }
-
-        const match = await bcrypt.compare(password, user.password_hash);
-        if (!match) {
-          console.log('[LOGIN] Password mismatch');
+        if (!user || !user.password_hash) {
           return NextResponse.json(
             { error: 'Invalid email or password' },
             { status: 401 }
           );
         }
 
-        console.log('[LOGIN] ✓ Supabase login success');
+        const match = await bcrypt.compare(password, user.password_hash);
+        if (!match) {
+          return NextResponse.json(
+            { error: 'Invalid email or password' },
+            { status: 401 }
+          );
+        }
+
         const token = jwt.sign(
           { id: user.id, email: user.email, name: user.name },
           jwtSecret,
           { expiresIn: '7d' }
         );
 
-        userStore.addUser(email, {
+        userStore.addUser(normalizedEmail, {
           id: user.id,
           name: user.name,
           email: user.email,
           passwordHash: user.password_hash,
           preferredCurrency: user.preferred_currency,
+          createdAt: user.created_at,
         });
 
-        return NextResponse.json({
-          message: 'Login successful',
-          user: {
-            id: user.id,
-            name: user.name,
-            email: user.email,
-            preferredCurrency: user.preferred_currency,
+        return NextResponse.json(
+          {
+            message: 'Login successful',
+            user: {
+              id: user.id,
+              name: user.name,
+              email: user.email,
+              preferredCurrency: user.preferred_currency,
+            },
+            token,
+            source: 'supabase',
           },
-          token,
-          source: 'supabase',
-        }, { status: 200 });
+          { status: 200 }
+        );
+      } catch (persistentError) {
+        console.error('[LOGIN] Persistent login failed:', persistentError.message);
+        return NextResponse.json(
+          {
+            error: 'Login failed',
+            details:
+              'Persistent login is temporarily unavailable. Please try again.',
+          },
+          { status: 503 }
+        );
       }
-
-      supabaseError = 'User not found';
-      console.log('[LOGIN] User not in Supabase');
-    } catch (err) {
-      supabaseError = err.message;
-      console.log('[LOGIN] Supabase error:', supabaseError);
     }
 
-    // Check shared store
-    console.log('[LOGIN] Checking shared user store (current size:', userStore.size(), ')...');
-    const storedUser = userStore.getUser(email);
-
-    if (storedUser) {
-      console.log('[LOGIN] ✓ Found user in shared store');
-      
-      if (!storedUser.passwordHash) {
-        console.error('[LOGIN] User exists but no password hash found');
-        return NextResponse.json(
-          { error: 'Account error - no password configured' },
-          { status: 500 }
-        );
-      }
-
-      // FIXED BUG 1: Email normalization
-      const normalizedStoredEmail = storedUser.email.toLowerCase().trim();
-      const normalizedInputEmail = email.toLowerCase().trim();
-      
-      if (normalizedStoredEmail !== normalizedInputEmail) {
-        console.error('[LOGIN] Email mismatch after normalization');
-        return NextResponse.json(
-          { error: 'Invalid email or password' },
-          { status: 401 }
-        );
-      }
-
-      // Compare passwords using bcrypt
-      console.log('[LOGIN] Comparing password hash...');
-      const match = await bcrypt.compare(password, storedUser.passwordHash);
-      if (!match) {
-        console.warn('[LOGIN] ⚠ Password mismatch for user:', normalizedInputEmail);
-        return NextResponse.json(
-          { error: 'Invalid email or password' },
-          { status: 401 }
-        );
-      }
-
-      console.log('[LOGIN] ✓ Password verified - generating token');
-      const token = jwt.sign(
-        { id: storedUser.id, email: storedUser.email, name: storedUser.name },
-        jwtSecret,
-        { expiresIn: '7d' }
+    const storedUser = userStore.getUser(normalizedEmail);
+    if (!storedUser || !storedUser.passwordHash) {
+      return NextResponse.json(
+        { error: 'Invalid email or password' },
+        { status: 401 }
       );
+    }
 
-      console.log('[LOGIN] ✓ Login success via shared store - token generated');
-      return NextResponse.json({
+    const match = await bcrypt.compare(password, storedUser.passwordHash);
+    if (!match) {
+      return NextResponse.json(
+        { error: 'Invalid email or password' },
+        { status: 401 }
+      );
+    }
+
+    const token = jwt.sign(
+      { id: storedUser.id, email: storedUser.email, name: storedUser.name },
+      jwtSecret,
+      { expiresIn: '7d' }
+    );
+
+    return NextResponse.json(
+      {
         message: 'Login successful',
         user: {
           id: storedUser.id,
@@ -198,14 +163,8 @@ export async function POST(request) {
         },
         token,
         source: 'store',
-      }, { status: 200 });
-    }
-
-    console.log('[LOGIN] ✗ User not found in any source (Supabase or shared store)');
-    console.log('[LOGIN] Supabase error:', supabaseError);
-    return NextResponse.json(
-      { error: 'Invalid email or password', debug: supabaseError },
-      { status: 401 }
+      },
+      { status: 200 }
     );
   } catch (error) {
     console.error('[LOGIN] Error:', error.message);

@@ -8,6 +8,25 @@ import { storyAPI, paymentAPI, faceSwapAPI } from '@/utils/api';
 import { useWizardStore, useCurrencyStore } from '@/utils/store';
 import { getTheme } from '@/utils/themes';
 
+const isIllustratedStoryPage = (page) => page?.pageType === 'story';
+
+const buildInitialPageGenerationStates = (
+  pages = [],
+  shouldGateIllustrations = false
+) =>
+  pages.reduce((states, page, index) => {
+    states[index] = {
+      status:
+        !shouldGateIllustrations ||
+        !isIllustratedStoryPage(page) ||
+        Boolean(page?.illustrationUrl)
+          ? 'ready'
+          : 'idle',
+      message: '',
+    };
+    return states;
+  }, {});
+
 export default function Step6ReviewCheckout() {
   const { formData, prevStep } = useWizardStore();
   const { currency = 'USD', exchangeRates } = useCurrencyStore();
@@ -15,6 +34,7 @@ export default function Step6ReviewCheckout() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [storyPreview, setStoryPreview] = useState(null);
+  const [pageGenerationStates, setPageGenerationStates] = useState({});
   const [currentPage, setCurrentPage] = useState(0);
   const [flipAnimation, setFlipAnimation] = useState(false);
   const [showPDFPreview, setShowPDFPreview] = useState(false);
@@ -67,6 +87,80 @@ export default function Step6ReviewCheckout() {
     formData.uploadedImages?.[0]?.preview ||
     formData.uploadedPhoto?.watermarkedUrl ||
     null;
+  const shouldGateIllustrations = Boolean(storySubjectImage);
+
+  const updatePageGenerationState = (pageIndex, nextState) => {
+    setPageGenerationStates((currentStates) => {
+      const previousState = currentStates[pageIndex] || {
+        status: 'idle',
+        message: '',
+      };
+      const mergedState = {
+        ...previousState,
+        ...nextState,
+      };
+
+      if (
+        previousState.status === mergedState.status &&
+        previousState.message === mergedState.message
+      ) {
+        return currentStates;
+      }
+
+      return {
+        ...currentStates,
+        [pageIndex]: mergedState,
+      };
+    });
+  };
+
+  const isPageIllustrationReady = (page, pageIndex) => {
+    if (!shouldGateIllustrations || !isIllustratedStoryPage(page)) {
+      return true;
+    }
+
+    return (
+      Boolean(page?.illustrationUrl) ||
+      pageGenerationStates[pageIndex]?.status === 'ready'
+    );
+  };
+
+  const canAccessPage = (targetPageIndex) => {
+    if (!Array.isArray(storyPreview)) {
+      return false;
+    }
+
+    for (let pageIndex = 0; pageIndex < targetPageIndex; pageIndex += 1) {
+      if (!isPageIllustrationReady(storyPreview[pageIndex], pageIndex)) {
+        return false;
+      }
+    }
+
+    return true;
+  };
+
+  const currentPageData = Array.isArray(storyPreview)
+    ? storyPreview[currentPage]
+    : null;
+  const currentPageState = currentPageData
+    ? pageGenerationStates[currentPage]
+    : null;
+  const currentPageRequiresIllustration =
+    shouldGateIllustrations && isIllustratedStoryPage(currentPageData);
+  const canMoveToNextPage =
+    Array.isArray(storyPreview) &&
+    currentPage < storyPreview.length - 1 &&
+    canAccessPage(currentPage + 1);
+  const allIllustratedPagesReady = Array.isArray(storyPreview)
+    ? storyPreview.every((page, pageIndex) =>
+        isPageIllustrationReady(page, pageIndex)
+      )
+    : false;
+  const illustrationsRemainingCount = Array.isArray(storyPreview)
+    ? storyPreview.filter(
+        (page, pageIndex) => !isPageIllustrationReady(page, pageIndex)
+      ).length
+    : 0;
 
   const handleIllustrationReady = (pageIndex, imageUrl) => {
     setStoryPreview((currentPages) => {
@@ -86,9 +180,21 @@ export default function Step6ReviewCheckout() {
       };
       return nextPages;
     });
+
+    updatePageGenerationState(pageIndex, {
+      status: 'ready',
+      message: '',
+    });
+  };
+
+  const handleIllustrationStateChange = (pageIndex, nextState) => {
+    updatePageGenerationState(pageIndex, nextState);
   };
 
   const handleGenerateStory = async (languageOverride = currentLanguage) => {
+    const resolvedLanguage =
+      typeof languageOverride === 'string' ? languageOverride : currentLanguage;
+
     setLoading(true);
     setError('');
 
@@ -124,12 +230,16 @@ export default function Step6ReviewCheckout() {
       const storyResponse = await storyAPI.generateStory(
         formData.projectId,
         customPrompt,
-        languageOverride || 'en',
+        resolvedLanguage || 'en',
         storyData
       );
 
       const pages = storyResponse.data.story.pages || [];
-      setStoryPreview(pages.length > 0 ? pages : [{}]);
+      const nextPages = pages.length > 0 ? pages : [{}];
+      setStoryPreview(nextPages);
+      setPageGenerationStates(
+        buildInitialPageGenerationStates(nextPages, shouldGateIllustrations)
+      );
       setCurrentPage(0);
     } catch (err) {
       console.error('[GENERATE_STORY_ERROR]', err);
@@ -145,7 +255,7 @@ export default function Step6ReviewCheckout() {
   };
 
   const handleNextPage = () => {
-    if (currentPage < storyPreview.length - 1) {
+    if (canMoveToNextPage) {
       setFlipAnimation(true);
       setTimeout(() => {
         setCurrentPage(currentPage + 1);
@@ -169,7 +279,8 @@ export default function Step6ReviewCheckout() {
       !selectedFaceImage ||
       !storyPreview ||
       currentPage === 0 ||
-      currentPage === storyPreview.length - 1
+      currentPage === storyPreview.length - 1 ||
+      !isPageIllustrationReady(storyPreview[currentPage], currentPage)
     ) {
       setError('Please select a face image and a story page.');
       return;
@@ -239,13 +350,13 @@ export default function Step6ReviewCheckout() {
   useEffect(() => {
     const handleKeyPress = (event) => {
       if (!storyPreview) return;
-      if (event.key === 'ArrowRight') handleNextPage();
+      if (event.key === 'ArrowRight' && canMoveToNextPage) handleNextPage();
       if (event.key === 'ArrowLeft') handlePrevPage();
     };
 
     window.addEventListener('keydown', handleKeyPress);
     return () => window.removeEventListener('keydown', handleKeyPress);
-  }, [currentPage, storyPreview]);
+  }, [canMoveToNextPage, currentPage, storyPreview]);
 
   useEffect(() => {
     const handleLanguageChange = (event) => {
@@ -262,6 +373,10 @@ export default function Step6ReviewCheckout() {
   }, [storyPreview, currentLanguage]);
 
   const handleCheckout = async () => {
+    if (!allIllustratedPagesReady) {
+      return;
+    }
+
     setLoading(true);
     setError('');
 
@@ -304,6 +419,10 @@ export default function Step6ReviewCheckout() {
   };
 
   const goToPage = (index) => {
+    if (!canAccessPage(index)) {
+      return;
+    }
+
     if (index !== currentPage) {
       setFlipAnimation(true);
       setTimeout(() => {
@@ -386,6 +505,9 @@ export default function Step6ReviewCheckout() {
         pageIndex={index}
         subjectImage={storySubjectImage}
         onIllustrationReady={(imageUrl) => handleIllustrationReady(index, imageUrl)}
+        onIllustrationStateChange={(nextState) =>
+          handleIllustrationStateChange(index, nextState)
+        }
       />
     );
   };
@@ -413,7 +535,7 @@ export default function Step6ReviewCheckout() {
         {!storyPreview && (
           <div className="text-center">
             <button
-              onClick={handleGenerateStory}
+              onClick={() => handleGenerateStory()}
               disabled={loading}
               className="inline-block rounded-full px-12 py-4 text-lg font-bold text-white transition-all duration-300 hover:scale-105 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
               style={{
@@ -438,7 +560,8 @@ export default function Step6ReviewCheckout() {
                 <button
                   key={index}
                   onClick={() => goToPage(index)}
-                  className={`relative h-24 w-24 flex-shrink-0 overflow-hidden rounded-lg border-2 transition-all duration-300 ${
+                  disabled={!canAccessPage(index)}
+                  className={`relative h-24 w-24 flex-shrink-0 overflow-hidden rounded-lg border-2 transition-all duration-300 disabled:cursor-not-allowed disabled:opacity-30 ${
                     currentPage === index
                       ? 'scale-105 ring-4'
                       : 'opacity-60 hover:opacity-100'
@@ -526,8 +649,20 @@ export default function Step6ReviewCheckout() {
                   className="w-full max-w-3xl overflow-hidden rounded-3xl bg-white shadow-2xl lg:max-w-4xl"
                   style={{ boxShadow: '0 20px 60px rgba(0,0,0,0.3)' }}
                 >
-                  {renderPageContent(storyPreview[currentPage], currentPage)}
+                  {renderPageContent(currentPageData, currentPage)}
                 </div>
+
+                {currentPageRequiresIllustration && !isPageIllustrationReady(currentPageData, currentPage) && (
+                  <div className="mt-4 max-w-2xl rounded-2xl border border-amber-300 bg-amber-50 px-5 py-4 text-center text-amber-900">
+                    <p className="font-semibold">
+                      Page {currentPage + 1} illustration is still being generated.
+                    </p>
+                    <p className="mt-1 text-sm text-amber-800">
+                      {currentPageState?.message ||
+                        'Please wait on this page until the artwork is ready before moving ahead.'}
+                    </p>
+                  </div>
+                )}
 
                 <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
                   <button
@@ -545,7 +680,7 @@ export default function Step6ReviewCheckout() {
 
                   <button
                     onClick={handleNextPage}
-                    disabled={currentPage === storyPreview.length - 1}
+                    disabled={!canMoveToNextPage}
                     className="rounded-full border-2 px-6 py-3 text-lg font-bold transition-all duration-300 hover:scale-105 active:scale-95 disabled:cursor-not-allowed disabled:opacity-30"
                     style={{
                       borderColor: currentTheme.primary,
@@ -576,7 +711,8 @@ export default function Step6ReviewCheckout() {
                         <button
                           key={index}
                           onClick={() => goToPage(index)}
-                          className={`relative h-14 w-14 flex-shrink-0 overflow-hidden rounded-lg border-2 transition-all duration-300 ${
+                          disabled={!canAccessPage(index)}
+                          className={`relative h-14 w-14 flex-shrink-0 overflow-hidden rounded-lg border-2 transition-all duration-300 disabled:cursor-not-allowed disabled:opacity-30 ${
                             currentPage === index
                               ? 'ring-2'
                               : 'opacity-60 hover:opacity-100'
@@ -738,7 +874,8 @@ export default function Step6ReviewCheckout() {
                             isFaceSwapping ||
                             !selectedFaceImage ||
                             currentPage === 0 ||
-                            currentPage === storyPreview.length - 1
+                            currentPage === storyPreview.length - 1 ||
+                            !isPageIllustrationReady(storyPreview[currentPage], currentPage)
                           }
                           className="flex-1 rounded-lg px-4 py-3 font-bold text-white transition-all duration-300 hover:scale-105 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
                           style={{
@@ -784,7 +921,12 @@ export default function Step6ReviewCheckout() {
                     </button>
 
                     <button
-                      onClick={() => setShowPDFPreview(true)}
+                      onClick={() => {
+                        if (allIllustratedPagesReady) {
+                          setShowPDFPreview(true);
+                        }
+                      }}
+                      disabled={!allIllustratedPagesReady}
                       className="rounded-full border-2 px-6 py-3 font-bold transition-all duration-300 hover:bg-green-50"
                       style={{
                         borderColor: '#10B981',
@@ -811,7 +953,7 @@ export default function Step6ReviewCheckout() {
 
                     <button
                       onClick={handleCheckout}
-                      disabled={loading}
+                      disabled={loading || !allIllustratedPagesReady}
                       className="rounded-full px-8 py-3 font-bold text-white transition-all duration-300 hover:scale-105 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
                       style={{
                         background: currentTheme.gradient,
@@ -823,6 +965,15 @@ export default function Step6ReviewCheckout() {
                         : `${currencySymbols[currency]}${price} - Checkout`}
                     </button>
                   </div>
+
+                  {!allIllustratedPagesReady && (
+                    <p className="mt-3 text-center text-sm text-gray-600">
+                      Finish generating each story page illustration in order to unlock PDF preview and checkout.
+                      {illustrationsRemainingCount > 0
+                        ? ` ${illustrationsRemainingCount} illustrated page${illustrationsRemainingCount === 1 ? '' : 's'} remaining.`
+                        : ''}
+                    </p>
+                  )}
 
                   <p className="mt-3 text-center text-xs text-gray-500">
                     Tip: Use the left and right arrow keys to navigate pages.

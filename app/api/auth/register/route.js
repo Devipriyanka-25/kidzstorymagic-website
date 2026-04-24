@@ -1,10 +1,11 @@
-/**
- * Auth Register Endpoint
- * Serverless implementation: POST /api/auth/register
- * Strategy: Supabase REST API → Mock Database Fallback
- */
-
 import { NextResponse } from 'next/server';
+import {
+  createAuthUser,
+  findAuthUserByEmail,
+  isDuplicateAuthUserError,
+  isPersistentAuthAvailable,
+  normalizeEmail,
+} from '../../shared/authUsers.js';
 import { userStore } from '../../shared/userStore.js';
 
 const bcrypt = require('bcryptjs');
@@ -18,7 +19,6 @@ export async function POST(request) {
     const body = await request.json();
     const { name, email, password, preferredCurrency } = body;
 
-    // Validate input
     if (!name || !email || !password) {
       return NextResponse.json(
         { error: 'Name, email, and password are required' },
@@ -40,53 +40,31 @@ export async function POST(request) {
       );
     }
 
-    // FIXED BUG 1: Normalize email for consistency
-    const normalizedEmail = email.toLowerCase().trim();
+    const normalizedEmail = normalizeEmail(email);
+    const jwtSecret =
+      process.env.JWT_SECRET ||
+      'kidz-story-magic-jwt-secret-key-2024-production-secure-random-12345';
+    const passwordHash = await bcrypt.hash(password, 10);
+
     console.log('[REGISTER] Processing registration for:', normalizedEmail);
 
-    const jwtSecret = process.env.JWT_SECRET || 'kidz-story-magic-jwt-secret-key-2024-production-secure-random-12345';
+    if (isPersistentAuthAvailable()) {
+      try {
+        const existingUser = await findAuthUserByEmail(normalizedEmail);
+        if (existingUser) {
+          return NextResponse.json(
+            { error: 'Email already registered' },
+            { status: 409 }
+          );
+        }
 
-    // CRITICAL: Hash password first (use for both Supabase and fallback)
-    const passwordHash = await bcrypt.hash(password, 10);
-    console.log('[REGISTER] ✓ Password hashed');
+        const userData = await createAuthUser({
+          name,
+          email: normalizedEmail,
+          passwordHash,
+          preferredCurrency,
+        });
 
-    // Try Supabase REST API first
-    try {
-      console.log('[REGISTER] Attempting Supabase REST API...');
-      
-      const supabaseUrl = 'https://wwninqezevmxlvtjhruo.supabase.co';
-      const anonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind3bmlucWV6ZXZteGx2dGpocnVvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY0NTI0MjUsImV4cCI6MjA5MjAyODQyNX0.sUJDiz980D3q-Lpt_R-ndJcojZD4dOZZr1nnB5d5IvA';
-
-      const insertPayload = {
-        name,
-        email: normalizedEmail,
-        password_hash: passwordHash,
-        preferred_currency: preferredCurrency || 'USD',
-        is_active: true,
-      };
-
-      console.log('[REGISTER] Posting to Supabase:', { name, email: normalizedEmail, has_password_hash: !!passwordHash });
-
-      const response = await fetch(`${supabaseUrl}/rest/v1/auth_users`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'apikey': anonKey,
-          'Authorization': `Bearer ${anonKey}`,
-          'Prefer': 'return=representation',
-        },
-        body: JSON.stringify(insertPayload),
-      });
-
-      console.log('[REGISTER] Supabase response status:', response.status);
-      const responseData = await response.json();
-      console.log('[REGISTER] Supabase response:', responseData);
-
-      if (response.ok && responseData && responseData.length > 0) {
-        const userData = responseData[0];
-        console.log('[REGISTER] ✓ Supabase registration successful');
-        
-        // Also add to shared store for consistency
         userStore.addUser(normalizedEmail, {
           id: userData.id,
           name: userData.name,
@@ -95,9 +73,9 @@ export async function POST(request) {
           preferredCurrency: userData.preferred_currency,
           createdAt: userData.created_at,
         });
-        
+
         const token = jwt.sign(
-          { id: userData.id, email, name },
+          { id: userData.id, email: userData.email, name: userData.name },
           jwtSecret,
           { expiresIn: '7d' }
         );
@@ -116,69 +94,77 @@ export async function POST(request) {
           },
           { status: 201 }
         );
-      } else if (response.status === 409) {
-        console.log('[REGISTER] Email already exists in Supabase');
-        return NextResponse.json(
-          { error: 'Email already registered' },
-          { status: 409 }
+      } catch (persistentError) {
+        console.error(
+          '[REGISTER] Persistent registration failed:',
+          persistentError.message
         );
-      } else {
-        throw new Error(`Supabase ${response.status}: ${JSON.stringify(responseData)}`);
-      }
-    } catch (supabaseErr) {
-      console.log('[REGISTER] Supabase failed:', supabaseErr.message, '- Using shared user store');
-      
-      // Fallback: Shared user store with in-memory storage
-      if (userStore.userExists(normalizedEmail)) {
-        console.log('[REGISTER] Email already exists in shared store:', normalizedEmail);
+
+        if (isDuplicateAuthUserError(persistentError)) {
+          return NextResponse.json(
+            { error: 'Email already registered' },
+            { status: 409 }
+          );
+        }
+
         return NextResponse.json(
-          { error: 'Email already registered' },
-          { status: 409 }
-        );
-      }
-
-      const userId = `user_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-      
-      const userData = {
-        id: userId,
-        name,
-        email: normalizedEmail,
-        passwordHash, // Store the hashed password
-        preferredCurrency: preferredCurrency || 'USD',
-        createdAt: new Date().toISOString(),
-      };
-
-      userStore.addUser(normalizedEmail, userData);
-      console.log('[REGISTER] ✓ Shared store registration successful');
-
-      const token = jwt.sign(
-        { id: userId, email: normalizedEmail, name },
-        jwtSecret,
-        { expiresIn: '7d' }
-      );
-
-      console.log('[REGISTER] ✓ User registered successfully in shared store');
-      return NextResponse.json(
-        {
-          message: 'User registered successfully',
-          user: {
-            id: userId,
-            name,
-            email: normalizedEmail,
-            preferredCurrency: preferredCurrency || 'USD',
+          {
+            error: 'Registration failed',
+            details:
+              'Persistent registration is temporarily unavailable. Please try again.',
           },
-          token,
-          source: 'shared-store',
-        },
-        { status: 201 }
+          { status: 503 }
+        );
+      }
+    }
+
+    console.log('[REGISTER] Persistent auth unavailable - using shared store');
+
+    if (userStore.userExists(normalizedEmail)) {
+      return NextResponse.json(
+        { error: 'Email already registered' },
+        { status: 409 }
       );
     }
+
+    const userId = `user_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    const userData = {
+      id: userId,
+      name,
+      email: normalizedEmail,
+      passwordHash,
+      preferredCurrency: preferredCurrency || 'USD',
+      createdAt: new Date().toISOString(),
+    };
+
+    userStore.addUser(normalizedEmail, userData);
+
+    const token = jwt.sign(
+      { id: userId, email: normalizedEmail, name },
+      jwtSecret,
+      { expiresIn: '7d' }
+    );
+
+    return NextResponse.json(
+      {
+        message: 'User registered successfully',
+        user: {
+          id: userId,
+          name,
+          email: normalizedEmail,
+          preferredCurrency: preferredCurrency || 'USD',
+        },
+        token,
+        source: 'shared-store',
+      },
+      { status: 201 }
+    );
   } catch (error) {
     console.error('[REGISTER] Unexpected error:', error.message);
     return NextResponse.json(
       {
         error: 'Registration failed',
-        details: error.message
+        details: error.message,
       },
       { status: 500 }
     );

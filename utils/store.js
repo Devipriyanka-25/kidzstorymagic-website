@@ -19,7 +19,11 @@ export const useAuthStore = create((set) => ({
           console.log('[INITAUTH] Found token in localStorage, verifying...');
           const response = await authAPI.getCurrentUser();
           console.log('[INITAUTH] Token verified, setting authenticated state');
-          set({ user: response.data, isAuthenticated: true, isInitializing: false });
+          set({
+            user: response.data.user,
+            isAuthenticated: true,
+            isInitializing: false,
+          });
         } catch (err) {
           console.log('[INITAUTH] Token verification failed:', err.message);
           localStorage.removeItem('authToken');

@@ -2,9 +2,12 @@ import {
   getReplicateClient,
   resolveModelVersionId,
 } from "@/lib/replicate/client";
+import type { Prediction } from "replicate";
 
 const CONSISTENT_CHARACTER_OWNER = "sdxl-based";
 const CONSISTENT_CHARACTER_MODEL = "consistent-character";
+const STORYBOOK_MODEL = `${CONSISTENT_CHARACTER_OWNER}/${CONSISTENT_CHARACTER_MODEL}`;
+const INITIAL_REPLICATE_WAIT_SECONDS = 3;
 
 export const DEFAULT_STORYBOOK_NEGATIVE_PROMPT =
   "photorealistic, blurry, hyper-real detail, harsh shadows, text, watermark, low quality, deformed anatomy";
@@ -22,6 +25,22 @@ export type StoryPageGenerationResult = {
   prompt: string;
   version: string;
 };
+
+export type StoryPageGenerationPendingResult = {
+  pending: true;
+  status: "starting" | "processing";
+  model: string;
+  predictionId: string;
+  prompt: string;
+  version: string;
+};
+
+export type StoryPageGenerationState =
+  | (StoryPageGenerationResult & {
+      pending?: false;
+      status: "succeeded";
+    })
+  | StoryPageGenerationPendingResult;
 
 function escapeXml(value: string): string {
   return value
@@ -178,6 +197,20 @@ function buildStorybookPrompt(prompt: string): string {
   ].join(", ");
 }
 
+function buildPredictionInput(input: StoryPageGenerationInput) {
+  return {
+    prompt: buildStorybookPrompt(input.prompt),
+    negative_prompt:
+      input.negativePrompt || DEFAULT_STORYBOOK_NEGATIVE_PROMPT,
+    subject: normalizeSubjectInput(input.subjectImage),
+    number_of_outputs: 1,
+    number_of_images_per_pose: 1,
+    randomise_poses: false,
+    output_format: "png",
+    output_quality: 90,
+  };
+}
+
 function normalizeSubjectInput(subjectImage: string): Buffer | string {
   if (subjectImage.startsWith("data:")) {
     const [, base64Payload = ""] = subjectImage.split(",");
@@ -280,39 +313,111 @@ export function createFallbackStoryPageIllustration(
   };
 }
 
-export async function generateStoryPageIllustration(
+function extractPredictionPrompt(
+  prediction: Prediction,
+  fallbackPrompt = ""
+): string {
+  const predictionInput = prediction.input as { prompt?: unknown } | undefined;
+
+  return typeof predictionInput?.prompt === "string"
+    ? predictionInput.prompt
+    : fallbackPrompt;
+}
+
+function normalizePredictionVersion(
+  prediction: Prediction,
+  fallbackVersion = ""
+): string {
+  if (typeof prediction.version === "string" && prediction.version !== "hidden") {
+    return prediction.version;
+  }
+
+  return fallbackVersion || "hidden";
+}
+
+function normalizeStoryPagePrediction(
+  prediction: Prediction,
+  fallback: { prompt?: string; version?: string } = {}
+): StoryPageGenerationState {
+  const prompt = extractPredictionPrompt(prediction, fallback.prompt || "");
+  const version = normalizePredictionVersion(prediction, fallback.version);
+
+  if (prediction.status === "succeeded") {
+    return {
+      imageUrl: extractOutputUrl(prediction.output),
+      model: STORYBOOK_MODEL,
+      predictionId: prediction.id,
+      prompt,
+      version,
+      status: "succeeded",
+    };
+  }
+
+  if (
+    prediction.status === "starting" ||
+    prediction.status === "processing"
+  ) {
+    return {
+      pending: true,
+      status: prediction.status,
+      model: STORYBOOK_MODEL,
+      predictionId: prediction.id,
+      prompt,
+      version,
+    };
+  }
+
+  if (prediction.status === "failed") {
+    throw new Error(`Prediction failed: ${prediction.error || "Unknown error"}`);
+  }
+
+  throw new Error(
+    `Prediction is not available (status: ${prediction.status || "unknown"}).`
+  );
+}
+
+export async function createStoryPageIllustrationPrediction(
   input: StoryPageGenerationInput
-): Promise<StoryPageGenerationResult> {
+): Promise<StoryPageGenerationState> {
   const replicate = getReplicateClient();
   const version = await resolveModelVersionId(
     CONSISTENT_CHARACTER_OWNER,
     CONSISTENT_CHARACTER_MODEL,
     process.env.REPLICATE_CONSISTENT_CHARACTER_VERSION
   );
+  const prompt = buildStorybookPrompt(input.prompt);
 
   const prediction = await replicate.predictions.create({
     version,
-    input: {
-      prompt: buildStorybookPrompt(input.prompt),
-      negative_prompt:
-        input.negativePrompt || DEFAULT_STORYBOOK_NEGATIVE_PROMPT,
-      subject: normalizeSubjectInput(input.subjectImage),
-      number_of_outputs: 1,
-      number_of_images_per_pose: 1,
-      randomise_poses: false,
-      output_format: "png",
-      output_quality: 90,
-    },
+    wait: INITIAL_REPLICATE_WAIT_SECONDS,
+    input: buildPredictionInput(input),
   });
 
-  const completedPrediction = await replicate.wait(prediction);
-  const imageUrl = extractOutputUrl(completedPrediction.output);
-
-  return {
-    imageUrl,
-    model: `${CONSISTENT_CHARACTER_OWNER}/${CONSISTENT_CHARACTER_MODEL}`,
-    predictionId: completedPrediction.id,
-    prompt: buildStorybookPrompt(input.prompt),
+  return normalizeStoryPagePrediction(prediction, {
+    prompt,
     version,
-  };
+  });
+}
+
+export async function getStoryPageIllustrationPredictionStatus(
+  predictionId: string
+): Promise<StoryPageGenerationState> {
+  const replicate = getReplicateClient();
+  const prediction = await replicate.predictions.get(predictionId);
+
+  return normalizeStoryPagePrediction(prediction);
+}
+
+export async function generateStoryPageIllustration(
+  input: StoryPageGenerationInput
+): Promise<StoryPageGenerationResult> {
+  const prediction = await createStoryPageIllustrationPrediction(input);
+
+  if (prediction.pending) {
+    throw new Error(
+      `Prediction ${prediction.predictionId} is still ${prediction.status}.`
+    );
+  }
+
+  return prediction;
 }
