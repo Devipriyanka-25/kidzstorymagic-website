@@ -159,7 +159,8 @@ export default function Step6ReviewCheckout() {
       console.log('[FACE_SWAP] Starting face swap for page', currentPage);
       setFaceSwapProgress(25);
 
-      // Perform face swap
+      // FIXED BUG 2: Use correct method name that exists in API client
+      console.log('[STEP6] Calling face swap API...');
       const result = await faceSwapAPI.swapFaceDeepAI(
         selectedFaceImage,
         page.illustrationUrl,
@@ -169,13 +170,17 @@ export default function Step6ReviewCheckout() {
           storyId: formData.projectId
         }
       );
+      console.log('[STEP6] Face swap result:', result);
 
       setFaceSwapProgress(100);
 
-      // Update the page with swapped illustration
-      if (result && result.swappedUrl) {
+      // Update the page with swapped illustration - FIXED BUG 2
+      // Check both result.swappedUrl and result.data.swappedUrl formats
+      const swappedUrl = result?.data?.swappedUrl || result?.swappedUrl;
+      if (swappedUrl) {
+        console.log('[STEP6] ✓ Updating page with swapped image:', swappedUrl.substring(0, 60) + '...');
         const updatedPages = [...storyPreview];
-        updatedPages[currentPage].illustrationUrl = result.swappedUrl;
+        updatedPages[currentPage].illustrationUrl = swappedUrl;
         setStoryPreview(updatedPages);
         
         // Track swapped pages
@@ -189,7 +194,9 @@ export default function Step6ReviewCheckout() {
 
     } catch (err) {
       console.error('[FACE_SWAP_ERROR]', err);
-      setError(err.message || 'Face swap failed. Please try again.');
+      const errorMsg = err.response?.data?.error || err.message || 'Face swap failed. Please try again.';
+      console.error('[FACE_SWAP_ERROR] Details:', errorMsg);
+      setError(errorMsg);
     } finally {
       setIsFaceSwapping(false);
       setFaceSwapProgress(0);
@@ -633,7 +640,7 @@ export default function Step6ReviewCheckout() {
                   </div>
 
                   {/* Face Swap Section */}
-                  {formData.uploadedPhotos && formData.uploadedPhotos.length > 0 && (
+                  {formData.uploadedImages && formData.uploadedImages.length > 0 && (
                     <div className="bg-gradient-to-r from-purple-50 to-pink-50 rounded-2xl p-6 mb-6 border-2" style={{ borderColor: currentTheme.primary }}>
                       <h3 className="text-xl font-bold mb-4 flex items-center gap-2" style={{ color: currentTheme.primary }}>
                         ✨ Face Swap Integration
@@ -643,23 +650,23 @@ export default function Step6ReviewCheckout() {
                       <div className="mb-4">
                         <p className="text-sm font-semibold text-gray-700 mb-3">Select a face to swap into story pages:</p>
                         <div className="flex gap-3 overflow-x-auto pb-2">
-                          {formData.uploadedPhotos.map((photo, idx) => (
+                          {formData.uploadedImages.map((photo, idx) => (
                             <button
                               key={idx}
-                              onClick={() => handleSelectFaceImage(photo.url)}
+                              onClick={() => handleSelectFaceImage(photo.preview)}
                               className={`flex-shrink-0 w-20 h-20 rounded-lg overflow-hidden border-3 transition-all duration-300 transform ${
-                                selectedFaceImage === photo.url
+                                selectedFaceImage === photo.preview
                                   ? 'scale-110 ring-2'
                                   : 'opacity-70 hover:opacity-100'
                               }`}
                               style={{
-                                borderColor: selectedFaceImage === photo.url ? currentTheme.primary : '#ccc',
+                                borderColor: selectedFaceImage === photo.preview ? currentTheme.primary : '#ccc',
                                 ringColor: currentTheme.primary
                               }}
                               title={`Face ${idx + 1}`}
                             >
                               <img
-                                src={photo.url}
+                                src={photo.preview}
                                 alt={`Face ${idx + 1}`}
                                 className="w-full h-full object-cover"
                               />

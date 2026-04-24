@@ -243,7 +243,7 @@ export const currencyAPI = {
     retryWithBackoff(() => createAPIClient().post('/currency/refresh-rates'), 2, 1000)
 };
 
-// Face Swap API
+// Face Swap API - FIXED BUG 2: Added missing swapFaceDeepAI method
 export const faceSwapAPI = {
   detectFace: (photo, childName, userId, storyId) => {
     const formData = new FormData();
@@ -256,6 +256,17 @@ export const faceSwapAPI = {
       headers: { 'Content-Type': 'multipart/form-data' }
     });
   },
+  
+  // FIXED BUG 2: This was the missing method Step 6 was calling
+  // Maps to /api/photos/face-swap endpoint which uses Replicate API
+  swapFaceDeepAI: (faceImageUrl, illustrationImageUrl, options = {}) => 
+    createAPIClient().post('/photos/face-swap', {
+      faceImageUrl,
+      illustrationImageUrl,
+      ...options
+    }, {
+      timeout: 120000 // Face swap can take up to 2 minutes
+    }),
   
   performFaceSwap: (params) => 
     createAPIClient().post('/photos/face-swap', params),

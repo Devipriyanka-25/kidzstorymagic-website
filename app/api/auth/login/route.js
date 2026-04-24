@@ -143,35 +143,51 @@ export async function POST(request) {
     }
 
     // Check shared store
-    console.log('[LOGIN] Checking shared store...');
+    console.log('[LOGIN] Checking shared user store (current size:', userStore.size(), ')...');
     const storedUser = userStore.getUser(email);
 
     if (storedUser) {
-      console.log('[LOGIN] Found in shared store');
+      console.log('[LOGIN] ✓ Found user in shared store');
       
       if (!storedUser.passwordHash) {
+        console.error('[LOGIN] User exists but no password hash found');
         return NextResponse.json(
-          { error: 'Account error' },
+          { error: 'Account error - no password configured' },
           { status: 500 }
         );
       }
 
-      const match = await bcrypt.compare(password, storedUser.passwordHash);
-      if (!match) {
-        console.log('[LOGIN] Password mismatch in store');
+      // FIXED BUG 1: Email normalization
+      const normalizedStoredEmail = storedUser.email.toLowerCase().trim();
+      const normalizedInputEmail = email.toLowerCase().trim();
+      
+      if (normalizedStoredEmail !== normalizedInputEmail) {
+        console.error('[LOGIN] Email mismatch after normalization');
         return NextResponse.json(
           { error: 'Invalid email or password' },
           { status: 401 }
         );
       }
 
-      console.log('[LOGIN] ✓ Store login success');
+      // Compare passwords using bcrypt
+      console.log('[LOGIN] Comparing password hash...');
+      const match = await bcrypt.compare(password, storedUser.passwordHash);
+      if (!match) {
+        console.warn('[LOGIN] ⚠ Password mismatch for user:', normalizedInputEmail);
+        return NextResponse.json(
+          { error: 'Invalid email or password' },
+          { status: 401 }
+        );
+      }
+
+      console.log('[LOGIN] ✓ Password verified - generating token');
       const token = jwt.sign(
         { id: storedUser.id, email: storedUser.email, name: storedUser.name },
         jwtSecret,
         { expiresIn: '7d' }
       );
 
+      console.log('[LOGIN] ✓ Login success via shared store - token generated');
       return NextResponse.json({
         message: 'Login successful',
         user: {
@@ -185,9 +201,10 @@ export async function POST(request) {
       }, { status: 200 });
     }
 
-    console.log('[LOGIN] User not found anywhere');
+    console.log('[LOGIN] ✗ User not found in any source (Supabase or shared store)');
+    console.log('[LOGIN] Supabase error:', supabaseError);
     return NextResponse.json(
-      { error: 'Invalid email or password' },
+      { error: 'Invalid email or password', debug: supabaseError },
       { status: 401 }
     );
   } catch (error) {

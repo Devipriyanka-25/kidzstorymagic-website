@@ -40,7 +40,9 @@ export async function POST(request) {
       );
     }
 
-    console.log('[REGISTER] Processing registration for:', email);
+    // FIXED BUG 1: Normalize email for consistency
+    const normalizedEmail = email.toLowerCase().trim();
+    console.log('[REGISTER] Processing registration for:', normalizedEmail);
 
     const jwtSecret = process.env.JWT_SECRET || 'kidz-story-magic-jwt-secret-key-2024-production-secure-random-12345';
 
@@ -57,13 +59,13 @@ export async function POST(request) {
 
       const insertPayload = {
         name,
-        email,
+        email: normalizedEmail,
         password_hash: passwordHash,
         preferred_currency: preferredCurrency || 'USD',
         is_active: true,
       };
 
-      console.log('[REGISTER] Posting to Supabase:', { name, email, has_password_hash: !!passwordHash });
+      console.log('[REGISTER] Posting to Supabase:', { name, email: normalizedEmail, has_password_hash: !!passwordHash });
 
       const response = await fetch(`${supabaseUrl}/rest/v1/auth_users`, {
         method: 'POST',
@@ -85,7 +87,7 @@ export async function POST(request) {
         console.log('[REGISTER] ✓ Supabase registration successful');
         
         // Also add to shared store for consistency
-        userStore.addUser(email, {
+        userStore.addUser(normalizedEmail, {
           id: userData.id,
           name: userData.name,
           email: userData.email,
@@ -127,8 +129,8 @@ export async function POST(request) {
       console.log('[REGISTER] Supabase failed:', supabaseErr.message, '- Using shared user store');
       
       // Fallback: Shared user store with in-memory storage
-      if (userStore.userExists(email)) {
-        console.log('[REGISTER] Email already exists in shared store');
+      if (userStore.userExists(normalizedEmail)) {
+        console.log('[REGISTER] Email already exists in shared store:', normalizedEmail);
         return NextResponse.json(
           { error: 'Email already registered' },
           { status: 409 }
@@ -140,33 +142,33 @@ export async function POST(request) {
       const userData = {
         id: userId,
         name,
-        email,
+        email: normalizedEmail,
         passwordHash, // Store the hashed password
         preferredCurrency: preferredCurrency || 'USD',
         createdAt: new Date().toISOString(),
       };
 
-      userStore.addUser(email, userData);
+      userStore.addUser(normalizedEmail, userData);
       console.log('[REGISTER] ✓ Shared store registration successful');
 
       const token = jwt.sign(
-        { id: userId, email, name },
+        { id: userId, email: normalizedEmail, name },
         jwtSecret,
         { expiresIn: '7d' }
       );
 
+      console.log('[REGISTER] ✓ User registered successfully in shared store');
       return NextResponse.json(
         {
-          message: 'User registered successfully (demo mode)',
+          message: 'User registered successfully',
           user: {
             id: userId,
             name,
-            email,
+            email: normalizedEmail,
             preferredCurrency: preferredCurrency || 'USD',
           },
           token,
           source: 'shared-store',
-          note: 'Running in demo mode - Supabase not available',
         },
         { status: 201 }
       );

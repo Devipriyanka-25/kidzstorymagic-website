@@ -6,16 +6,18 @@
  */
 
 import { NextResponse } from 'next/server';
-import { faceSwapWithDeepAI, detectFacesWithDeepAI, getPricingInfo } from '../../lib/deepaiService.js';
 import { convertDataUrlToHttpUrl } from '../../lib/dataUrlToUrlConverter.js';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 export const maxDuration = 300; // 5 minutes for face swap processing
 
+// Use DeepAI API for face swap (subscribed service)
+import { faceSwapWithDeepAI } from '../../lib/deepaiService.js';
+
 export async function POST(request) {
   try {
-    console.log('[FACE_SWAP] Starting real face swap with Replicate API...');
+    console.log('[FACE_SWAP] Starting face swap with DeepAI API...');
 
     const body = await request.json();
     const {
@@ -29,6 +31,7 @@ export async function POST(request) {
 
     // Validate required fields
     if (!faceImageUrl || !illustrationImageUrl) {
+      console.error('[FACE_SWAP] Missing required fields');
       return NextResponse.json(
         { 
           error: 'Missing required fields',
@@ -40,26 +43,25 @@ export async function POST(request) {
     }
 
     console.log(`[FACE_SWAP] Processing page ${pageNumber || 'N/A'} for ${childName}`);
-    console.log(`[FACE_SWAP] Face image: ${faceImageUrl.substring(0, 80)}...`);
-    console.log(`[FACE_SWAP] Illustration: ${illustrationImageUrl.substring(0, 80)}...`);
+    console.log(`[FACE_SWAP] Face image URL: ${faceImageUrl.substring(0, 80)}...`);
+    console.log(`[FACE_SWAP] Illustration URL: ${illustrationImageUrl.substring(0, 80)}...`);
 
-    // Check if DeepAI API key is configured
-    if (!process.env.DEEPAI_API_KEY) {
-      console.warn('[FACE_SWAP] ⚠ DEEPAI_API_KEY not configured');
+    // Check if DeepAI API token is configured
+    const deepaiKey = process.env.DEEPAI_API_KEY;
+    if (!deepaiKey) {
+      console.error('[FACE_SWAP] ✗ DEEPAI_API_KEY not configured');
       return NextResponse.json(
         { 
           error: 'Face swap service not configured',
           message: 'DEEPAI_API_KEY environment variable is missing',
-          setup: 'Get your free API key from https://deepai.org/account/profile',
-          alternatives: [
-            'AWS Rekognition + custom face swap implementation',
-            'Azure Face API + CompreFace for face swap',
-            'Run local face swap model using FastAPI'
-          ]
+          setup: 'Get your API token from https://deepai.org/account/profile',
+          note: 'Subscribed account with generous rate limits.'
         },
         { status: 503 }
       );
     }
+
+    console.log('[FACE_SWAP] ✓ DeepAI API token configured');
 
     console.log('[FACE_SWAP] ✓ Configuration validated');
 
@@ -73,26 +75,27 @@ export async function POST(request) {
     if (faceImageUrl.startsWith('data:image/')) {
       console.log('[FACE_SWAP] Converting face image data URL to HTTP URL...');
       httpFaceUrl = await convertDataUrlToHttpUrl(faceImageUrl, host);
+      console.log('[FACE_SWAP] ✓ Face image converted:', httpFaceUrl.substring(0, 60) + '...');
     }
 
     if (illustrationImageUrl.startsWith('data:image/')) {
       console.log('[FACE_SWAP] Converting illustration data URL to HTTP URL...');
       httpIllustrationUrl = await convertDataUrlToHttpUrl(illustrationImageUrl, host);
+      console.log('[FACE_SWAP] ✓ Illustration converted:', httpIllustrationUrl.substring(0, 60) + '...');
     }
 
     // Perform face swap via DeepAI
     console.log('[FACE_SWAP] Calling DeepAI API for face swap...');
-    const swapResult = await faceSwapWithDeepAI(httpFaceUrl, httpIllustrationUrl, {
-      // DeepAI face swap options
-    });
+    const swapResult = await faceSwapWithDeepAI(httpFaceUrl, httpIllustrationUrl);
 
     console.log('[FACE_SWAP] ✓ Face swap completed successfully');
-    console.log(`[FACE_SWAP] Result URL: ${swapResult.resultUrl.substring(0, 80)}...`);
+    console.log(`[FACE_SWAP] Output URL: ${swapResult.resultUrl.substring(0, 80)}...`);
 
     return NextResponse.json(
       {
         success: true,
         message: 'Face swap completed successfully',
+        swappedUrl: swapResult.resultUrl,
         result: {
           storyId,
           photoId,
@@ -101,13 +104,11 @@ export async function POST(request) {
           swappedImageUrl: swapResult.resultUrl,
           predictionId: swapResult.predictionId,
           processedAt: swapResult.processedAt,
-          model: 'deepai-face-swap',
+          model: swapResult.model,
         },
         pricing: {
-          model: getPricingInfo().model,
-          estimatedCost: getPricingInfo().costPerCall,
-          currency: 'USD',
-          provider: 'deepai.org',
+          provider: 'deepai',
+          model: 'deepai-face-swap',
         },
         metadata: {
           faceImageUrl: faceImageUrl.substring(0, 100),
