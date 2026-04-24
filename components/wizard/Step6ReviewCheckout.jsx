@@ -315,7 +315,7 @@ export default function Step6ReviewCheckout() {
     if (index === 0) {
       return (
         <div
-          className="relative flex h-full w-full flex-col items-center justify-center overflow-hidden rounded-r-3xl p-8 text-white"
+          className="relative flex min-h-[620px] w-full flex-col items-center justify-center overflow-hidden rounded-3xl p-8 text-white sm:min-h-[700px] lg:min-h-[760px]"
           style={{ background: currentTheme.gradient }}
         >
           <div className="absolute inset-0 opacity-10">
@@ -362,7 +362,7 @@ export default function Step6ReviewCheckout() {
     if (index === storyPreview.length - 1) {
       return (
         <div
-          className="flex h-full w-full flex-col items-center justify-center overflow-hidden rounded-r-3xl p-8 text-white"
+          className="flex min-h-[620px] w-full flex-col items-center justify-center overflow-hidden rounded-3xl p-8 text-white sm:min-h-[700px] lg:min-h-[760px]"
           style={{ background: currentTheme.gradient }}
         >
           <div className="text-center">
@@ -497,7 +497,7 @@ export default function Step6ReviewCheckout() {
 
             <div className="flex flex-1 flex-col">
               <div
-                className={`flex flex-1 flex-col items-center justify-center p-4 transition-all duration-300 lg:p-8 ${
+                className={`flex flex-1 flex-col items-center justify-start p-4 transition-all duration-300 lg:justify-center lg:p-8 ${
                   flipAnimation ? 'opacity-50' : 'opacity-100'
                 }`}
               >
@@ -521,7 +521,7 @@ export default function Step6ReviewCheckout() {
                 </div>
 
                 <div
-                  className="flex aspect-video max-h-[70vh] w-full max-w-3xl flex-1 items-center justify-center overflow-hidden rounded-3xl bg-white shadow-2xl lg:max-w-4xl"
+                  className="w-full max-w-3xl overflow-hidden rounded-3xl bg-white shadow-2xl lg:max-w-4xl"
                   style={{ boxShadow: '0 20px 60px rgba(0,0,0,0.3)' }}
                 >
                   {renderPageContent(storyPreview[currentPage], currentPage)}

@@ -131,8 +131,8 @@ export default function CharacterConsistentStoryPage({
   }, [cacheKey, page.illustrationUrl, prompt, subjectImage]);
 
   return (
-    <div className="grid h-full grid-cols-1 overflow-hidden rounded-r-3xl bg-[linear-gradient(180deg,#fdf6e3_0%,#f8efe0_100%)] md:grid-cols-[1.15fr_0.85fr]">
-      <div className="relative flex min-h-[320px] items-center justify-center overflow-hidden bg-[radial-gradient(circle_at_top,#fde68a_0%,#f59e0b_45%,#d97706_100%)] p-6">
+    <div className="grid min-h-[620px] w-full grid-cols-1 overflow-hidden rounded-3xl bg-[linear-gradient(180deg,#fdf6e3_0%,#f8efe0_100%)] sm:min-h-[700px] md:grid-cols-[1.15fr_0.85fr] lg:min-h-[760px]">
+      <div className="relative flex min-h-[280px] items-center justify-center overflow-hidden bg-[radial-gradient(circle_at_top,#fde68a_0%,#f59e0b_45%,#d97706_100%)] p-6 sm:min-h-[320px]">
         {imageUrl ? (
           <img
             src={imageUrl}
@@ -161,7 +161,7 @@ export default function CharacterConsistentStoryPage({
         </div>
       </div>
 
-      <div className="flex h-full flex-col justify-between bg-[linear-gradient(180deg,#fff8eb_0%,#fde7d7_100%)] p-6 text-slate-800 md:p-8">
+      <div className="flex h-full flex-col justify-between bg-[linear-gradient(180deg,#fff8eb_0%,#fde7d7_100%)] p-5 text-slate-800 sm:p-6 md:p-8">
         <div>
           <p className="mb-3 text-xs font-bold uppercase tracking-[0.3em] text-rose-500">
             Page {page.pageNumber || pageIndex + 1}
