@@ -1,4 +1,7 @@
 import { NextResponse } from 'next/server';
+import { sendTransactionalEmail } from '@/lib/email';
+import { getEmailVerificationTemplate } from '@/lib/emailTemplates';
+import { generateVerificationToken } from '../verify-email/route';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -38,7 +41,8 @@ export async function POST(request) {
         email,
         password_hash: passwordHash,
         preferred_currency: preferredCurrency || 'USD',
-        is_active: true,
+        is_active: false,
+        email_verified: false,
       }),
     });
 
@@ -54,10 +58,32 @@ export async function POST(request) {
     const user = await response.json();
     console.log('User created:', user);
 
+    // Generate verification token
+    const verificationToken = generateVerificationToken(email);
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://www.kidzstorymagic.org';
+    const verificationLink = `${appUrl}/auth/verify?token=${verificationToken}`;
+
+    // Send verification email
+    try {
+      const emailTemplate = getEmailVerificationTemplate(name, verificationLink);
+      await sendTransactionalEmail({
+        to: email,
+        subject: emailTemplate.subject,
+        html: emailTemplate.html,
+        text: emailTemplate.text,
+        idempotencyKey: `verify-${email}-${Date.now()}`,
+      });
+      console.log(`[EMAIL_SENT] Verification email sent to ${email}`);
+    } catch (emailError) {
+      console.error('[EMAIL_ERROR] Failed to send verification email:', emailError);
+      // Don't fail registration if email fails, but log it
+      // In production, you might want to retry or alert
+    }
+
     // Generate JWT token
     const jwtSecret = process.env.JWT_SECRET || 'kidz-story-magic-jwt-secret-key-2024-production-secure-random-12345';
     const token = jwt.sign(
-      { id: user[0]?.id || 1, email, name },
+      { id: user[0]?.id || 1, email, name, emailVerified: false },
       jwtSecret,
       { expiresIn: '7d' }
     );
@@ -69,9 +95,10 @@ export async function POST(request) {
         name: user[0]?.name,
         email: user[0]?.email,
         preferredCurrency: user[0]?.preferred_currency,
+        emailVerified: false,
       },
       token,
-      message: 'User registered successfully using REST API',
+      message: 'User registered successfully. Verification email sent.',
     }, { status: 201 });
   } catch (error) {
     console.error('Registration error:', error);
