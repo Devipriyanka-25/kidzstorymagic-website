@@ -3,6 +3,8 @@ import { NextRequest, NextResponse } from "next/server";
 import {
   getReplicateErrorMessage,
   getStoryPageIllustrationPredictionStatus,
+  createFallbackStoryPageIllustration,
+  isReplicateBillingError,
 } from "@/lib/replicate/storyIllustrations";
 
 export const runtime = "nodejs";
@@ -20,6 +22,20 @@ export async function GET(
     return NextResponse.json(
       { error: "predictionId is required." },
       { status: 400 }
+    );
+  }
+
+  // Handle fallback predictions
+  if (predictionId === "fallback-placeholder") {
+    return NextResponse.json(
+      {
+        success: true,
+        pending: false,
+        imageUrl: "", // Placeholder - client should handle this
+        status: "fallback",
+        predictionId: "fallback-placeholder",
+      },
+      { status: 200 }
     );
   }
 
@@ -57,6 +73,34 @@ export async function GET(
     });
   } catch (error) {
     const message = getReplicateErrorMessage(error);
+
+    console.error("[GENERATE_STORY_PAGE_STATUS_ERROR]", {
+      predictionId,
+      message,
+      isBillingError: isReplicateBillingError(error),
+    });
+
+    // If it's a billing error, return a fallback illustration
+    if (isReplicateBillingError(error)) {
+      const fallback = createFallbackStoryPageIllustration({
+        prompt: "Illustration preview placeholder",
+        subjectImage: "data:image/svg+xml,%3Csvg%2F%3E", // Minimal valid data URL
+      });
+
+      return NextResponse.json(
+        {
+          success: true,
+          pending: false,
+          imageUrl: fallback.imageUrl,
+          status: "fallback",
+          predictionId: "fallback",
+          warning:
+            "Replicate service billing limit reached. Showing a preview placeholder instead.",
+        },
+        { status: 200 }
+      );
+    }
+
     const status = message.includes("REPLICATE_API_TOKEN") ? 503 : 500;
 
     return NextResponse.json(

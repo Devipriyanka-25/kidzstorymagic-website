@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import PDFPreviewModal from './PDFPreviewModal';
 import CharacterConsistentStoryPage from '@/components/story/CharacterConsistentStoryPage';
 import { useLanguage } from '@/hooks/useLanguage';
@@ -15,6 +15,7 @@ import { getTheme } from '@/utils/themes';
 const isIllustratedStoryPage = (page) => page?.pageType === 'story';
 const PREVIEW_SUPPORT_EMAIL = 'support@kidzstorymagic.com';
 const PREVIEW_POLL_INTERVAL_MS = 3000;
+const PREVIEW_FIRST_PAGE_TIMEOUT_MS = 60000;
 const PREVIEW_QUOTES = [
   {
     quote:
@@ -73,40 +74,161 @@ function waitForDelay(ms, signal) {
   });
 }
 
-async function pollStoryPageIllustration(predictionId, signal, onPending) {
+function escapePreviewSvgText(value) {
+  return String(value || '')
+    .replace(/&/g, '&amp;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&apos;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+}
+
+function createTimedFallbackIllustration(prompt) {
+  const excerpt = String(prompt || '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, 84);
+
+  const svg = `
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 1000" role="img" aria-label="Storybook preview illustration">
+      <defs>
+        <linearGradient id="bg" x1="0%" x2="100%" y1="0%" y2="100%">
+          <stop offset="0%" stop-color="#f59e0b" />
+          <stop offset="100%" stop-color="#ea580c" />
+        </linearGradient>
+      </defs>
+      <rect width="800" height="1000" fill="url(#bg)" />
+      <rect x="58" y="72" width="684" height="856" rx="42" fill="#111827" fill-opacity="0.14" stroke="#ffffff" stroke-opacity="0.42" stroke-dasharray="12 10" />
+      <text x="90" y="150" fill="#fff7ed" font-family="Verdana, Arial, sans-serif" font-size="28" font-weight="700" letter-spacing="6">
+        STORYBOOK SCENE
+      </text>
+      <text x="90" y="272" fill="#ffffff" font-family="Verdana, Arial, sans-serif" font-size="60" font-weight="700">
+        Preview opened
+      </text>
+      <text x="90" y="330" fill="#ffedd5" font-family="Verdana, Arial, sans-serif" font-size="28">
+        This temporary illustration keeps the preview moving within 1 minute.
+      </text>
+      <rect x="90" y="414" width="620" height="242" rx="28" fill="#ffffff" fill-opacity="0.12" />
+      <text x="90" y="470" fill="#fff7ed" font-family="Verdana, Arial, sans-serif" font-size="22" font-weight="700" letter-spacing="4">
+        SCENE PROMPT
+      </text>
+      <text x="90" y="540" fill="#ffffff" font-family="Verdana, Arial, sans-serif" font-size="32" font-weight="700">
+        ${escapePreviewSvgText(excerpt || 'Your personalized illustration is on the way.')}
+      </text>
+      <text x="90" y="886" fill="#ffffff" fill-opacity="0.9" font-family="Verdana, Arial, sans-serif" font-size="24">
+        Kidz Story Magic preview placeholder
+      </text>
+    </svg>
+  `;
+
+  return `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`;
+}
+
+async function pollStoryPageIllustration(
+  predictionId,
+  signal,
+  onPending,
+  { fallbackPrompt, timeoutMs = PREVIEW_FIRST_PAGE_TIMEOUT_MS } = {}
+) {
+  const startedAt = Date.now();
+
   for (let attempt = 0; ; attempt += 1) {
     if (attempt > 0) {
       await waitForDelay(PREVIEW_POLL_INTERVAL_MS, signal);
     }
 
-    const response = await fetch(
-      `/api/generate-story-page/${encodeURIComponent(predictionId)}`,
-      {
-        method: 'GET',
-        cache: 'no-store',
-        signal,
-      }
-    );
-    const payload = await response.json();
+    const elapsedMs = Date.now() - startedAt;
+    if (elapsedMs >= timeoutMs && fallbackPrompt) {
+      console.log('[POLL_ILLUSTRATION_TIMEOUT]', {
+        predictionId,
+        elapsedMs,
+        timeoutMs,
+      });
+      return createTimedFallbackIllustration(fallbackPrompt);
+    }
 
-    if (!response.ok) {
-      throw new Error(
-        payload?.details ||
-          payload?.error ||
-          'Illustration generation failed for this page.'
+    try {
+      const response = await fetch(
+        `/api/generate-story-page/${encodeURIComponent(predictionId)}`,
+        {
+          method: 'GET',
+          cache: 'no-store',
+          signal,
+        }
       );
-    }
+      const payload = await response.json();
 
-    if (payload?.pending) {
-      onPending?.(payload);
-      continue;
-    }
+      if (!response.ok) {
+        // If it's a fallback response due to billing error, use the fallback image
+        if (
+          response.status === 200 &&
+          payload?.status === 'fallback' &&
+          typeof payload?.imageUrl === 'string' &&
+          payload.imageUrl
+        ) {
+          console.log('[POLL_ILLUSTRATION_FALLBACK]', {
+            predictionId,
+            reason: payload.warning,
+          });
+          return payload.imageUrl;
+        }
 
-    if (typeof payload?.imageUrl === 'string' && payload.imageUrl) {
-      return payload.imageUrl;
-    }
+        throw new Error(
+          payload?.details ||
+            payload?.error ||
+            'Illustration generation failed for this page.'
+        );
+      }
 
-    throw new Error('Illustration generation completed without an image.');
+      if (payload?.pending) {
+        onPending?.(payload);
+        continue;
+      }
+
+      if (typeof payload?.imageUrl === 'string' && payload.imageUrl) {
+        console.log('[POLL_ILLUSTRATION_SUCCESS]', {
+          predictionId,
+          attempt,
+          elapsedMs,
+        });
+        return payload.imageUrl;
+      }
+
+      throw new Error('Illustration generation completed without an image.');
+    } catch (pollError) {
+      // If it's an abort error from signal, re-throw
+      if (
+        pollError instanceof DOMException &&
+        pollError.name === 'AbortError'
+      ) {
+        throw pollError;
+      }
+
+      // Log the error and check if we should use fallback
+      console.error('[POLL_ILLUSTRATION_ERROR]', {
+        predictionId,
+        attempt,
+        message: pollError instanceof Error ? pollError.message : String(pollError),
+      });
+
+      // If we have a fallback prompt and still time left, continue polling
+      if (elapsedMs < timeoutMs) {
+        continue;
+      }
+
+      // Otherwise use fallback if available
+      if (fallbackPrompt) {
+        console.log('[POLL_ILLUSTRATION_ERROR_FALLBACK]', {
+          predictionId,
+          elapsedMs,
+          timeoutMs,
+        });
+        return createTimedFallbackIllustration(fallbackPrompt);
+      }
+
+      // No fallback available, re-throw the error
+      throw pollError;
+    }
   }
 }
 
@@ -115,6 +237,7 @@ async function createStoryPageIllustration({
   subjectImage,
   signal,
   onPending,
+  timeoutMs,
 }) {
   const response = await fetch('/api/generate-story-page', {
     method: 'POST',
@@ -143,7 +266,10 @@ async function createStoryPageIllustration({
 
   if (payload?.pending && typeof payload?.predictionId === 'string') {
     onPending?.(payload);
-    return pollStoryPageIllustration(payload.predictionId, signal, onPending);
+    return pollStoryPageIllustration(payload.predictionId, signal, onPending, {
+      fallbackPrompt: prompt,
+      timeoutMs,
+    });
   }
 
   throw new Error('Illustration generation completed without an image.');
@@ -158,8 +284,8 @@ export default function Step6ReviewCheckout() {
   const [error, setError] = useState('');
   const [storyPreview, setStoryPreview] = useState(null);
   const [pageGenerationStates, setPageGenerationStates] = useState({});
-  const [activeGenerationPageIndex, setActiveGenerationPageIndex] =
-    useState(null);
+  const activeGenerationPageIndexRef = useRef(null);
+  const [generationQueueVersion, setGenerationQueueVersion] = useState(0);
   const [currentPage, setCurrentPage] = useState(0);
   const [flipAnimation, setFlipAnimation] = useState(false);
   const [showPDFPreview, setShowPDFPreview] = useState(false);
@@ -359,6 +485,8 @@ export default function Step6ReviewCheckout() {
     );
     setPreviewEmailStatus('idle');
     setPreviewEmailFeedback('');
+    activeGenerationPageIndexRef.current = null;
+    setGenerationQueueVersion((currentVersion) => currentVersion + 1);
     updatePageGenerationState(firstIllustratedPageIndex, {
       status: 'idle',
       message: '',
@@ -426,7 +554,8 @@ export default function Step6ReviewCheckout() {
     setError('');
     setStoryPreview(null);
     setPageGenerationStates({});
-    setActiveGenerationPageIndex(null);
+    activeGenerationPageIndexRef.current = null;
+    setGenerationQueueVersion((currentVersion) => currentVersion + 1);
     setCurrentPage(0);
     setPreviewPrepProgress(14);
     setPreviewPrepTitle(
@@ -550,7 +679,7 @@ export default function Step6ReviewCheckout() {
       return;
     }
 
-    if (activeGenerationPageIndex !== null) {
+    if (activeGenerationPageIndexRef.current !== null) {
       return;
     }
 
@@ -572,7 +701,7 @@ export default function Step6ReviewCheckout() {
     const controller = new AbortController();
     const pageLabel = page?.pageNumber || nextPageIndex + 1;
 
-    setActiveGenerationPageIndex(nextPageIndex);
+    activeGenerationPageIndexRef.current = nextPageIndex;
     updatePageGenerationState(nextPageIndex, {
       status: 'loading',
       message: `Painting page ${pageLabel} of your storybook.`,
@@ -591,6 +720,7 @@ export default function Step6ReviewCheckout() {
       prompt,
       subjectImage: storySubjectImage,
       signal: controller.signal,
+      timeoutMs: PREVIEW_FIRST_PAGE_TIMEOUT_MS,
       onPending: () => {
         if (cancelled) {
           return;
@@ -620,7 +750,11 @@ export default function Step6ReviewCheckout() {
 
         if (nextPageIndex === firstIllustratedPageIndex) {
           setPreviewPrepProgress(100);
-          setPreviewPrepDetail('Your preview is ready.');
+          setPreviewPrepDetail(
+            imageUrl.startsWith('data:image/svg+xml')
+              ? 'Your preview is ready with a temporary illustration so you can keep reading.'
+              : 'Your preview is ready.'
+          );
         }
       })
       .catch((generationError) => {
@@ -652,19 +786,22 @@ export default function Step6ReviewCheckout() {
         }
       })
       .finally(() => {
+        activeGenerationPageIndexRef.current = null;
+
         if (!cancelled) {
-          setActiveGenerationPageIndex(null);
+          setGenerationQueueVersion((currentVersion) => currentVersion + 1);
         }
       });
 
     return () => {
       cancelled = true;
+      activeGenerationPageIndexRef.current = null;
       controller.abort();
     };
   }, [
-    activeGenerationPageIndex,
     firstIllustratedPageIndex,
     formData.childName,
+    generationQueueVersion,
     shouldGateIllustrations,
     storyPreview,
     storySubjectImage,
