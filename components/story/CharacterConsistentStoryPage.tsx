@@ -129,6 +129,7 @@ export default function CharacterConsistentStoryPage({
   const cacheKey = useMemo(() => {
     return `${prompt}::${subjectImage || "no-subject"}::${pageIndex}`;
   }, [pageIndex, prompt, subjectImage]);
+  const showIllustrationPrompt = process.env.NEXT_PUBLIC_DEBUG_MODE === "true";
 
   useEffect(() => {
     if (page.illustrationUrl) {
@@ -341,14 +342,16 @@ export default function CharacterConsistentStoryPage({
             </div>
           ) : null}
 
-          <div className="rounded-[22px] border border-amber-200 bg-white/75 px-5 py-4 shadow-sm">
-            <p className="text-xs font-bold uppercase tracking-[0.25em] text-amber-700">
-              Illustration Prompt
-            </p>
-            <p className="mt-2 line-clamp-4 text-sm text-slate-600">
-              {prompt}
-            </p>
-          </div>
+          {showIllustrationPrompt ? (
+            <div className="rounded-[22px] border border-amber-200 bg-white/75 px-5 py-4 shadow-sm">
+              <p className="text-xs font-bold uppercase tracking-[0.25em] text-amber-700">
+                Illustration Prompt
+              </p>
+              <p className="mt-2 line-clamp-4 text-sm text-slate-600">
+                {prompt}
+              </p>
+            </div>
+          ) : null}
         </div>
       </div>
     </div>

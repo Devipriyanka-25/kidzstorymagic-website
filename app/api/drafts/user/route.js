@@ -1,55 +1,74 @@
 /**
  * Get User's Draft Stories Endpoint
  * GET /api/drafts/user
- * Returns all draft stories for authenticated user
+ * Returns all draft stories for the authenticated user
  */
 
 import { NextResponse } from 'next/server';
+import {
+  createStoryProjectRecord,
+  listStoryProjectsByUser,
+  resolveAuthenticatedStoryUser,
+} from '../../shared/storyProjects.js';
+
 const jwt = require('jsonwebtoken');
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-// In-memory storage for drafts (in production, use database)
-const userDrafts = new Map();
+function getJwtSecret() {
+  return (
+    process.env.JWT_SECRET ||
+    'kidz-story-magic-jwt-secret-key-2024-production-secure-random-12345'
+  );
+}
+
+async function resolveRequestUser(request) {
+  const authHeader = request.headers.get('authorization');
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return { error: NextResponse.json({ error: 'Unauthorized' }, { status: 401 }) };
+  }
+
+  const token = authHeader.substring(7);
+
+  let decoded;
+  try {
+    decoded = jwt.verify(token, getJwtSecret());
+  } catch (error) {
+    return { error: NextResponse.json({ error: 'Unauthorized' }, { status: 401 }) };
+  }
+
+  const authUser = await resolveAuthenticatedStoryUser(decoded);
+  if (!authUser?.id) {
+    return {
+      error: NextResponse.json(
+        { error: 'Authenticated user could not be resolved.' },
+        { status: 401 }
+      ),
+    };
+  }
+
+  return { authUser };
+}
 
 export async function GET(request) {
   try {
-    // Verify authentication
-    const authHeader = request.headers.get('authorization');
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
+    const { error, authUser } = await resolveRequestUser(request);
+    if (error) {
+      return error;
     }
 
-    const token = authHeader.substring(7);
-    const jwtSecret = process.env.JWT_SECRET || 'kidz-story-magic-jwt-secret-key-2024-production-secure-random-12345';
-
-    let decoded;
-    try {
-      decoded = jwt.verify(token, jwtSecret);
-    } catch (err) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
-    }
-
-    console.log('[DRAFTS] Fetching drafts for user:', decoded.id || decoded.email);
-
-    // Get user's drafts from map (in production, query database)
-    const userId = decoded.id || decoded.email;
-    const userDraftsList = userDrafts.get(userId) || [];
-
-    console.log('[DRAFTS] ✓ Found', userDraftsList.length, 'drafts');
+    const { projects } = await listStoryProjectsByUser(authUser.id, {
+      limit: 100,
+      offset: 0,
+      statuses: ['draft', 'in_progress', 'pending'],
+    });
 
     return NextResponse.json(
       {
         success: true,
-        drafts: userDraftsList,
-        count: userDraftsList.length,
+        drafts: projects,
+        count: projects.length,
       },
       { status: 200 }
     );
@@ -65,33 +84,16 @@ export async function GET(request) {
   }
 }
 
-// POST /api/drafts/user - Create new draft
 export async function POST(request) {
   try {
-    // Verify authentication
-    const authHeader = request.headers.get('authorization');
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
-    }
-
-    const token = authHeader.substring(7);
-    const jwtSecret = process.env.JWT_SECRET || 'kidz-story-magic-jwt-secret-key-2024-production-secure-random-12345';
-
-    let decoded;
-    try {
-      decoded = jwt.verify(token, jwtSecret);
-    } catch (err) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
+    const { error, authUser } = await resolveRequestUser(request);
+    if (error) {
+      return error;
     }
 
     const body = await request.json();
-    const { childName, theme, illustrationStyle } = body;
+    const childName = body.child_name || body.childName;
+    const theme = body.theme;
 
     if (!childName || !theme) {
       return NextResponse.json(
@@ -100,39 +102,24 @@ export async function POST(request) {
       );
     }
 
-    console.log('[DRAFTS] Creating draft for:', childName, theme);
-
-    // Create new draft
-    const draftId = `draft_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-    const userId = decoded.id || decoded.email;
-
-    const newDraft = {
-      id: draftId,
-      childName,
+    const draft = await createStoryProjectRecord(authUser.id, {
+      title: body.title || `${childName}'s Story`,
+      age_group: body.age_group || body.ageGroup || '5-8',
       theme,
-      illustrationStyle: illustrationStyle || 'cartoonish',
-      pageCount: 10,
-      status: 'draft',
-      currentStep: 1,
-      title: `${childName}'s Story`,
-      previewUrl: null,
-      completedPages: 0,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    };
-
-    // Store draft
-    if (!userDrafts.has(userId)) {
-      userDrafts.set(userId, []);
-    }
-    userDrafts.get(userId).push(newDraft);
-
-    console.log('[DRAFTS] ✓ Draft created:', draftId);
+      illustration_style: body.illustration_style || body.illustrationStyle,
+      page_count: body.page_count || body.pageCount || 10,
+      child_name: childName,
+      child_gender: body.child_gender || body.childGender || null,
+      child_interests: body.child_interests || body.childInterests || null,
+      child_notes: body.child_notes || body.childNotes || null,
+      status: body.status || 'draft',
+      current_step: body.current_step || body.currentStep || 1,
+    });
 
     return NextResponse.json(
       {
         success: true,
-        draft: newDraft,
+        draft,
       },
       { status: 201 }
     );
@@ -147,3 +134,4 @@ export async function POST(request) {
     );
   }
 }
+

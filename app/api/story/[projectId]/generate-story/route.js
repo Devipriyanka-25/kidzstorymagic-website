@@ -6,6 +6,12 @@
 
 import { NextResponse } from 'next/server';
 import { getTranslatedStory } from '../../../lib/storyTranslations.js';
+import {
+  getStoryProjectById,
+  replaceStoryProjectPages,
+  resolveAuthenticatedStoryUser,
+  updateStoryProjectRecord,
+} from '../../../shared/storyProjects.js';
 const jwt = require('jsonwebtoken');
 
 export const runtime = 'nodejs';
@@ -52,6 +58,14 @@ export async function POST(request, { params }) {
       );
     }
 
+    const authUser = await resolveAuthenticatedStoryUser(decoded);
+    if (!authUser?.id) {
+      return NextResponse.json(
+        { error: 'Authenticated user could not be resolved.' },
+        { status: 401 }
+      );
+    }
+
     const body = await request.json();
     console.log('[GENERATE_STORY] Generating story for project:', projectId, 'by user:', decoded.id || decoded.email);
     console.log('[GENERATE_STORY] Request body:', body);
@@ -65,6 +79,14 @@ export async function POST(request, { params }) {
       pageCount,
       storyLanguage = 'en',
     } = body;
+
+    const existingProject = await getStoryProjectById(authUser.id, projectId);
+    if (!existingProject) {
+      return NextResponse.json(
+        { error: 'Story project not found' },
+        { status: 404 }
+      );
+    }
 
     console.log('[GENERATE_STORY] Story language:', storyLanguage);
 
@@ -233,13 +255,45 @@ export async function POST(request, { params }) {
       },
     };
 
+    const updatedProject = await updateStoryProjectRecord(authUser.id, projectId, {
+      title: generatedStory.title,
+      age_group: ageGroup,
+      theme,
+      illustration_style:
+        existingProject.illustration_style || existingProject.illustrationStyle,
+      custom_illustration_prompt:
+        body.customPrompt || existingProject.custom_illustration_prompt || null,
+      page_count: totalPages,
+      child_name: childName,
+      child_gender: childGender,
+      child_interests:
+        existingProject.child_interests || existingProject.childInterests || null,
+      child_notes:
+        existingProject.child_notes || existingProject.childNotes || null,
+      status: 'draft',
+      current_step: 6,
+      preview_url: null,
+    });
+
+    const persistedPages = await replaceStoryProjectPages(projectId, pagesArray);
+
+    const persistedStory = {
+      ...generatedStory,
+      ...updatedProject,
+      pages: persistedPages,
+      content: persistedPages
+        .map((page) => page.page_text || page.text || '')
+        .filter(Boolean)
+        .join('\n\n'),
+    };
+
     console.log('[GENERATE_STORY] Story generated successfully:', projectId);
 
     return NextResponse.json(
       {
         success: true,
         message: 'Story generated successfully',
-        story: generatedStory,
+        story: persistedStory,
         projectId: projectId,
       },
       { status: 200 }

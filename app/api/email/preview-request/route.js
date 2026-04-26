@@ -17,6 +17,20 @@ const SUPPORT_NOTIFICATION_EMAIL =
   process.env.PREVIEW_REQUEST_NOTIFICATION_EMAIL ||
   'support@kidzstorymagic.com';
 
+function isResendTestingModeMessage(message) {
+  const normalizedMessage = String(message || '').toLowerCase();
+  return (
+    normalizedMessage.includes('testing emails') ||
+    normalizedMessage.includes('verify a domain') ||
+    normalizedMessage.includes('own email address')
+  );
+}
+
+function extractResendTestingAddress(message) {
+  const match = String(message || '').match(/\(([^)]+@[^)]+)\)/);
+  return match ? match[1] : '';
+}
+
 function isValidEmail(email) {
   return EMAIL_PATTERN.test(String(email || '').trim());
 }
@@ -243,10 +257,31 @@ export async function POST(request) {
     );
   } catch (error) {
     console.error('[PREVIEW_EMAIL] Failed to send preview email:', error);
+
+    const errorMessage = error?.message || 'Unknown email delivery error.';
+    if (isResendTestingModeMessage(errorMessage)) {
+      const allowedEmail = extractResendTestingAddress(errorMessage);
+      const details = [
+        'Resend is still in test mode, so automated emails can only be delivered to the account owner right now.',
+        allowedEmail ? `Current allowed testing address: ${allowedEmail}.` : null,
+        'To send preview emails to any parent email address, verify your domain in Resend and change RESEND_FROM_EMAIL to an address on that verified domain.',
+      ]
+        .filter(Boolean)
+        .join(' ');
+
+      return NextResponse.json(
+        {
+          error: 'Automated preview email is still in Resend test mode.',
+          details,
+        },
+        { status: 400 }
+      );
+    }
+
     return NextResponse.json(
       {
         error: 'Failed to send preview email.',
-        details: error.message || 'Unknown email delivery error.',
+        details: errorMessage,
       },
       { status: 500 }
     );

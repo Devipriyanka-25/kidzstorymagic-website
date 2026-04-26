@@ -1,122 +1,94 @@
 /**
  * Dynamic Story Route Handler
- * Handles GET, DELETE, and POST for story operations
  * GET /api/story/[projectId] - Get story details
  * DELETE /api/story/[projectId] - Delete story
  */
 
 import { NextResponse } from 'next/server';
+import {
+  deleteStoryProjectRecord,
+  getStoryProjectById,
+  listStoryProjectPages,
+  resolveAuthenticatedStoryUser,
+} from '../../shared/storyProjects.js';
+
 const jwt = require('jsonwebtoken');
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
+function getJwtSecret() {
+  return (
+    process.env.JWT_SECRET ||
+    'kidz-story-magic-jwt-secret-key-2024-production-secure-random-12345'
+  );
+}
+
+async function resolveRequestUser(request) {
+  const authHeader = request.headers.get('authorization');
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return { error: NextResponse.json({ error: 'Unauthorized' }, { status: 401 }) };
+  }
+
+  const token = authHeader.substring(7);
+
+  let decoded;
+  try {
+    decoded = jwt.verify(token, getJwtSecret());
+  } catch (error) {
+    return { error: NextResponse.json({ error: 'Unauthorized' }, { status: 401 }) };
+  }
+
+  const authUser = await resolveAuthenticatedStoryUser(decoded);
+  if (!authUser?.id) {
+    return {
+      error: NextResponse.json(
+        { error: 'Authenticated user could not be resolved.' },
+        { status: 401 }
+      ),
+    };
+  }
+
+  return { authUser, decoded };
+}
+
+function buildStoryContentPreview(pages) {
+  return pages
+    .map((page) => page.page_text || page.text || '')
+    .filter(Boolean)
+    .join('\n\n');
+}
+
 export async function GET(request, { params }) {
   try {
+    const { error, authUser } = await resolveRequestUser(request);
+    if (error) {
+      return error;
+    }
+
     const projectId = params.projectId;
-
-    // Verify authentication
-    const authHeader = request.headers.get('authorization');
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
-    }
-
-    const token = authHeader.substring(7);
-    const jwtSecret = process.env.JWT_SECRET || 'kidz-story-magic-jwt-secret-key-2024-production-secure-random-12345';
-
-    let decoded;
-    try {
-      decoded = jwt.verify(token, jwtSecret);
-    } catch (err) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
-    }
-
-    console.log('[STORY_DETAIL] Fetching story:', projectId, 'for user:', decoded.id || decoded.email);
-
-    // Mock stories database - support both fixed IDs and project IDs
-    const mockStoriesDB = {
-      'story_1': {
-        id: 'story_1',
-        title: "Emma's Amazing Adventure",
-        childName: 'Emma',
-        child_name: 'Emma',
-        child_gender: 'Girl',
-        age_group: '6-8',
-        theme: 'adventure',
-        page_count: 12,
-        pageCount: 12,
-        status: 'published',
-        content: `
-          <h2>Emma's Amazing Adventure</h2>
-          <p>Once upon a time, in a magical forest far away, there lived a curious little girl named Emma. 
-          Emma loved exploring and discovering new things every day.</p>
-          <p>One sunny morning, Emma found a mysterious map hidden in her grandmother's attic. 
-          The map showed a path to a hidden treasure in the enchanted woods!</p>
-          <p>With her best friend Tiger the cat by her side, Emma set off on an incredible journey. 
-          They crossed sparkling streams, climbed tall mountains, and discovered magical creatures...</p>
-          <p>After many adventures, Emma finally found the treasure - a chest full of wonderful memories and lessons. 
-          She learned that the real treasure was the adventure itself and the friends she made along the way.</p>
-        `,
-        createdAt: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
-        updatedAt: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
-        previewUrl: '/story/story_1',
-        downloadUrls: {
-          pdf: '/api/story/story_1/download/pdf',
-          epub: '/api/story/story_1/download/epub',
-        }
-      },
-      'story_2': {
-        id: 'story_2',
-        title: 'The Magic Kingdom',
-        childName: 'Liam',
-        child_name: 'Liam',
-        child_gender: 'Boy',
-        age_group: '8-10',
-        theme: 'fantasy',
-        page_count: 15,
-        pageCount: 15,
-        status: 'published',
-        content: `
-          <h2>The Magic Kingdom</h2>
-          <p>In a land beyond the rainbow, there was a mystical kingdom where magic was real. 
-          Young Liam discovered he possessed magical powers and was chosen to protect the kingdom.</p>
-          <p>With his enchanted sword and loyal companions, Liam faced many challenges. 
-          He battled dark forces, solved ancient riddles, and made friends with magical creatures.</p>
-          <p>Through bravery, kindness, and determination, Liam proved himself worthy of the title 
-          "Guardian of the Magic Kingdom" and brought peace to the realm.</p>
-        `,
-        createdAt: new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString(),
-        updatedAt: new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString(),
-        previewUrl: '/story/story_2',
-        downloadUrls: {
-          pdf: '/api/story/story_2/download/pdf',
-          epub: '/api/story/story_2/download/epub',
-        }
-      }
-    };
-
-    const story = mockStoriesDB[projectId];
+    const [story, pages] = await Promise.all([
+      getStoryProjectById(authUser.id, projectId),
+      listStoryProjectPages(projectId),
+    ]);
 
     if (!story) {
-      console.log('[STORY_DETAIL] Story not found:', projectId);
-      return NextResponse.json(
-        { error: 'Story not found' },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: 'Story not found' }, { status: 404 });
     }
-
-    console.log('[STORY_DETAIL] ✓ Story found:', projectId);
 
     return NextResponse.json(
       {
         success: true,
-        story: story,
+        story: {
+          ...story,
+          pages,
+          content: buildStoryContentPreview(pages),
+          downloadUrls: story.published_pdf_url
+            ? {
+                pdf: story.published_pdf_url,
+              }
+            : {},
+        },
       },
       { status: 200 }
     );
@@ -134,53 +106,25 @@ export async function GET(request, { params }) {
 
 export async function DELETE(request, { params }) {
   try {
-    const projectId = params.projectId;
-
-    // Verify authentication
-    const authHeader = request.headers.get('authorization');
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
+    const { error, authUser } = await resolveRequestUser(request);
+    if (error) {
+      return error;
     }
 
-    const token = authHeader.substring(7);
-    const jwtSecret = process.env.JWT_SECRET || 'kidz-story-magic-jwt-secret-key-2024-production-secure-random-12345';
+    const deletedStory = await deleteStoryProjectRecord(
+      authUser.id,
+      params.projectId
+    );
 
-    let decoded;
-    try {
-      decoded = jwt.verify(token, jwtSecret);
-    } catch (err) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
+    if (!deletedStory) {
+      return NextResponse.json({ error: 'Story not found' }, { status: 404 });
     }
-
-    console.log('[STORY_DELETE] Deleting story:', projectId, 'by user:', decoded.id || decoded.email);
-
-    // Mock delete - in production this would delete from database
-    const mockStoriesDB = {
-      'story_1': true,
-      'story_2': true,
-    };
-
-    if (!mockStoriesDB[projectId]) {
-      console.log('[STORY_DELETE] Story not found:', projectId);
-      return NextResponse.json(
-        { error: 'Story not found' },
-        { status: 404 }
-      );
-    }
-
-    console.log('[STORY_DELETE] ✓ Story deleted:', projectId);
 
     return NextResponse.json(
       {
         success: true,
         message: 'Story deleted successfully',
-        projectId: projectId,
+        projectId: deletedStory.id,
       },
       { status: 200 }
     );
@@ -195,3 +139,4 @@ export async function DELETE(request, { params }) {
     );
   }
 }
+

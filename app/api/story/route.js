@@ -1,91 +1,96 @@
 /**
  * Get User's Stories/Projects Endpoint
  * GET /api/story
- * Returns paginated list of user's stories
- * DEPLOYMENT: Trigger rebuild - 2024-04-22 21:20
+ * Returns paginated list of the authenticated user's real projects
  */
 
 import { NextResponse } from 'next/server';
+import {
+  createStoryProjectRecord,
+  getStoryProjectStats,
+  listStoryProjectsByUser,
+  resolveAuthenticatedStoryUser,
+} from '../shared/storyProjects.js';
+
 const jwt = require('jsonwebtoken');
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
+function getJwtSecret() {
+  return (
+    process.env.JWT_SECRET ||
+    'kidz-story-magic-jwt-secret-key-2024-production-secure-random-12345'
+  );
+}
+
+function getAuthorizedToken(request) {
+  const authHeader = request.headers.get('authorization');
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return null;
+  }
+
+  return authHeader.substring(7);
+}
+
+async function resolveRequestUser(request) {
+  const token = getAuthorizedToken(request);
+  if (!token) {
+    return { error: NextResponse.json({ error: 'Unauthorized' }, { status: 401 }) };
+  }
+
+  let decoded;
+  try {
+    decoded = jwt.verify(token, getJwtSecret());
+  } catch (error) {
+    return { error: NextResponse.json({ error: 'Unauthorized' }, { status: 401 }) };
+  }
+
+  const authUser = await resolveAuthenticatedStoryUser(decoded);
+  if (!authUser?.id) {
+    return {
+      error: NextResponse.json(
+        { error: 'Authenticated user could not be resolved.' },
+        { status: 401 }
+      ),
+    };
+  }
+
+  return { authUser, decoded };
+}
+
 export async function GET(request) {
   try {
-    // Verify authentication
-    const authHeader = request.headers.get('authorization');
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
+    const { error, authUser } = await resolveRequestUser(request);
+    if (error) {
+      return error;
     }
 
-    const token = authHeader.substring(7);
-    const jwtSecret = process.env.JWT_SECRET || 'kidz-story-magic-jwt-secret-key-2024-production-secure-random-12345';
-
-    let decoded;
-    try {
-      decoded = jwt.verify(token, jwtSecret);
-    } catch (err) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
-    }
-
-    // Parse query parameters
     const { searchParams } = new URL(request.url);
     const limit = Math.min(parseInt(searchParams.get('limit')) || 10, 100);
     const offset = Math.max(parseInt(searchParams.get('offset')) || 0, 0);
 
-    console.log('[STORY] Fetching stories for user:', decoded.id || decoded.email, { limit, offset });
+    const [{ projects, total }, stats] = await Promise.all([
+      listStoryProjectsByUser(authUser.id, { limit, offset }),
+      getStoryProjectStats(authUser.id),
+    ]);
 
-    // Mock stories for now (in production, query database)
-    const mockStories = [
-      {
-        id: 'story_1',
-        title: "Emma's Amazing Adventure",
-        childName: 'Emma',
-        theme: 'adventure',
-        pageCount: 12,
-        status: 'published',
-        createdAt: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
-        updatedAt: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
-        previewUrl: '/api/story/preview/story_1',
-      },
-      {
-        id: 'story_2',
-        title: 'The Magic Kingdom',
-        childName: 'Liam',
-        theme: 'fantasy',
-        pageCount: 15,
-        status: 'published',
-        createdAt: new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString(),
-        updatedAt: new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString(),
-        previewUrl: '/api/story/preview/story_2',
-      },
-    ];
-
-    // Filter to apply pagination
-    const paginatedStories = mockStories.slice(offset, offset + limit);
-
-    console.log('[STORY] ✓ Returning stories', paginatedStories.length);
+    console.log('[STORY] Returning user projects', {
+      userId: authUser.id,
+      total,
+      limit,
+      offset,
+    });
 
     return NextResponse.json(
       {
         success: true,
-        stories: paginatedStories,
-        stats: {
-          totalProjects: mockStories.length,
-          completedProjects: mockStories.filter(s => s.status === 'published').length,
-          draftProjects: mockStories.filter(s => s.status === 'draft').length,
-        },
+        stories: projects,
+        stats,
         pagination: {
           limit,
           offset,
-          total: mockStories.length,
+          total,
         },
       },
       { status: 200 }
@@ -104,30 +109,14 @@ export async function GET(request) {
 
 export async function POST(request) {
   try {
-    // Verify authentication
-    const authHeader = request.headers.get('authorization');
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
-    }
-
-    const token = authHeader.substring(7);
-    const jwtSecret = process.env.JWT_SECRET || 'kidz-story-magic-jwt-secret-key-2024-production-secure-random-12345';
-
-    let decoded;
-    try {
-      decoded = jwt.verify(token, jwtSecret);
-    } catch (err) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
+    const { error, authUser } = await resolveRequestUser(request);
+    if (error) {
+      return error;
     }
 
     const body = await request.json();
-    const { title, childName, theme, pageCount } = body;
+    const childName = body.child_name || body.childName;
+    const theme = body.theme;
 
     if (!childName || !theme) {
       return NextResponse.json(
@@ -136,30 +125,30 @@ export async function POST(request) {
       );
     }
 
-    console.log('[STORY] Creating story:', { childName, theme, pageCount });
-
-    // Create mock story
-    const storyId = `story_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-
-    const newStory = {
-      id: storyId,
-      title: title || `${childName}'s Story`,
-      childName,
+    const story = await createStoryProjectRecord(authUser.id, {
+      title:
+        body.title ||
+        `${childName}'s ${
+          String(theme).charAt(0).toUpperCase() + String(theme).slice(1)
+        } Story`,
+      age_group: body.age_group || body.ageGroup || '5-8',
       theme,
-      pageCount: pageCount || 10,
-      status: 'draft',
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-      createdBy: decoded.id || decoded.email,
-    };
-
-    console.log('[STORY] ✓ Story created');
+      illustration_style: body.illustration_style || body.illustrationStyle,
+      page_count: body.page_count || body.pageCount || 10,
+      child_name: childName,
+      child_gender: body.child_gender || body.childGender || null,
+      child_interests: body.child_interests || body.childInterests || null,
+      child_notes: body.child_notes || body.childNotes || null,
+      status: body.status || 'draft',
+      current_step: body.current_step || body.currentStep || 1,
+      preview_url: body.preview_url || body.previewUrl || null,
+    });
 
     return NextResponse.json(
       {
         success: true,
-        story: newStory,
-        projectId: storyId,
+        story,
+        projectId: story.id,
         nextStep: 'upload_photos',
       },
       { status: 201 }
@@ -175,3 +164,4 @@ export async function POST(request) {
     );
   }
 }
+

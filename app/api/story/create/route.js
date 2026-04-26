@@ -5,6 +5,10 @@
  */
 
 import { NextResponse } from 'next/server';
+import {
+  createStoryProjectRecord,
+  resolveAuthenticatedStoryUser,
+} from '../../shared/storyProjects.js';
 const jwt = require('jsonwebtoken');
 
 export const runtime = 'nodejs';
@@ -60,29 +64,37 @@ export async function POST(request) {
       tone,
     });
 
-    // Create story project
-    const projectId = `project_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    const authUser = await resolveAuthenticatedStoryUser(decoded);
+    if (!authUser?.id) {
+      return NextResponse.json(
+        { error: 'Authenticated user could not be resolved.' },
+        { status: 401 }
+      );
+    }
 
-    const storyProject = {
-      id: projectId,
-      childName,
-      childAge: childAge || null,
-      gender: gender || null,
-      interests: interests || [],
-      specialNotes: specialNotes || '',
+    const storyProject = await createStoryProjectRecord(authUser.id, {
+      title:
+        body.title ||
+        `${childName}'s ${
+          String(theme || 'storybook').charAt(0).toUpperCase() +
+          String(theme || 'storybook').slice(1)
+        } Story`,
+      age_group: body.age_group || body.ageGroup || childAge || '5-8',
       theme,
-      tone: tone || 'adventurous',
-      illustrationStyle: illustrationStyle || 'cartoonish',
-      status: 'in_progress',
-      currentStep: 4, // Story creation form
-      title: `${childName}'s Story`,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-      createdBy: decoded.id || decoded.email,
-      photos: [],
-      storyContent: null,
-      pages: [],
-    };
+      illustration_style:
+        body.illustration_style || illustrationStyle || 'cartoonish',
+      page_count: body.page_count || body.pageCount || 10,
+      child_name: body.child_name || childName,
+      child_gender: body.child_gender || gender || null,
+      child_interests:
+        body.child_interests || body.childInterests || interests || null,
+      child_notes:
+        body.child_notes || body.childNotes || specialNotes || null,
+      status: 'draft',
+      current_step: 4,
+    });
+
+    const projectId = storyProject.id;
 
     console.log('[STORY_CREATE] ✓ Story project created:', projectId);
 

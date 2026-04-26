@@ -15,7 +15,7 @@ import { getTheme } from '@/utils/themes';
 const isIllustratedStoryPage = (page) => page?.pageType === 'story';
 const PREVIEW_SUPPORT_EMAIL = 'support@kidzstorymagic.com';
 const PREVIEW_POLL_INTERVAL_MS = 3000;
-const PREVIEW_FIRST_PAGE_TIMEOUT_MS = 60000;
+const PREVIEW_FIRST_PAGE_TIMEOUT_MS = 45000;
 const PREVIEW_QUOTES = [
   {
     quote:
@@ -83,11 +83,35 @@ function escapePreviewSvgText(value) {
     .replace(/>/g, '&gt;');
 }
 
-function createTimedFallbackIllustration(prompt) {
+function canUseTimedFallbackSubject(subjectImage) {
+  return /^(blob:|data:image\/|https?:\/\/)/i.test(
+    String(subjectImage || '').trim()
+  );
+}
+
+function createTimedFallbackIllustration(prompt, subjectImage) {
+  const normalizedSubjectImage = String(subjectImage || '').trim();
+
+  if (/^blob:/i.test(normalizedSubjectImage)) {
+    return normalizedSubjectImage;
+  }
+
   const excerpt = String(prompt || '')
     .replace(/\s+/g, ' ')
     .trim()
     .slice(0, 84);
+  const subjectMarkup =
+    normalizedSubjectImage && canUseTimedFallbackSubject(normalizedSubjectImage)
+      ? `
+      <rect x="74" y="236" width="214" height="304" rx="30" fill="#ffffff" fill-opacity="0.15" stroke="#ffffff" stroke-opacity="0.24" />
+      <image href="${escapePreviewSvgText(normalizedSubjectImage)}" x="92" y="254" width="178" height="232" preserveAspectRatio="xMidYMid slice" clip-path="url(#subjectClip)" />
+      <text x="92" y="520" fill="#fff7ed" font-family="Verdana, Arial, sans-serif" font-size="20" font-weight="700" letter-spacing="3">
+        CHILD PHOTO
+      </text>
+      `
+      : '';
+  const promptPanelX = subjectMarkup ? 324 : 90;
+  const promptPanelWidth = subjectMarkup ? 386 : 620;
 
   const svg = `
     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 1000" role="img" aria-label="Storybook preview illustration">
@@ -96,6 +120,9 @@ function createTimedFallbackIllustration(prompt) {
           <stop offset="0%" stop-color="#f59e0b" />
           <stop offset="100%" stop-color="#ea580c" />
         </linearGradient>
+        <clipPath id="subjectClip">
+          <rect x="92" y="254" width="178" height="232" rx="24" />
+        </clipPath>
       </defs>
       <rect width="800" height="1000" fill="url(#bg)" />
       <rect x="58" y="72" width="684" height="856" rx="42" fill="#111827" fill-opacity="0.14" stroke="#ffffff" stroke-opacity="0.42" stroke-dasharray="12 10" />
@@ -106,13 +133,14 @@ function createTimedFallbackIllustration(prompt) {
         Preview opened
       </text>
       <text x="90" y="330" fill="#ffedd5" font-family="Verdana, Arial, sans-serif" font-size="28">
-        This temporary illustration keeps the preview moving within 1 minute.
+        This temporary illustration keeps the preview moving in under a minute.
       </text>
-      <rect x="90" y="414" width="620" height="242" rx="28" fill="#ffffff" fill-opacity="0.12" />
-      <text x="90" y="470" fill="#fff7ed" font-family="Verdana, Arial, sans-serif" font-size="22" font-weight="700" letter-spacing="4">
+      ${subjectMarkup}
+      <rect x="${promptPanelX}" y="414" width="${promptPanelWidth}" height="242" rx="28" fill="#ffffff" fill-opacity="0.12" />
+      <text x="${promptPanelX}" y="470" fill="#fff7ed" font-family="Verdana, Arial, sans-serif" font-size="22" font-weight="700" letter-spacing="4">
         SCENE PROMPT
       </text>
-      <text x="90" y="540" fill="#ffffff" font-family="Verdana, Arial, sans-serif" font-size="32" font-weight="700">
+      <text x="${promptPanelX}" y="540" fill="#ffffff" font-family="Verdana, Arial, sans-serif" font-size="32" font-weight="700">
         ${escapePreviewSvgText(excerpt || 'Your personalized illustration is on the way.')}
       </text>
       <text x="90" y="886" fill="#ffffff" fill-opacity="0.9" font-family="Verdana, Arial, sans-serif" font-size="24">
@@ -124,11 +152,40 @@ function createTimedFallbackIllustration(prompt) {
   return `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`;
 }
 
+async function cancelStoryPageIllustration(predictionId, signal) {
+  try {
+    await fetch(`/api/generate-story-page/${encodeURIComponent(predictionId)}`, {
+      method: 'DELETE',
+      cache: 'no-store',
+      signal,
+    });
+  } catch (cancelError) {
+    if (
+      cancelError instanceof DOMException &&
+      cancelError.name === 'AbortError'
+    ) {
+      throw cancelError;
+    }
+
+    console.error('[CANCEL_ILLUSTRATION_ERROR]', {
+      predictionId,
+      message:
+        cancelError instanceof Error
+          ? cancelError.message
+          : String(cancelError),
+    });
+  }
+}
+
 async function pollStoryPageIllustration(
   predictionId,
   signal,
   onPending,
-  { fallbackPrompt, timeoutMs = PREVIEW_FIRST_PAGE_TIMEOUT_MS } = {}
+  {
+    fallbackPrompt,
+    fallbackSubjectImage,
+    timeoutMs = PREVIEW_FIRST_PAGE_TIMEOUT_MS,
+  } = {}
 ) {
   const startedAt = Date.now();
 
@@ -139,12 +196,16 @@ async function pollStoryPageIllustration(
 
     const elapsedMs = Date.now() - startedAt;
     if (elapsedMs >= timeoutMs && fallbackPrompt) {
+      await cancelStoryPageIllustration(predictionId, signal);
       console.log('[POLL_ILLUSTRATION_TIMEOUT]', {
         predictionId,
         elapsedMs,
         timeoutMs,
       });
-      return createTimedFallbackIllustration(fallbackPrompt);
+      return createTimedFallbackIllustration(
+        fallbackPrompt,
+        fallbackSubjectImage
+      );
     }
 
     try {
@@ -218,12 +279,16 @@ async function pollStoryPageIllustration(
 
       // Otherwise use fallback if available
       if (fallbackPrompt) {
+        await cancelStoryPageIllustration(predictionId, signal);
         console.log('[POLL_ILLUSTRATION_ERROR_FALLBACK]', {
           predictionId,
           elapsedMs,
           timeoutMs,
         });
-        return createTimedFallbackIllustration(fallbackPrompt);
+        return createTimedFallbackIllustration(
+          fallbackPrompt,
+          fallbackSubjectImage
+        );
       }
 
       // No fallback available, re-throw the error
@@ -268,6 +333,7 @@ async function createStoryPageIllustration({
     onPending?.(payload);
     return pollStoryPageIllustration(payload.predictionId, signal, onPending, {
       fallbackPrompt: prompt,
+      fallbackSubjectImage: subjectImage,
       timeoutMs,
     });
   }
@@ -472,6 +538,11 @@ export default function Step6ReviewCheckout() {
     formData.theme,
     previewEmailRecipient,
   ]);
+  const previewEmailHelpAvailable =
+    previewEmailStatus === 'error' &&
+    ['not configured', 'test mode', 'verify a domain', 'testing emails'].some(
+      (needle) => previewEmailFeedback.toLowerCase().includes(needle)
+    );
 
   const handleRetryPreviewPreparation = () => {
     if (firstIllustratedPageIndex === -1) {
@@ -481,7 +552,7 @@ export default function Step6ReviewCheckout() {
     setError('');
     setPreviewPrepProgress(42);
     setPreviewPrepDetail(
-      'Painting the first page now. Your preview will open as soon as it is ready.'
+      'Painting the first page now. If artwork takes too long, we will open the preview with your child photo first so you can keep going.'
     );
     setPreviewEmailStatus('idle');
     setPreviewEmailFeedback('');
@@ -614,7 +685,7 @@ export default function Step6ReviewCheckout() {
       setPreviewPrepProgress(42);
       setPreviewPrepDetail(
         shouldGateIllustrations
-          ? 'Painting the first page now. Your preview will open as soon as it is ready.'
+          ? 'Painting the first page now. If artwork takes too long, we will open the preview with your child photo first so you can keep going.'
           : 'Your preview is almost ready.'
       );
       setCurrentPage(0);
@@ -712,7 +783,7 @@ export default function Step6ReviewCheckout() {
         `Creating ${formData.childName || 'your child'}'s book preview`
       );
       setPreviewPrepDetail(
-        'Painting the first page now. Your preview will open as soon as it is ready.'
+        'Painting the first page now. If artwork takes too long, we will open the preview with your child photo first so you can keep going.'
       );
     }
 
@@ -751,8 +822,9 @@ export default function Step6ReviewCheckout() {
         if (nextPageIndex === firstIllustratedPageIndex) {
           setPreviewPrepProgress(100);
           setPreviewPrepDetail(
+            imageUrl === storySubjectImage ||
             imageUrl.startsWith('data:image/svg+xml')
-              ? 'Your preview is ready with a temporary illustration so you can keep reading.'
+              ? 'Your preview is ready with a temporary personalized image so you can keep reading while the AI artwork continues later.'
               : 'Your preview is ready.'
           );
         }
@@ -774,14 +846,23 @@ export default function Step6ReviewCheckout() {
             ? generationError.message
             : 'Illustration generation failed for this page.';
 
+        console.error('[ILLUSTRATION_GENERATION_ERROR]', {
+          pageIndex: nextPageIndex,
+          message,
+        });
+
         updatePageGenerationState(nextPageIndex, {
           status: 'error',
           message,
         });
 
         if (nextPageIndex === firstIllustratedPageIndex) {
+          setPreviewPrepProgress(100);
           setError(
             'We could not finish the first preview page right now. You can try again or request the preview by email.'
+          );
+          setPreviewPrepDetail(
+            'illustration generation encountered an issue. Please try again or request the preview by email.'
           );
         }
       })
@@ -1228,8 +1309,7 @@ export default function Step6ReviewCheckout() {
                     Delivery sent to {previewEmailSentTo}
                   </p>
                 )}
-                {previewEmailStatus === 'error' &&
-                  previewEmailFeedback.toLowerCase().includes('not configured') && (
+                {previewEmailHelpAvailable && (
                     <button
                       type="button"
                       onClick={() => {

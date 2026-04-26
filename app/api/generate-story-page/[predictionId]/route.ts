@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import {
+  cancelStoryPageIllustrationPrediction,
   getReplicateErrorMessage,
   getStoryPageIllustrationPredictionStatus,
   createFallbackStoryPageIllustration,
@@ -84,7 +85,7 @@ export async function GET(
     if (isReplicateBillingError(error)) {
       const fallback = createFallbackStoryPageIllustration({
         prompt: "Illustration preview placeholder",
-        subjectImage: "data:image/svg+xml,%3Csvg%2F%3E", // Minimal valid data URL
+        subjectImage: "",
       });
 
       return NextResponse.json(
@@ -109,6 +110,46 @@ export async function GET(
         details: message,
       },
       { status }
+    );
+  }
+}
+
+export async function DELETE(
+  _request: NextRequest,
+  { params }: { params: { predictionId: string } }
+) {
+  const predictionId =
+    typeof params?.predictionId === "string" ? params.predictionId.trim() : "";
+
+  if (!predictionId) {
+    return NextResponse.json(
+      { error: "predictionId is required." },
+      { status: 400 }
+    );
+  }
+
+  try {
+    await cancelStoryPageIllustrationPrediction(predictionId);
+
+    return NextResponse.json({
+      success: true,
+      cancelled: true,
+      predictionId,
+    });
+  } catch (error) {
+    const message = getReplicateErrorMessage(error);
+
+    console.error("[GENERATE_STORY_PAGE_CANCEL_ERROR]", {
+      predictionId,
+      message,
+    });
+
+    return NextResponse.json(
+      {
+        error: "Failed to cancel story page illustration.",
+        details: message,
+      },
+      { status: 500 }
     );
   }
 }

@@ -87,16 +87,50 @@ function wrapPreviewText(value: string, maxLineLength = 24): string[] {
   return lines.slice(0, 3);
 }
 
-function buildFallbackIllustrationSvg(prompt: string): string {
+function isEmbeddableFallbackSource(subjectImage?: string): boolean {
+  if (!subjectImage) {
+    return false;
+  }
+
+  if (subjectImage.startsWith("data:")) {
+    return true;
+  }
+
+  try {
+    const parsedUrl = new URL(subjectImage);
+    return parsedUrl.protocol === "http:" || parsedUrl.protocol === "https:";
+  } catch (error) {
+    return false;
+  }
+}
+
+function buildFallbackIllustrationSvg(
+  prompt: string,
+  subjectImage?: string
+): string {
   const promptLines = wrapPreviewText(prompt.replace(/\s+/g, " ").trim().slice(0, 72));
+  const embeddableSubjectImage = isEmbeddableFallbackSource(subjectImage)
+    ? escapeXml(subjectImage || "")
+    : "";
   const lineMarkup = promptLines
     .map(
       (line, index) => `
-        <text x="80" y="${430 + index * 56}" fill="#fef3c7" font-family="Verdana, Arial, sans-serif" font-size="34" font-weight="700">
+        <text x="${embeddableSubjectImage ? 362 : 80}" y="${430 + index * 56}" fill="#fef3c7" font-family="Verdana, Arial, sans-serif" font-size="34" font-weight="700">
           ${escapeXml(line)}
         </text>`
     )
     .join("");
+  const subjectImageMarkup = embeddableSubjectImage
+    ? `
+      <rect x="80" y="360" width="236" height="300" rx="32" fill="#ffffff" fill-opacity="0.14" stroke="#ffffff" stroke-opacity="0.26" />
+      <image href="${embeddableSubjectImage}" x="98" y="378" width="200" height="264" preserveAspectRatio="xMidYMid slice" clip-path="url(#subjectClip)" />
+      <text x="98" y="690" fill="#ffffff" font-family="Verdana, Arial, sans-serif" font-size="20" font-weight="700" letter-spacing="3">
+        YOUR CHILD'S PHOTO
+      </text>
+    `
+    : "";
+  const promptPanelX = embeddableSubjectImage ? 342 : 80;
+  const promptPanelWidth = embeddableSubjectImage ? 378 : 640;
 
   return `
     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 1000" role="img" aria-label="Storybook illustration preview">
@@ -110,6 +144,9 @@ function buildFallbackIllustrationSvg(prompt: string): string {
           <stop offset="0%" stop-color="#ffffff" stop-opacity="0.18" />
           <stop offset="100%" stop-color="#ffffff" stop-opacity="0.08" />
         </linearGradient>
+        <clipPath id="subjectClip">
+          <rect x="98" y="378" width="200" height="264" rx="24" />
+        </clipPath>
       </defs>
 
       <rect width="800" height="1000" fill="url(#bg)" />
@@ -125,11 +162,13 @@ function buildFallbackIllustrationSvg(prompt: string): string {
         Illustration Ready Soon
       </text>
       <text x="80" y="286" fill="#e0f2fe" font-family="Verdana, Arial, sans-serif" font-size="28">
-        Personalized artwork will appear here once image generation is available.
+        Personalized artwork will appear here once the timed preview opens.
       </text>
 
-      <rect x="80" y="360" width="640" height="248" rx="28" fill="#111827" fill-opacity="0.22" stroke="#ffffff" stroke-opacity="0.18" />
-      <text x="80" y="396" fill="#fde68a" font-family="Verdana, Arial, sans-serif" font-size="22" font-weight="700" letter-spacing="4">
+      ${subjectImageMarkup}
+
+      <rect x="${promptPanelX}" y="360" width="${promptPanelWidth}" height="248" rx="28" fill="#111827" fill-opacity="0.22" stroke="#ffffff" stroke-opacity="0.18" />
+      <text x="${promptPanelX}" y="396" fill="#fde68a" font-family="Verdana, Arial, sans-serif" font-size="22" font-weight="700" letter-spacing="4">
         SCENE PROMPT
       </text>
       ${lineMarkup}
@@ -305,7 +344,9 @@ export function createFallbackStoryPageIllustration(
   const prompt = buildStorybookPrompt(input.prompt);
 
   return {
-    imageUrl: buildSvgDataUrl(buildFallbackIllustrationSvg(input.prompt)),
+    imageUrl: buildSvgDataUrl(
+      buildFallbackIllustrationSvg(input.prompt, input.subjectImage)
+    ),
     model: "storybook/demo-fallback",
     predictionId: "fallback-placeholder",
     prompt,
@@ -420,4 +461,11 @@ export async function generateStoryPageIllustration(
   }
 
   return prediction;
+}
+
+export async function cancelStoryPageIllustrationPrediction(
+  predictionId: string
+): Promise<void> {
+  const replicate = getReplicateClient();
+  await replicate.predictions.cancel(predictionId);
 }
