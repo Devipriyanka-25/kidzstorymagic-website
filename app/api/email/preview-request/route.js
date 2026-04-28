@@ -5,7 +5,11 @@ import {
   isPersistentAuthAvailable,
   normalizeEmail,
 } from '../../shared/authUsers.js';
-import { sendTransactionalEmail, isAutomatedEmailConfigured } from '../../../../lib/email.js';
+import {
+  sendTransactionalEmail,
+  isAutomatedEmailConfigured,
+  isResendSandboxSender,
+} from '../../../../lib/email.js';
 
 const jwt = require('jsonwebtoken');
 
@@ -33,6 +37,14 @@ function extractResendTestingAddress(message) {
 
 function isValidEmail(email) {
   return EMAIL_PATTERN.test(String(email || '').trim());
+}
+
+function shouldBccSupport(recipientEmail) {
+  if (isResendSandboxSender()) {
+    return false;
+  }
+
+  return normalizeEmail(recipientEmail) !== normalizeEmail(SUPPORT_NOTIFICATION_EMAIL);
 }
 
 function getSiteBaseUrl(request) {
@@ -240,7 +252,9 @@ export async function POST(request) {
 
     const result = await sendTransactionalEmail({
       to: normalizedRecipient,
-      bcc: SUPPORT_NOTIFICATION_EMAIL,
+      ...(shouldBccSupport(normalizedRecipient)
+        ? { bcc: SUPPORT_NOTIFICATION_EMAIL }
+        : {}),
       subject: emailContent.subject,
       html: emailContent.html,
       text: emailContent.text,

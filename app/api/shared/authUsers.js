@@ -5,6 +5,8 @@ const AUTH_USER_COLUMNS = `
   name,
   email,
   password_hash,
+  reset_token_hash,
+  reset_token_expiry,
   preferred_currency,
   profile_picture_url,
   location,
@@ -112,4 +114,78 @@ export async function createAuthUser({
   }
 
   return data;
+}
+
+export async function saveAuthUserResetToken({
+  userId,
+  resetTokenHash,
+  resetTokenExpiry,
+}) {
+  if (!supabaseClient || !isPersistentId(userId)) {
+    return null;
+  }
+
+  const { data, error } = await supabaseClient
+    .from('users')
+    .update({
+      reset_token_hash: resetTokenHash,
+      reset_token_expiry: resetTokenExpiry,
+    })
+    .eq('id', Number(userId))
+    .eq('is_active', true)
+    .select(AUTH_USER_COLUMNS)
+    .single();
+
+  if (error) {
+    throw wrapSupabaseError('save reset token', error);
+  }
+
+  return data || null;
+}
+
+export async function findAuthUserByResetTokenHash(resetTokenHash) {
+  if (!supabaseClient || !resetTokenHash) {
+    return null;
+  }
+
+  const { data, error } = await supabaseClient
+    .from('users')
+    .select(AUTH_USER_COLUMNS)
+    .eq('reset_token_hash', resetTokenHash)
+    .eq('is_active', true)
+    .gt('reset_token_expiry', new Date().toISOString())
+    .maybeSingle();
+
+  if (error) {
+    throw wrapSupabaseError('lookup by reset token', error);
+  }
+
+  return data || null;
+}
+
+export async function updateAuthUserPassword({
+  userId,
+  passwordHash,
+}) {
+  if (!supabaseClient || !isPersistentId(userId)) {
+    return null;
+  }
+
+  const { data, error } = await supabaseClient
+    .from('users')
+    .update({
+      password_hash: passwordHash,
+      reset_token_hash: null,
+      reset_token_expiry: null,
+    })
+    .eq('id', Number(userId))
+    .eq('is_active', true)
+    .select(AUTH_USER_COLUMNS)
+    .single();
+
+  if (error) {
+    throw wrapSupabaseError('update password', error);
+  }
+
+  return data || null;
 }
