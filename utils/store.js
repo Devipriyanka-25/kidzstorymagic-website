@@ -2,6 +2,42 @@
 import { create } from 'zustand';
 import { authAPI, getAuthToken } from './api';
 
+function buildDraftSafeFormData(formData = {}) {
+  const {
+    photo,
+    uploadedPhoto,
+    uploadedImages,
+    ...rest
+  } = formData;
+
+  return {
+    ...rest,
+    photo: null,
+    uploadedPhoto: null,
+    uploadedImages: [],
+    uploadedImagesCount: Array.isArray(uploadedImages) ? uploadedImages.length : 0,
+    needsPhotoReupload: Array.isArray(uploadedImages) && uploadedImages.length > 0,
+  };
+}
+
+function persistWizardDraft(step, formData) {
+  if (typeof window === 'undefined') {
+    return;
+  }
+
+  try {
+    localStorage.setItem(
+      'wizardDraft',
+      JSON.stringify({
+        step,
+        formData: buildDraftSafeFormData(formData),
+      })
+    );
+  } catch (err) {
+    console.error('[DRAFT] Failed to save draft:', err);
+  }
+}
+
 // Auth Store
 export const useAuthStore = create((set) => ({
   user: null,
@@ -159,33 +195,15 @@ export const useWizardStore = create((set, get) => ({
   setStep: (step) => {
     set({ step });
     // Save draft when step changes
-    if (typeof window !== 'undefined') {
-      try {
-        const state = get();
-        localStorage.setItem('wizardDraft', JSON.stringify({
-          step,
-          formData: state.formData
-        }));
-      } catch (err) {
-        console.error('[DRAFT] Failed to save step:', err);
-      }
-    }
+    const state = get();
+    persistWizardDraft(step, state.formData);
   },
 
   nextStep: () => {
     set((state) => {
       const newStep = state.step + 1;
       // Auto-save draft to localStorage when stepping
-      if (typeof window !== 'undefined') {
-        try {
-          localStorage.setItem('wizardDraft', JSON.stringify({
-            step: newStep,
-            formData: state.formData
-          }));
-        } catch (err) {
-          console.error('[DRAFT] Failed to save draft:', err);
-        }
-      }
+      persistWizardDraft(newStep, state.formData);
       return { step: newStep };
     });
   },
@@ -194,16 +212,7 @@ export const useWizardStore = create((set, get) => ({
     set((state) => {
       const newStep = Math.max(state.step - 1, 1);
       // Auto-save draft to localStorage when stepping
-      if (typeof window !== 'undefined') {
-        try {
-          localStorage.setItem('wizardDraft', JSON.stringify({
-            step: newStep,
-            formData: state.formData
-          }));
-        } catch (err) {
-          console.error('[DRAFT] Failed to save draft:', err);
-        }
-      }
+      persistWizardDraft(newStep, state.formData);
       return { step: newStep };
     });
   },
@@ -212,16 +221,7 @@ export const useWizardStore = create((set, get) => ({
     set((state) => {
       const newFormData = { ...state.formData, [field]: value };
       // Auto-save draft to localStorage
-      if (typeof window !== 'undefined') {
-        try {
-          localStorage.setItem('wizardDraft', JSON.stringify({
-            step: state.step,
-            formData: newFormData
-          }));
-        } catch (err) {
-          console.error('[DRAFT] Failed to save draft:', err);
-        }
-      }
+      persistWizardDraft(state.step, newFormData);
       return { formData: newFormData };
     }),
 
@@ -232,7 +232,15 @@ export const useWizardStore = create((set, get) => ({
         const draft = localStorage.getItem('wizardDraft');
         if (draft) {
           const { step, formData } = JSON.parse(draft);
-          set({ step, formData });
+          set({
+            step,
+            formData: {
+              ...formData,
+              photo: null,
+              uploadedPhoto: null,
+              uploadedImages: [],
+            },
+          });
           console.log('[DRAFT] Loaded draft at step:', step);
           return true;
         }
@@ -246,17 +254,8 @@ export const useWizardStore = create((set, get) => ({
   // Save current state to draft
   saveDraft: () => {
     const state = get();
-    if (typeof window !== 'undefined') {
-      try {
-        localStorage.setItem('wizardDraft', JSON.stringify({
-          step: state.step,
-          formData: state.formData
-        }));
-        console.log('[DRAFT] Manually saved draft at step:', state.step);
-      } catch (err) {
-        console.error('[DRAFT] Failed to save draft:', err);
-      }
-    }
+    persistWizardDraft(state.step, state.formData);
+    console.log('[DRAFT] Manually saved draft at step:', state.step);
   },
 
   // Clear draft

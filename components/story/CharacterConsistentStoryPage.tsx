@@ -1,6 +1,12 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  getIllustrationApiErrorMessage,
+  prepareReferenceImagesForGeneration,
+  readIllustrationApiPayload,
+} from "@/utils/subjectImage";
+import { getBookThemePreviewArt, getTheme } from "@/utils/themes";
 
 type StoryPage = {
   character_quote?: string;
@@ -15,14 +21,21 @@ type StoryPage = {
 };
 
 type CharacterConsistentStoryPageProps = {
-  page: StoryPage;
-  pageIndex: number;
-  subjectImage?: string | null;
+  autoGenerateIllustration?: boolean;
+  bookThemeValue?: string | null;
+  generationState?: {
+    status: "idle" | "loading" | "ready" | "error";
+    message?: string;
+  } | null;
   onIllustrationReady?: (imageUrl: string) => void;
   onIllustrationStateChange?: (state: {
     status: "idle" | "loading" | "ready" | "error";
     message?: string;
   }) => void;
+  page: StoryPage;
+  pageIndex: number;
+  referenceImages?: string[] | null;
+  subjectImage?: string | null;
 };
 
 const illustrationCache = new Map<string, string>();
@@ -70,12 +83,10 @@ async function waitForIllustrationPrediction(
         signal,
       }
     );
-    const payload = await response.json();
+    const payload = await readIllustrationApiPayload(response);
 
     if (!response.ok) {
-      throw new Error(
-        payload?.details || payload?.error || "Illustration generation failed."
-      );
+      throw new Error(getIllustrationApiErrorMessage(response, payload));
     }
 
     if (payload?.pending) {
@@ -96,11 +107,15 @@ async function waitForIllustrationPrediction(
 }
 
 export default function CharacterConsistentStoryPage({
-  page,
-  pageIndex,
-  subjectImage,
+  autoGenerateIllustration = true,
+  bookThemeValue = null,
+  generationState = null,
   onIllustrationReady,
   onIllustrationStateChange,
+  page,
+  pageIndex,
+  referenceImages = null,
+  subjectImage,
 }: CharacterConsistentStoryPageProps) {
   const initialImage = page.illustrationUrl || null;
   const [imageUrl, setImageUrl] = useState<string | null>(initialImage);
@@ -127,11 +142,72 @@ export default function CharacterConsistentStoryPage({
   }, [page.illustrationPrompt, page.page_text, page.text, page.title]);
 
   const cacheKey = useMemo(() => {
-    return `${prompt}::${subjectImage || "no-subject"}::${pageIndex}`;
-  }, [pageIndex, prompt, subjectImage]);
+    const referenceKey = Array.isArray(referenceImages)
+      ? referenceImages.join("|")
+      : subjectImage || "no-subject";
+    return `${prompt}::${referenceKey}::${pageIndex}`;
+  }, [pageIndex, prompt, referenceImages, subjectImage]);
+  const frameTheme = useMemo(
+    () => getTheme(bookThemeValue || "fantasy"),
+    [bookThemeValue]
+  );
+  const friendlyPreviewArt = useMemo(
+    () =>
+      getBookThemePreviewArt(
+        bookThemeValue || "animal-adventure",
+        subjectImage || ""
+      ),
+    [bookThemeValue, subjectImage]
+  );
   const showIllustrationPrompt = process.env.NEXT_PUBLIC_DEBUG_MODE === "true";
+  const pageNumberLabel = page.pageNumber || pageIndex + 1;
+  const pageTitle = page.title || `Page ${pageIndex + 1}`;
+  const pageBody = page.page_text || page.text || "";
+  const hasReferencePhoto = Boolean(subjectImage);
+  const displayIllustrationUrl = imageUrl || friendlyPreviewArt;
 
   useEffect(() => {
+    if (autoGenerateIllustration) {
+      return;
+    }
+
+    if (page.illustrationUrl) {
+      setImageUrl(page.illustrationUrl);
+      setIsGenerating(false);
+      setError(null);
+      setStatusMessage(null);
+      return;
+    }
+
+    if (generationState?.status === "loading") {
+      setImageUrl(null);
+      setIsGenerating(true);
+      setError(null);
+      setStatusMessage(generationState.message || null);
+      return;
+    }
+
+    if (generationState?.status === "error") {
+      setImageUrl(null);
+      setIsGenerating(false);
+      setStatusMessage(null);
+      setError(
+        generationState.message || "Illustration generation failed."
+      );
+      return;
+    }
+
+    setImageUrl(null);
+    setIsGenerating(false);
+    setError(null);
+    setStatusMessage(null);
+  }, [autoGenerateIllustration, generationState, page.illustrationUrl]);
+
+  useEffect(() => {
+    if (!autoGenerateIllustration) {
+      return;
+    }
+
     if (page.illustrationUrl) {
       setImageUrl(page.illustrationUrl);
       setIsGenerating(false);
@@ -173,6 +249,13 @@ export default function CharacterConsistentStoryPage({
       onIllustrationStateChangeRef.current?.({ status: "loading" });
 
       try {
+        const preparedReferenceImages = await prepareReferenceImagesForGeneration(
+          Array.isArray(referenceImages) && referenceImages.length > 0
+            ? referenceImages
+            : [subjectImage]
+        );
+        const preparedSubjectImage =
+          preparedReferenceImages[0] || String(subjectImage || "").trim();
         const response = await fetch("/api/generate-story-page", {
           method: "POST",
           headers: {
@@ -181,14 +264,15 @@ export default function CharacterConsistentStoryPage({
           signal: controller.signal,
           body: JSON.stringify({
             prompt,
-            subjectImage,
+            subjectImage: preparedSubjectImage,
+            referenceImages: preparedReferenceImages,
           }),
         });
 
-        const payload = await response.json();
+        const payload = await readIllustrationApiPayload(response);
 
         if (!response.ok) {
-          throw new Error(payload?.details || payload?.error || "Illustration generation failed.");
+          throw new Error(getIllustrationApiErrorMessage(response, payload));
         }
 
         if (cancelled) {
@@ -260,66 +344,172 @@ export default function CharacterConsistentStoryPage({
       cancelled = true;
       controller.abort();
     };
-  }, [cacheKey, page.illustrationUrl, prompt, retryCount, subjectImage]);
+  }, [
+    autoGenerateIllustration,
+    cacheKey,
+    page.illustrationUrl,
+    prompt,
+    referenceImages,
+    retryCount,
+    subjectImage,
+  ]);
 
   return (
-    <div className="grid min-h-[620px] w-full grid-cols-1 overflow-hidden rounded-3xl bg-[linear-gradient(180deg,#fdf6e3_0%,#f8efe0_100%)] sm:min-h-[700px] md:grid-cols-[1.15fr_0.85fr] lg:min-h-[760px]">
-      <div className="relative flex min-h-[280px] items-center justify-center overflow-hidden bg-[radial-gradient(circle_at_top,#fde68a_0%,#f59e0b_45%,#d97706_100%)] p-6 sm:min-h-[320px]">
-        {imageUrl ? (
-          <img
-            src={imageUrl}
-            alt={page.title || `Story page ${pageIndex + 1}`}
-            className="h-full w-full rounded-[28px] border-4 border-white/70 object-cover shadow-[0_24px_60px_rgba(0,0,0,0.25)]"
-          />
-        ) : isGenerating ? (
-          <div className="flex h-full w-full flex-col items-center justify-center rounded-[28px] border-2 border-dashed border-white/70 bg-white/30 text-center text-white shadow-inner">
-            <div className="mb-4 h-14 w-14 animate-spin rounded-full border-4 border-white/30 border-t-white" />
-            <p className="text-lg font-semibold">Painting this page...</p>
-            <p className="mt-2 max-w-xs text-sm text-white/85">
-              {statusMessage ||
-                "Generating a character-consistent storybook illustration from your child's photo."}
-            </p>
-          </div>
-        ) : (
-          <div className="flex h-full w-full flex-col items-center justify-center rounded-[28px] border-2 border-dashed border-white/70 bg-white/30 p-8 text-center text-white shadow-inner">
-            <p className="text-lg font-semibold">Illustration unavailable</p>
-            <p className="mt-2 max-w-xs text-sm text-white/85">
-              {error || "Add a child photo to generate this page's personalized illustration."}
-            </p>
-            {prompt && subjectImage ? (
-              <button
-                type="button"
-                onClick={() => setRetryCount((currentRetryCount) => currentRetryCount + 1)}
-                className="mt-4 rounded-full border border-white/70 px-4 py-2 text-sm font-semibold text-white transition hover:bg-white/10"
-              >
-                Retry illustration
-              </button>
+    <article className="overflow-hidden rounded-[34px] border border-slate-200 bg-[linear-gradient(180deg,#fffdf8_0%,#fff5e8_100%)] shadow-[0_28px_72px_rgba(15,23,42,0.12)]">
+      <div className="p-5 sm:p-6 lg:p-7">
+        <div className="rounded-[30px] bg-white p-4 shadow-[0_18px_44px_rgba(15,23,42,0.08)]">
+          <div className="relative isolate min-h-[360px] overflow-hidden rounded-[28px] bg-[#eef6ff] sm:min-h-[440px] lg:min-h-[520px]">
+            <img
+              src={displayIllustrationUrl}
+              alt={pageTitle}
+              className="absolute inset-0 h-full w-full object-cover saturate-[1.08] brightness-[1.05]"
+            />
+            <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(255,255,255,0.42)_0%,transparent_34%)]" />
+            <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(255,255,255,0.10)_0%,rgba(255,255,255,0.22)_100%)]" />
+
+            <div className="absolute left-5 top-5 z-20 rounded-full bg-white/95 px-4 py-1.5 text-[11px] font-bold uppercase tracking-[0.28em] text-orange-700 shadow-lg sm:left-6 sm:top-6">
+              Storybook Cover
+            </div>
+
+            {hasReferencePhoto ? (
+              <>
+                <div className="absolute right-5 top-5 z-20 sm:right-6 sm:top-6">
+                  <div
+                    className="rounded-full bg-white p-1.5 shadow-[0_12px_30px_rgba(15,23,42,0.18)]"
+                    style={{
+                      boxShadow: `0 12px 30px ${frameTheme.shadowColor}`,
+                    }}
+                  >
+                    <img
+                      src={subjectImage || ""}
+                      alt="Photo reference"
+                      className="h-16 w-16 rounded-full object-cover sm:h-20 sm:w-20"
+                      style={{
+                        border: `3px solid ${frameTheme.primary}`,
+                      }}
+                    />
+                  </div>
+                </div>
+
+                <svg
+                  className="pointer-events-none absolute inset-0 z-10 h-full w-full"
+                  viewBox="0 0 100 100"
+                  preserveAspectRatio="none"
+                  aria-hidden="true"
+                >
+                  <path
+                    d="M84 18 C80 24, 75 30, 69 37 S55 50, 46 60"
+                    fill="none"
+                    stroke={frameTheme.primary}
+                    strokeWidth="0.78"
+                    strokeLinecap="round"
+                    opacity="0.88"
+                  />
+                  <path
+                    d="M46 60 L48.9 57.8"
+                    fill="none"
+                    stroke={frameTheme.primary}
+                    strokeWidth="0.78"
+                    strokeLinecap="round"
+                    opacity="0.88"
+                  />
+                  <path
+                    d="M46 60 L49.2 62.2"
+                    fill="none"
+                    stroke={frameTheme.primary}
+                    strokeWidth="0.78"
+                    strokeLinecap="round"
+                    opacity="0.88"
+                  />
+                </svg>
+              </>
+            ) : null}
+
+            {isGenerating ? (
+              <div className="absolute inset-0 z-20 flex items-center justify-center p-8">
+                <div className="max-w-lg rounded-[28px] bg-white/86 px-8 py-8 text-center shadow-[0_18px_40px_rgba(15,23,42,0.14)] backdrop-blur-md">
+                  <div
+                    className="mx-auto mb-5 h-14 w-14 animate-spin rounded-full border-4"
+                    style={{
+                      borderColor: `${frameTheme.primary}30`,
+                      borderTopColor: frameTheme.primary,
+                    }}
+                  />
+                  <p className="text-2xl font-black text-slate-900">
+                    Painting your 3D story scene...
+                  </p>
+                  <p className="mt-3 text-sm leading-7 text-slate-600 sm:text-base">
+                    {statusMessage ||
+                      "We are building a bright premium animated story world and turning your child into the main cartoon hero for this page."}
+                  </p>
+                </div>
+              </div>
+            ) : null}
+
+            {!isGenerating && error ? (
+              <div className="absolute inset-0 z-20 flex items-center justify-center p-8">
+                <div className="max-w-lg rounded-[28px] bg-white/88 px-8 py-8 text-center shadow-[0_18px_40px_rgba(15,23,42,0.14)] backdrop-blur-md">
+                  <p className="text-2xl font-black text-slate-900">
+                    We are still polishing this illustration
+                  </p>
+                  <p className="mt-3 text-sm leading-7 text-slate-600 sm:text-base">
+                    {error ||
+                      "Add a child photo to generate this page's personalized illustration."}
+                  </p>
+                  {prompt && subjectImage ? (
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setRetryCount((currentRetryCount) => currentRetryCount + 1)
+                      }
+                      className="mt-6 rounded-full px-5 py-2.5 text-sm font-semibold text-white transition hover:brightness-105"
+                      style={{
+                        background: frameTheme.gradient,
+                      }}
+                    >
+                      Retry illustration
+                    </button>
+                  ) : null}
+                </div>
+              </div>
             ) : null}
           </div>
-        )}
-
-        <div className="absolute left-6 top-6 rounded-full bg-white/85 px-4 py-1 text-xs font-bold uppercase tracking-[0.25em] text-amber-700">
-          Storybook Scene
         </div>
       </div>
 
-      <div className="flex h-full flex-col justify-between bg-[linear-gradient(180deg,#fff8eb_0%,#fde7d7_100%)] p-5 text-slate-800 sm:p-6 md:p-8">
-        <div>
-          <p className="mb-3 text-xs font-bold uppercase tracking-[0.3em] text-rose-500">
-            Page {page.pageNumber || pageIndex + 1}
-          </p>
-          <h3 className="text-3xl font-black uppercase leading-tight text-slate-900 md:text-4xl">
-            {page.title || `Page ${pageIndex + 1}`}
-          </h3>
+      <div className="grid gap-5 px-5 pb-5 sm:px-6 sm:pb-6 lg:grid-cols-[minmax(0,1.2fr)_minmax(240px,0.8fr)] lg:px-7 lg:pb-7">
+        <div className="space-y-4">
+          <div>
+            <p
+              className="text-xs font-bold uppercase tracking-[0.35em]"
+              style={{ color: frameTheme.primary }}
+            >
+              Page {pageNumberLabel}
+            </p>
+            <h3 className="mt-3 text-3xl font-black tracking-tight text-slate-900 sm:text-4xl">
+              {pageTitle}
+            </h3>
+          </div>
 
-          <div className="mt-6 rounded-[24px] border border-rose-200 bg-white/80 p-5 shadow-sm">
-            <p className="text-base leading-8 text-slate-700 md:text-lg">
-              {page.page_text || page.text}
+          <div
+            className="rounded-[28px] border bg-white/92 p-5 shadow-[0_12px_30px_rgba(15,23,42,0.06)] sm:p-6"
+            style={{
+              borderColor: `${frameTheme.primary}24`,
+            }}
+          >
+            <p
+              className="text-xs font-bold uppercase tracking-[0.3em]"
+              style={{ color: frameTheme.primary }}
+            >
+              Story Text
+            </p>
+            <p className="mt-4 text-base leading-8 text-slate-700 sm:text-lg sm:leading-9">
+              {pageBody}
             </p>
           </div>
         </div>
 
-        <div className="mt-6 space-y-4">
+        <div className="space-y-4">
           {page.character_quote ? (
             <div className="rounded-[22px] bg-cyan-100 px-5 py-4 shadow-sm">
               <p className="text-sm font-bold uppercase tracking-[0.2em] text-cyan-800">
@@ -343,17 +533,15 @@ export default function CharacterConsistentStoryPage({
           ) : null}
 
           {showIllustrationPrompt ? (
-            <div className="rounded-[22px] border border-amber-200 bg-white/75 px-5 py-4 shadow-sm">
+            <div className="rounded-[22px] border border-amber-200 bg-white/80 px-5 py-4 shadow-sm">
               <p className="text-xs font-bold uppercase tracking-[0.25em] text-amber-700">
                 Illustration Prompt
               </p>
-              <p className="mt-2 line-clamp-4 text-sm text-slate-600">
-                {prompt}
-              </p>
+              <p className="mt-2 text-sm leading-6 text-slate-600">{prompt}</p>
             </div>
           ) : null}
         </div>
       </div>
-    </div>
+    </article>
   );
 }

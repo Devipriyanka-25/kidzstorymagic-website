@@ -5,6 +5,7 @@
  */
 
 import { NextResponse } from 'next/server';
+import { getBookThemeLabel } from '@/utils/themes';
 import {
   createStoryProjectRecord,
   resolveAuthenticatedStoryUser,
@@ -64,6 +65,8 @@ export async function POST(request) {
       tone,
     });
 
+    const selectedThemeLabel = getBookThemeLabel(theme);
+
     const authUser = await resolveAuthenticatedStoryUser(decoded);
     if (!authUser?.id) {
       return NextResponse.json(
@@ -75,10 +78,7 @@ export async function POST(request) {
     const storyProject = await createStoryProjectRecord(authUser.id, {
       title:
         body.title ||
-        `${childName}'s ${
-          String(theme || 'storybook').charAt(0).toUpperCase() +
-          String(theme || 'storybook').slice(1)
-        } Story`,
+        `${childName}'s ${selectedThemeLabel}`,
       age_group: body.age_group || body.ageGroup || childAge || '5-8',
       theme,
       illustration_style:

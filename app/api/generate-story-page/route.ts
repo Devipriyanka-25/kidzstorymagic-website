@@ -15,6 +15,7 @@ export const maxDuration = 15;
 export async function POST(request: NextRequest) {
   let prompt = "";
   let subjectImage = "";
+  let referenceImages: string[] = [];
   let negativePrompt = DEFAULT_STORYBOOK_NEGATIVE_PROMPT;
 
   try {
@@ -22,6 +23,12 @@ export async function POST(request: NextRequest) {
     prompt = typeof body?.prompt === "string" ? body.prompt.trim() : "";
     subjectImage =
       typeof body?.subjectImage === "string" ? body.subjectImage.trim() : "";
+    referenceImages = Array.isArray(body?.referenceImages)
+      ? body.referenceImages
+          .filter((value: unknown) => typeof value === "string")
+          .map((value: string) => value.trim())
+          .filter(Boolean)
+      : [];
     negativePrompt =
       typeof body?.negativePrompt === "string" && body.negativePrompt.trim()
         ? body.negativePrompt.trim()
@@ -34,16 +41,21 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (!subjectImage) {
+    if (!subjectImage && referenceImages.length === 0) {
       return NextResponse.json(
-        { error: "subjectImage is required." },
+        { error: "subjectImage or referenceImages is required." },
         { status: 400 }
       );
+    }
+
+    if (!subjectImage) {
+      subjectImage = referenceImages[0];
     }
 
     const result = await createStoryPageIllustrationPrediction({
       prompt,
       subjectImage,
+      referenceImages,
       negativePrompt,
     });
 
@@ -87,10 +99,11 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     const message = getReplicateErrorMessage(error);
 
-    if (prompt && subjectImage && isReplicateBillingError(error)) {
+    if (prompt && (subjectImage || referenceImages.length > 0) && isReplicateBillingError(error)) {
       const fallback = createFallbackStoryPageIllustration({
         prompt,
         subjectImage,
+        referenceImages,
         negativePrompt,
       });
 
@@ -123,11 +136,17 @@ export async function POST(request: NextRequest) {
 export async function GET() {
   return NextResponse.json({
     message:
-      "POST a prompt and subjectImage to start storybook illustration generation. Poll /api/generate-story-page/[predictionId] until the image is ready.",
-    model: "sdxl-based/consistent-character",
+      "POST a prompt plus one or more child reference images to start storybook illustration generation. Poll /api/generate-story-page/[predictionId] until the image is ready.",
+    model:
+      process.env.REPLICATE_STORYBOOK_MODEL?.trim() ||
+      "black-forest-labs/flux-2-pro",
     expectedBody: {
       prompt: "A whimsical forest adventure scene featuring the child hero",
       subjectImage: "https://example.com/child-photo.png",
+      referenceImages: [
+        "https://example.com/child-photo-front.png",
+        "https://example.com/child-photo-smile.png",
+      ],
       negativePrompt: DEFAULT_STORYBOOK_NEGATIVE_PROMPT,
     },
   });

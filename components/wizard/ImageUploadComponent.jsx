@@ -22,6 +22,7 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { validateImage } from '@/utils/ImageValidation';
+import { prepareSubjectImageForGeneration } from '@/utils/subjectImage';
 
 // Helper function to format file size
 const formatFileSize = (bytes) => {
@@ -192,12 +193,16 @@ export default function ImageUploadComponent({ onImagesSelected, maxImages = 10 
         validatedImages.map(file => 
           new Promise((resolve) => {
             const reader = new FileReader();
-            reader.onload = (event) => {
+            reader.onload = async (event) => {
               const isLarge = file.size > SIZE_LIMIT;
+              const previewDataUrl = event.target.result;
+              const illustrationReference =
+                await prepareSubjectImageForGeneration(previewDataUrl);
               resolve({
                 id: Math.random().toString(36).substr(2, 9),
                 file: file,
-                preview: event.target.result,
+                preview: previewDataUrl,
+                illustrationReference,
                 name: file.name,
                 size: file.size,
                 sizeFormatted: formatFileSize(file.size),

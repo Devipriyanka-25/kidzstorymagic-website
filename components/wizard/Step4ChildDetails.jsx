@@ -5,6 +5,7 @@ import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useWizardStore } from '@/utils/store';
 import { storyAPI, getAuthToken } from '@/utils/api';
+import { getBookThemeLabel } from '@/utils/themes';
 
 export default function Step4ChildDetails() {
   const router = useRouter();
@@ -50,6 +51,8 @@ export default function Step4ChildDetails() {
     setError('');
 
     try {
+      const selectedThemeLabel = getBookThemeLabel(formData.theme);
+
       console.log('[STEP4] Creating project with details:', {
         // camelCase for middleware validation
         childName: formData.childName,
@@ -59,6 +62,7 @@ export default function Step4ChildDetails() {
         // snake_case for project creation
         age_group: formData.ageGroup,
         theme: formData.theme,
+        illustration_style: formData.illustrationStyle,
         page_count: formData.pageCount,
         child_gender: formData.childGender,
         child_interests: formData.childInterests,
@@ -75,12 +79,13 @@ export default function Step4ChildDetails() {
         // snake_case - Required for project creation
         age_group: formData.ageGroup,
         theme: formData.theme,
+        illustration_style: formData.illustrationStyle,
         page_count: formData.pageCount,
         child_name: formData.childName,
         child_gender: formData.childGender,
         child_interests: formData.childInterests,
         child_notes: formData.childNotes,
-        title: `${formData.childName}'s ${formData.theme} Story`
+        title: `${formData.childName}'s ${selectedThemeLabel}`
       });
 
       const projectId = createResponse.data.project.id;

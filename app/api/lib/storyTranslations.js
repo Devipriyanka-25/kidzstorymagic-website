@@ -34,6 +34,58 @@ export const storyTranslations = {
         `With friends' help, ${name} restores the Crystal of Light.`,
         `The kingdom celebrates ${name} as a true hero of magic!`
       ]
+    },
+    'animal-adventure': {
+      title: (name) => `${name}'s Animal Adventure`,
+      arcs: (name) => [
+        `${name} meets a soaring eagle who invites them to explore a wide golden valley full of animal friends.`,
+        `A gentle elephant helps ${name} cross a sparkling river on the way to a hidden safari trail.`,
+        `${name} learns to listen closely to chirping birds, rustling leaves, and the secret language of the jungle.`,
+        `When a baby zebra wanders too far, ${name} bravely guides it back through the tall grass.`,
+        `Friendly monkeys reveal a glowing lookout where the whole savannah can be seen at sunset.`,
+        `${name} discovers that every animal has a gift and that kindness helps them all shine together.`,
+        `As the sky turns honey-gold, the animal friends celebrate ${name} with songs, trumpets, and joyful dancing.`,
+        `${name} returns home with a full heart, knowing that courage and care make every adventure magical.`,
+      ],
+    },
+    'dino-quest': {
+      title: (name) => `${name}'s Dino Quest`,
+      arcs: (name) => [
+        `${name} spots bright dinosaur footprints leading into a colorful prehistoric valley.`,
+        `A cheerful red dinosaur appears and invites ${name} on a roaring adventure across giant ferns and glowing stones.`,
+        `${name} rides high above the grasslands while tiny flying dinos swirl through the sky.`,
+        `When a baby dinosaur gets stuck near a bubbling stream, ${name} thinks fast and helps it safely across.`,
+        `A volcano in the distance lights the clouds while ${name} and their dinosaur friend race toward a hidden crystal ridge.`,
+        `${name} discovers that bravery feels even bigger when it is shared with loyal friends.`,
+        `At the top of the ridge, a whole herd of smiling dinosaurs cheers for ${name}'s clever heart.`,
+        `${name} heads home with dino memories, bright laughter, and a hero-sized smile.`,
+      ],
+    },
+    'goodnight-garage': {
+      title: (name) => `${name}'s Goodnight Garage`,
+      arcs: (name) => [
+        `${name} steps into a cozy garage glowing with warm lights, tiny tools, and toy cars waiting for a bedtime adventure.`,
+        `A little yellow car blinks its headlights and asks ${name} for help finding the perfect parking place for the night.`,
+        `${name} explores wooden rafters, moonlit windows, and secret shelves full of friendly workshop surprises.`,
+        `Together, ${name} and the toy cars organize the garage so every vehicle has a soft and special sleeping spot.`,
+        `One tiny red truck feels nervous in the dark, so ${name} creates a comforting trail of golden lights across the floor.`,
+        `${name} learns that caring for small things can make a room feel full of wonder and love.`,
+        `When the stars appear through the skylight, the whole garage hums a sleepy goodnight song for ${name}.`,
+        `${name} leaves the workshop smiling, knowing imagination can make bedtime feel magical.`,
+      ],
+    },
+    'unicorn-magic': {
+      title: (name) => `${name}'s Unicorn Magic`,
+      arcs: (name) => [
+        `${name} wakes to find a silver glow leading up into the clouds where a gentle unicorn is waiting.`,
+        `Together they walk through a sky kingdom filled with soft rainbows, floating stars, and moonlit gardens.`,
+        `The unicorn shows ${name} how to leave sparkling kindness in every place they visit.`,
+        `When a cloud bridge begins to fade, ${name} uses courage and care to help the unicorn restore its light.`,
+        `A hidden castle appears beyond the mist, and ${name} discovers a room full of glowing wishes.`,
+        `${name} learns that real magic grows strongest in a heart that is brave, joyful, and kind.`,
+        `The sky fills with pastel light as the unicorn bows to ${name}, celebrating a new magical hero.`,
+        `${name} returns home with stardust dreams, rainbow memories, and a little magic still glowing inside.`,
+      ],
     }
   },
   
@@ -203,16 +255,23 @@ export const storyTranslations = {
   }
 };
 
-/**
- * Get translated story arcs for a given language and theme
- * @param {string} language - Language code (en, es, fr, de, pt, ta)
- * @param {string} theme - Story theme (adventure, fantasy)
- * @param {string} childName - Child's name to personalize story
- * @returns {object} - Translated story with title and arcs
- */
+const themeAliases = {
+  'animal-adventure': 'adventure',
+  'dino-quest': 'adventure',
+  'goodnight-garage': 'adventure',
+  'unicorn-magic': 'fantasy',
+  customizable: 'adventure',
+};
+
 export function getTranslatedStory(language = 'en', theme = 'adventure', childName = 'Child') {
   const supportedLang = storyTranslations[language] || storyTranslations['en'];
-  const themeContent = supportedLang[theme] || supportedLang['adventure'];
+  const aliasedTheme = themeAliases[theme] || theme;
+  const themeContent =
+    supportedLang[theme] ||
+    supportedLang[aliasedTheme] ||
+    storyTranslations.en[theme] ||
+    storyTranslations.en[aliasedTheme] ||
+    supportedLang['adventure'];
   
   return {
     title: themeContent.title(childName),

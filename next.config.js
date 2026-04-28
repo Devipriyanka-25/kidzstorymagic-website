@@ -1,6 +1,9 @@
 // next.config.js
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // Keep dev and production build artifacts separate so a local `npm run build`
+  // does not break an already-running `next dev` session.
+  distDir: process.env.NODE_ENV === 'production' ? '.next' : '.next-dev',
   reactStrictMode: true,
   swcMinify: true,
   images: {

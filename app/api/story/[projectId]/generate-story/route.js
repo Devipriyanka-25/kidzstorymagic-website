@@ -6,6 +6,7 @@
 
 import { NextResponse } from 'next/server';
 import { getTranslatedStory } from '../../../lib/storyTranslations.js';
+import { getBookTheme } from '@/utils/themes';
 import {
   getStoryProjectById,
   replaceStoryProjectPages,
@@ -17,13 +18,276 @@ const jwt = require('jsonwebtoken');
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-function buildIllustrationPrompt({ childName, theme, ageHint, pageTitle, pageContent }) {
+const PREMIUM_SCENE_GUIDES = {
+  'animal-adventure': {
+    setting:
+      'a bright sunrise adventure world with open skies, storybook mountains, golden grass, floating birds, and friendly safari-style animal companions',
+    interaction:
+      'exploring with a brave smile, pointing toward the next discovery, or walking beside a gentle animal friend as the clear hero',
+    palette:
+      'sunrise gold, clear sky blue, warm sand, leafy green, and soft coral accents',
+  },
+  'dino-quest': {
+    setting:
+      'a playful prehistoric valley with colorful dinosaurs, bright plants, soft clouds, glowing sunshine, and a wide cheerful landscape',
+    interaction:
+      'riding or standing beside a friendly dinosaur, waving with excitement, or leading dinosaur friends through a joyful adventure',
+    palette:
+      'vivid red, tropical green, sunny yellow, bright cyan, and warm orange',
+  },
+  'goodnight-garage': {
+    setting:
+      'a cozy toy garage attic with warm amber light, wooden rafters, playful little cars, soft window glow, and child-safe workshop wonder',
+    interaction:
+      'helping a toy car, pointing up at a skylight surprise, or proudly exploring the garage as the main character',
+    palette:
+      'golden amber, honey yellow, warm brown, soft blue, and creamy highlights',
+  },
+  'unicorn-magic': {
+    setting:
+      'a bright pastel cloud kingdom with rainbow light, sparkling flower clouds, a friendly white unicorn, and a glowing castle in the distance',
+    interaction:
+      'walking beside a unicorn, twirling with magical joy, or holding out a glowing hand as pastel sparkles float around the child',
+    palette:
+      'pearl white, blush pink, lavender, pastel rainbow, and sunrise gold',
+  },
+  customizable: {
+    setting:
+      'a premium magical story world with bright color, playful depth, and a full animated-movie environment built around the custom direction',
+    interaction:
+      'joyfully exploring the environment as the main story hero with clear movement and expressive body language',
+    palette:
+      'bright jewel tones, warm highlights, and child-friendly magical glow',
+  },
+  adventure: {
+    setting:
+      'a sweeping magical adventure landscape with storybook cliffs, glowing paths, floating lanterns, and playful creatures',
+    interaction:
+      'crossing a sparkling bridge, discovering a hidden treasure trail, or leading new animal friends through the scenery',
+    palette:
+      'sunrise gold, sky blue, warm coral, and luminous teal',
+  },
+  family: {
+    setting:
+      'a warm storybook neighborhood filled with glowing windows, a garden path, cozy home details, and loving family energy',
+    interaction:
+      'sharing a magical family moment, exploring a backyard wonder, or guiding loved ones through a joyful surprise',
+    palette:
+      'peach, butter yellow, soft blue, and warm evening light',
+  },
+  friends: {
+    setting:
+      'a playful friendship world with a treehouse, colorful park paths, bunting, balloons, and imaginative play spaces',
+    interaction:
+      'laughing with new friends, solving a playful challenge together, or leading a group through a whimsical game',
+    palette:
+      'mint green, berry pink, sunny yellow, and bright sky tones',
+  },
+  motivational: {
+    setting:
+      'an uplifting adventure world with a glowing trail, confident steps, shining mountains, and celebratory light',
+    interaction:
+      'bravely reaching a milestone, helping others over an obstacle, or standing proudly after a small heroic win',
+    palette:
+      'gold, sapphire, bright red accents, and hopeful light rays',
+  },
+  behavioural: {
+    setting:
+      'a gentle emotional-learning world with calm gardens, floating lights, friendly animals, and soothing magical details',
+    interaction:
+      'showing kindness, listening carefully, sharing, or helping a friend in a comforting scene',
+    palette:
+      'soft coral, mint, lavender, and warm cream light',
+  },
+  fantasy: {
+    setting:
+      'a bright fantasy kingdom with glowing clouds, pastel castles, rainbow skies, enchanted gardens, and friendly magical creatures',
+    interaction:
+      'walking beside a magical companion, opening a glowing castle gate, or discovering joyful sparks in the sky',
+    palette:
+      'lilac, rose gold, sunrise blue, and pearl white',
+  },
+  fairytale: {
+    setting:
+      'a classic fairytale world with sparkling castles, pastel clouds, soft flower meadows, and gentle magical creatures',
+    interaction:
+      'meeting a fairy companion, twirling in a glowing meadow, or following a trail of stardust',
+    palette:
+      'blush pink, lavender, soft teal, and golden light',
+  },
+  jungle: {
+    setting:
+      'a lush safari jungle with giant leaves, waterfalls, sunbeams, colorful birds, and friendly elephants',
+    interaction:
+      'walking with an elephant, exploring a waterfall path, or leading an animal adventure through the jungle',
+    palette:
+      'emerald green, leafy lime, warm sunlight, and bright tropical accents',
+  },
+  dinosaur: {
+    setting:
+      'a bright prehistoric world with huge ferns, volcano silhouettes, dramatic skies, and playful dinosaurs',
+    interaction:
+      'riding a smiling dinosaur, waving to flying dinos overhead, or running through a prehistoric valley',
+    palette:
+      'volcanic orange, jungle green, sky turquoise, and sunny yellow',
+  },
+  garage: {
+    setting:
+      'a warm indoor storybook garage with toy cars, wooden beams, skylight moon glow, cozy corners, and golden workshop lighting',
+    interaction:
+      'pointing to a glowing toy car, exploring workshop treasures, or guiding little vehicles through the garage',
+    palette:
+      'honey gold, warm amber, soft brown, and midnight blue highlights',
+  },
+  pirate: {
+    setting:
+      'a cinematic treasure-island world with a storybook ship, sparkling ocean, treasure maps, and golden sand',
+    interaction:
+      'finding treasure, steering a friendly pirate ship, or adventuring beside a playful parrot',
+    palette:
+      'ocean blue, sunset orange, treasure gold, and driftwood brown',
+  },
+  superhero: {
+    setting:
+      'a bold heroic cityscape with glowing towers, dramatic clouds, bright action lines, and celebratory energy',
+    interaction:
+      'landing in a heroic pose, rescuing a friend, or zooming above the city with joyful confidence',
+    palette:
+      'hero red, electric blue, bright yellow, and silver highlights',
+  },
+  space: {
+    setting:
+      'a magical outer-space world with glowing planets, cosmic clouds, twinkling stars, and friendly alien wonder',
+    interaction:
+      'floating near a rocket, waving to a friendly space creature, or exploring a sparkling moon path',
+    palette:
+      'indigo, cyan, comet gold, and nebula pink',
+  },
+  underwater: {
+    setting:
+      'a vibrant underwater kingdom with coral castles, bubbles, sea creatures, shimmering light beams, and flowing plants',
+    interaction:
+      'swimming beside dolphins, exploring coral arches, or guiding sea friends through a glowing reef',
+    palette:
+      'aqua, coral pink, seafoam green, and pearl light',
+  },
+  wizard: {
+    setting:
+      'an enchanted wizard world with glowing spell books, candlelit towers, magical dust, and floating lights',
+    interaction:
+      'casting a gentle spell, exploring a magical library, or discovering a glowing potion room',
+    palette:
+      'amethyst, midnight blue, candle gold, and silver sparkle',
+  },
+  customizable: {
+    setting:
+      "a premium children's storybook world tailored to the custom theme, with a complete cinematic environment and magical depth",
+    interaction:
+      'interacting naturally with the world in a full scene instead of posing for a portrait',
+    palette:
+      'bright, magical, high-contrast storybook colors',
+  },
+};
+
+const ILLUSTRATION_WORD_REPLACEMENTS = [
+  [/\bmoonlit\b/gi, 'sunlit'],
+  [/\bnighttime\b/gi, 'bright daytime'],
+  [/\bnight\b/gi, 'sunny daytime'],
+  [/\bmisty\b/gi, 'sparkly'],
+  [/\bmist\b/gi, 'sparkle'],
+  [/\bfoggy\b/gi, 'glowing'],
+  [/\bfog\b/gi, 'glow'],
+  [/\beerie\b/gi, 'magical'],
+  [/\bcreepy\b/gi, 'playful'],
+  [/\bspooky\b/gi, 'whimsical'],
+  [/\bscary\b/gi, 'gentle'],
+  [/\bhaunted\b/gi, 'enchanted'],
+  [/\bhorror\b/gi, 'storybook'],
+  [/\bgloomy\b/gi, 'joyful'],
+  [/\bdark forest\b/gi, 'sparkling enchanted garden'],
+  [/\bshadowy\b/gi, 'glowing'],
+];
+
+function normalizeThemeKey(value) {
+  return String(value || '')
+    .trim()
+    .toLowerCase();
+}
+
+function resolveSceneGuide(theme, illustrationStyle) {
+  const styleKey = normalizeThemeKey(illustrationStyle);
+  const themeKey = normalizeThemeKey(theme);
+
+  return (
+    PREMIUM_SCENE_GUIDES[styleKey] ||
+    PREMIUM_SCENE_GUIDES[themeKey] ||
+    PREMIUM_SCENE_GUIDES.adventure
+  );
+}
+
+function cleanPromptDetail(value, maxLength = 280) {
+  return String(value || '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, maxLength);
+}
+
+function sanitizeIllustrationText(value, maxLength = 280) {
+  let sanitized = cleanPromptDetail(value, maxLength);
+
+  for (const [pattern, replacement] of ILLUSTRATION_WORD_REPLACEMENTS) {
+    sanitized = sanitized.replace(pattern, replacement);
+  }
+
+  return sanitized;
+}
+
+function buildIllustrationPrompt({
+  childName,
+  theme,
+  illustrationStyle,
+  customPrompt,
+  childInterests,
+  childNotes,
+  ageHint,
+  pageTitle,
+  pageContent,
+}) {
+  const sceneGuide = resolveSceneGuide(theme, illustrationStyle);
+  const storyMoment = sanitizeIllustrationText(pageContent, 320);
+  const safePageTitle = sanitizeIllustrationText(pageTitle, 120);
+  const interestDetail = cleanPromptDetail(childInterests, 120);
+  const noteDetail = cleanPromptDetail(childNotes, 120);
+  const customSceneDetail = cleanPromptDetail(customPrompt, 180);
+  const customSceneInstruction = customSceneDetail
+    ? `Custom theme direction: ${customSceneDetail}.`
+    : '';
+  const interestInstruction = interestDetail
+    ? `Include small visual touches inspired by these interests when appropriate: ${interestDetail}.`
+    : '';
+  const notesInstruction = noteDetail
+    ? `Important child notes for character consistency: ${noteDetail}.`
+    : '';
+
   return [
-    `${childName} is the hero of this ${theme} story scene.`,
-    `Scene title: ${pageTitle}.`,
-    `Story moment: ${pageContent}`,
-    "Illustration style: soft painted children's storybook, whimsical, warm lighting, expressive faces, gentle shapes, child-safe.",
-    `Reading level mood: ${ageHint}.`,
+    `Create a full-scene premium children's storybook illustration for ${childName}.`,
+    'Use the uploaded child reference photos only as visual guidance, then recreate the child as a premium 3D animated cartoon character instead of showing any real photo.',
+    "Preserve the child's face structure, skin tone, hairstyle, expression, and recognizable identity with big expressive eyes, cute proportions, rounded facial features, smooth toy-like textures, glossy family-film shading, and a bright premium storybook finish.",
+    'Render the child as a joyful full-body or three-quarter-body cartoon hero inside the world, not as a close-up portrait.',
+    `Build a complete cinematic environment: ${sceneGuide.setting}.`,
+    `The child should be actively interacting with the world by ${sceneGuide.interaction}.`,
+    `Scene title: ${safePageTitle}.`,
+    `Story moment to illustrate: ${storyMoment}.`,
+    `Color direction: ${sceneGuide.palette}. Push toward extra vibrant, saturated, joyful storybook color with luminous highlights and playful contrast.`,
+    `Mood: ${ageHint}.`,
+    customSceneInstruction,
+    interestInstruction,
+    notesInstruction,
+    'Lighting must be bright, warm, cheerful, and child-safe. Prefer sunny daylight, pastel sky glow, rainbow bounce light, or golden sunrise light over moody, gloomy, or dark scenes.',
+    'Composition should feel like a premium vertical storybook cover or book-selection card with a full background, visible depth, and plenty of room for the environment to breathe around the child.',
+    'Keep the same child character design, costume palette, facial proportions, and overall bright 3D style consistent across every page in the book by following the reference photos carefully.',
+    'Make this feel like a polished animated feature film still for kids: colorful, magical, playful, emotionally warm, immediately welcoming, and rich with vibrant premium color.',
+    'Absolutely avoid horror vibes, eerie woods, realistic skin pores, photo textures, blue-grey darkness, thriller mood, flat vector art, split layout, or a simple headshot.',
   ].join(' ');
 }
 
@@ -98,26 +362,39 @@ export async function POST(request, { params }) {
       );
     }
 
+    const selectedBookTheme = getBookTheme(theme);
+
     // Get translated story content based on language
     console.log('[GENERATE_STORY] Getting translated story for:', { language: storyLanguage, theme, childName });
 
     // Map theme names if needed (for compatibility)
     const themeMap = {
-      family: 'family',
-      friends: 'friends',
-      motivational: 'motivational',
+      'animal-adventure': 'animal-adventure',
+      'dino-quest': 'dino-quest',
+      'goodnight-garage': 'goodnight-garage',
+      'unicorn-magic': 'unicorn-magic',
+      family: 'goodnight-garage',
+      friends: 'animal-adventure',
+      motivational: 'dino-quest',
+      behavioural: 'goodnight-garage',
       adventure: 'adventure',
       fantasy: 'fantasy',
       fairytale: 'fantasy',
-      behavioural: 'friends',
       customizable: 'adventure',
     };
 
-    const mappedTheme = themeMap[theme] || 'adventure';
+    const mappedTheme =
+      themeMap[theme] || selectedBookTheme.storyTheme || 'adventure';
     const translatedStory = getTranslatedStory(storyLanguage, mappedTheme, childName);
+    const storyTitle =
+      typeof selectedBookTheme.titleTemplate === 'function'
+        ? selectedBookTheme.titleTemplate(childName)
+        : translatedStory.title;
+    const pageThemeTitle = selectedBookTheme.label || translatedStory.title;
 
     const selectedTheme = {
-      title: translatedStory.title,
+      title: storyTitle,
+      displayTitle: pageThemeTitle,
       storyArcs: translatedStory.arcs,
     };
 
@@ -136,7 +413,7 @@ export async function POST(request, { params }) {
       {
         pageNumber: 1,
         pageType: 'cover',
-        title: `${childName}'s ${selectedTheme.title}`,
+        title: storyTitle,
         content: '',
         text: '',
         illustrationPrompt: null,
@@ -153,7 +430,7 @@ export async function POST(request, { params }) {
       const arcEnd = Math.min((i + 1) * arcsPerPage, storyArcs.length);
       const pageArcs = storyArcs.slice(arcStart, arcEnd);
       const pageContent = pageArcs.join(' ') || `${childName}'s story continues...`;
-      const pageTitle = `${selectedTheme.title} - Page ${i + 1}`;
+      const pageTitle = `${pageThemeTitle} - Page ${i + 1}`;
 
       pagesArray.push({
         pageNumber: i + 2,
@@ -163,7 +440,14 @@ export async function POST(request, { params }) {
         text: pageContent,
         illustrationPrompt: buildIllustrationPrompt({
           childName,
-          theme: mappedTheme,
+          theme: selectedBookTheme.value || theme,
+          illustrationStyle:
+            existingProject.illustration_style || existingProject.illustrationStyle,
+          customPrompt:
+            body.customPrompt || existingProject.custom_illustration_prompt || null,
+          childInterests:
+            existingProject.child_interests || existingProject.childInterests,
+          childNotes: existingProject.child_notes || existingProject.childNotes,
           ageHint,
           pageTitle,
           pageContent,
@@ -173,6 +457,7 @@ export async function POST(request, { params }) {
         htmlContent: `
           <div style="padding: 20px; font-family: 'Comic Sans MS', cursive; line-height: 1.8;">
             <h3 style="color: #667eea; margin-bottom: 15px;">Page ${i + 1}: ${selectedTheme.title}</h3>
+            <h4 style="color: #0f172a; margin-bottom: 12px;">${pageThemeTitle}</h4>
             <p style="color: #333; font-size: 16px;">${pageContent}</p>
             <p style="color: #666; font-size: 14px; margin-top: 16px;">
               Illustration will be generated with Replicate using the child's reference photo.
@@ -196,7 +481,7 @@ export async function POST(request, { params }) {
 
     const generatedStory = {
       id: projectId,
-      title: `${childName}'s ${theme.charAt(0).toUpperCase() + theme.slice(1)} Story`,
+      title: storyTitle,
       childName: childName,
       childGender: childGender,
       ageGroup: ageGroup,
@@ -205,7 +490,7 @@ export async function POST(request, { params }) {
       pages: pagesArray,
       status: 'draft',
       content: `
-        <h2>${childName}'s ${selectedTheme.title}</h2>
+        <h2>${storyTitle}</h2>
         <p>Once upon a time, there was a special child named ${childName}. This is a special story created just for them.</p>
         <p>In this wonderful journey, ${childName} experiences amazing things and learns valuable lessons.
         Every page brings new excitement, new friends, and new discoveries.</p>
@@ -216,7 +501,7 @@ export async function POST(request, { params }) {
       `,
       htmlContent: `
         <div style="font-family: 'Comic Sans MS', cursive; padding: 40px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); min-height: 100vh;">
-          <h1 style="color: white; text-align: center; font-size: 48px; margin-bottom: 30px;">${childName}'s ${theme.charAt(0).toUpperCase() + theme.slice(1)} Story</h1>
+          <h1 style="color: white; text-align: center; font-size: 48px; margin-bottom: 30px;">${storyTitle}</h1>
           <div style="background: white; border-radius: 20px; padding: 40px; max-width: 800px; margin: 0 auto; box-shadow: 0 10px 30px rgba(0,0,0,0.3);">
             <h2 style="color: #667eea; font-size: 28px;">Chapter 1: The Beginning</h2>
             <p style="color: #333; font-size: 16px; line-height: 1.8;">

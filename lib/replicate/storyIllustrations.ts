@@ -4,17 +4,41 @@ import {
 } from "@/lib/replicate/client";
 import type { Prediction } from "replicate";
 
-const CONSISTENT_CHARACTER_OWNER = "sdxl-based";
-const CONSISTENT_CHARACTER_MODEL = "consistent-character";
-const STORYBOOK_MODEL = `${CONSISTENT_CHARACTER_OWNER}/${CONSISTENT_CHARACTER_MODEL}`;
+const DEFAULT_STORYBOOK_MODEL = "black-forest-labs/flux-2-pro";
 const INITIAL_REPLICATE_WAIT_SECONDS = 3;
 
+function normalizeStorybookModelId(): string {
+  return (
+    process.env.REPLICATE_STORYBOOK_MODEL?.trim() || DEFAULT_STORYBOOK_MODEL
+  );
+}
+
+function splitStorybookModelId(modelId: string): {
+  owner: string;
+  name: string;
+} {
+  const [owner, name] = modelId.split("/");
+
+  if (!owner || !name) {
+    throw new Error(
+      `Invalid REPLICATE_STORYBOOK_MODEL "${modelId}". Expected owner/name.`
+    );
+  }
+
+  return { owner, name };
+}
+
+const STORYBOOK_MODEL = normalizeStorybookModelId();
+const STORYBOOK_MODEL_PARTS = splitStorybookModelId(STORYBOOK_MODEL);
+const FLUX_STORYBOOK_MODEL_PREFIX = "black-forest-labs/flux-2-";
+
 export const DEFAULT_STORYBOOK_NEGATIVE_PROMPT =
-  "photorealistic, blurry, hyper-real detail, harsh shadows, text, watermark, low quality, deformed anatomy";
+  "photorealistic, real photo, live action, portrait photo, selfie, school photo, documentary look, close-up face, cropped head, giant face, floating head, split layout, collage, side-by-side comparison, flat vector, dull colors, desaturated, gloomy, sad, somber, dark horror mood, eerie forest, creepy, scary, spooky, haunted, thriller lighting, blue-grey darkness, dim lighting, harsh shadows, low detail, blurry, text, watermark, random face, adult face, duplicate child, deformed anatomy, extra limbs, realistic skin pores, realistic hair strands, horror poster, moody realism";
 
 export type StoryPageGenerationInput = {
   prompt: string;
-  subjectImage: string;
+  referenceImages?: string[];
+  subjectImage?: string;
   negativePrompt?: string;
 };
 
@@ -87,97 +111,72 @@ function wrapPreviewText(value: string, maxLineLength = 24): string[] {
   return lines.slice(0, 3);
 }
 
-function isEmbeddableFallbackSource(subjectImage?: string): boolean {
-  if (!subjectImage) {
-    return false;
-  }
-
-  if (subjectImage.startsWith("data:")) {
-    return true;
-  }
-
-  try {
-    const parsedUrl = new URL(subjectImage);
-    return parsedUrl.protocol === "http:" || parsedUrl.protocol === "https:";
-  } catch (error) {
-    return false;
-  }
-}
-
 function buildFallbackIllustrationSvg(
-  prompt: string,
-  subjectImage?: string
+  prompt: string
 ): string {
-  const promptLines = wrapPreviewText(prompt.replace(/\s+/g, " ").trim().slice(0, 72));
-  const embeddableSubjectImage = isEmbeddableFallbackSource(subjectImage)
-    ? escapeXml(subjectImage || "")
-    : "";
+  const promptLines = wrapPreviewText(
+    prompt.replace(/\s+/g, " ").trim().slice(0, 90),
+    26
+  );
   const lineMarkup = promptLines
     .map(
       (line, index) => `
-        <text x="${embeddableSubjectImage ? 362 : 80}" y="${430 + index * 56}" fill="#fef3c7" font-family="Verdana, Arial, sans-serif" font-size="34" font-weight="700">
+        <text x="96" y="${1056 + index * 54}" fill="#fff7ed" font-family="Verdana, Arial, sans-serif" font-size="34" font-weight="700">
           ${escapeXml(line)}
         </text>`
     )
     .join("");
-  const subjectImageMarkup = embeddableSubjectImage
-    ? `
-      <rect x="80" y="360" width="236" height="300" rx="32" fill="#ffffff" fill-opacity="0.14" stroke="#ffffff" stroke-opacity="0.26" />
-      <image href="${embeddableSubjectImage}" x="98" y="378" width="200" height="264" preserveAspectRatio="xMidYMid slice" clip-path="url(#subjectClip)" />
-      <text x="98" y="690" fill="#ffffff" font-family="Verdana, Arial, sans-serif" font-size="20" font-weight="700" letter-spacing="3">
-        YOUR CHILD'S PHOTO
-      </text>
-    `
-    : "";
-  const promptPanelX = embeddableSubjectImage ? 342 : 80;
-  const promptPanelWidth = embeddableSubjectImage ? 378 : 640;
 
   return `
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 1000" role="img" aria-label="Storybook illustration preview">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1100 1400" role="img" aria-label="Storybook illustration preview">
       <defs>
-        <linearGradient id="bg" x1="0%" x2="100%" y1="0%" y2="100%">
-          <stop offset="0%" stop-color="#1d4ed8" />
-          <stop offset="50%" stop-color="#7c3aed" />
-          <stop offset="100%" stop-color="#f97316" />
+        <linearGradient id="sky" x1="0%" x2="100%" y1="0%" y2="100%">
+          <stop offset="0%" stop-color="#60a5fa" />
+          <stop offset="42%" stop-color="#a855f7" />
+          <stop offset="100%" stop-color="#fb923c" />
+        </linearGradient>
+        <linearGradient id="sunset" x1="0%" x2="0%" y1="0%" y2="100%">
+          <stop offset="0%" stop-color="#fde68a" stop-opacity="0.75" />
+          <stop offset="100%" stop-color="#ffffff" stop-opacity="0" />
         </linearGradient>
         <linearGradient id="panel" x1="0%" x2="0%" y1="0%" y2="100%">
-          <stop offset="0%" stop-color="#ffffff" stop-opacity="0.18" />
-          <stop offset="100%" stop-color="#ffffff" stop-opacity="0.08" />
+          <stop offset="0%" stop-color="#111827" stop-opacity="0.08" />
+          <stop offset="100%" stop-color="#111827" stop-opacity="0.18" />
         </linearGradient>
-        <clipPath id="subjectClip">
-          <rect x="98" y="378" width="200" height="264" rx="24" />
-        </clipPath>
       </defs>
 
-      <rect width="800" height="1000" fill="url(#bg)" />
-      <circle cx="650" cy="180" r="120" fill="#fef08a" fill-opacity="0.25" />
-      <circle cx="150" cy="200" r="90" fill="#bfdbfe" fill-opacity="0.22" />
-      <circle cx="700" cy="820" r="140" fill="#fed7aa" fill-opacity="0.18" />
-      <rect x="52" y="72" width="696" height="856" rx="44" fill="url(#panel)" stroke="#ffffff" stroke-opacity="0.28" />
-
-      <text x="80" y="160" fill="#ffffff" font-family="Verdana, Arial, sans-serif" font-size="32" font-weight="700" letter-spacing="6">
+      <rect width="1100" height="1400" fill="#fff7ed" />
+      <rect x="54" y="52" width="992" height="1296" rx="42" fill="#fffaf5" />
+      <rect x="78" y="78" width="944" height="880" rx="36" fill="url(#sky)" />
+      <ellipse cx="260" cy="200" rx="180" ry="100" fill="#ffffff" fill-opacity="0.2" />
+      <ellipse cx="770" cy="172" rx="230" ry="112" fill="#ffffff" fill-opacity="0.12" />
+      <circle cx="282" cy="250" r="132" fill="url(#sunset)" />
+      <path d="M78 720 C210 610, 320 612, 448 720 S712 846, 1022 720 L1022 958 L78 958 Z" fill="#1d4ed8" fill-opacity="0.32" />
+      <path d="M78 760 C230 642, 360 664, 520 776 S812 864, 1022 744 L1022 958 L78 958 Z" fill="#0f766e" fill-opacity="0.34" />
+      <path d="M78 820 C260 698, 408 742, 578 828 S854 904, 1022 814 L1022 958 L78 958 Z" fill="#14532d" fill-opacity="0.42" />
+      <rect x="116" y="124" width="240" height="56" rx="28" fill="#fff7ed" fill-opacity="0.95" />
+      <text x="148" y="161" fill="#c2410c" font-family="Verdana, Arial, sans-serif" font-size="24" font-weight="700" letter-spacing="6">
         STORYBOOK PREVIEW
       </text>
-      <text x="80" y="218" fill="#dbeafe" font-family="Verdana, Arial, sans-serif" font-size="62" font-weight="700">
-        Illustration Ready Soon
+      <text x="120" y="612" fill="#ffffff" font-family="Verdana, Arial, sans-serif" font-size="86" font-weight="700">
+        Premium Scene
       </text>
-      <text x="80" y="286" fill="#e0f2fe" font-family="Verdana, Arial, sans-serif" font-size="28">
-        Personalized artwork will appear here once the timed preview opens.
+      <text x="120" y="692" fill="#fff7ed" font-family="Verdana, Arial, sans-serif" font-size="40" font-weight="700">
+        Your child becomes the hero inside the world
+      </text>
+      <text x="120" y="752" fill="#ffedd5" font-family="Verdana, Arial, sans-serif" font-size="28">
+        We will swap in the finished AI illustration here as soon as it is ready.
       </text>
 
-      ${subjectImageMarkup}
-
-      <rect x="${promptPanelX}" y="360" width="${promptPanelWidth}" height="248" rx="28" fill="#111827" fill-opacity="0.22" stroke="#ffffff" stroke-opacity="0.18" />
-      <text x="${promptPanelX}" y="396" fill="#fde68a" font-family="Verdana, Arial, sans-serif" font-size="22" font-weight="700" letter-spacing="4">
+      <rect x="78" y="992" width="944" height="286" rx="34" fill="#7c2d12" />
+      <rect x="78" y="992" width="944" height="286" rx="34" fill="url(#panel)" />
+      <text x="96" y="1040" fill="#fde68a" font-family="Verdana, Arial, sans-serif" font-size="22" font-weight="700" letter-spacing="4">
         SCENE PROMPT
       </text>
       ${lineMarkup}
 
-      <path d="M120 760 C220 650, 330 650, 430 760 S640 870, 720 760" fill="none" stroke="#ffffff" stroke-opacity="0.22" stroke-width="18" stroke-linecap="round" />
-      <path d="M150 820 C250 730, 340 730, 430 820 S610 900, 690 820" fill="none" stroke="#fde68a" stroke-opacity="0.3" stroke-width="10" stroke-linecap="round" />
-
-      <text x="80" y="900" fill="#ffffff" fill-opacity="0.85" font-family="Verdana, Arial, sans-serif" font-size="24">
-        Kidz Story Magic preview illustration
+      <text x="96" y="1230" fill="#ffedd5" fill-opacity="0.95" font-family="Verdana, Arial, sans-serif" font-size="24">
+        Kidz Story Magic storybook preview
       </text>
     </svg>
   `;
@@ -225,18 +224,75 @@ function extractErrorStatusCode(error: unknown): number | null {
 }
 
 function buildStorybookPrompt(prompt: string): string {
-  return [
-    prompt.trim(),
-    "soft painted children's storybook illustration",
-    "whimsical composition",
-    "warm color palette",
-    "gentle lighting",
-    "expressive but child-safe character design",
-    "consistent protagonist appearance",
-  ].join(", ");
+  return JSON.stringify({
+    scene: prompt.trim(),
+    subject:
+      "One young child, reconstructed from the provided reference photos as a premium 3D animated cartoon hero for a children's storybook.",
+    style:
+      "Bright premium animated family-film illustration, polished 3D cartoon finish, rounded child-friendly shapes, expressive eyes, soft cinematic materials, welcoming children's book cover energy, ultra-vivid premium color, rich playful saturation, luminous magical highlights.",
+    composition:
+      "Vertical premium storybook cover composition, full scene with a complete background world, full-body or three-quarter-body hero framing, visible environmental depth, not a close-up portrait.",
+    lighting:
+      "Bright cheerful daylight or golden sunrise glow, soft magical highlights, warm welcoming atmosphere, no gloomy or eerie mood.",
+    color_palette:
+      "Ultra-vibrant joyful storybook colors with warm sky tones, candy-bright accents, playful contrast, jewel-tone depth, pastel glow, and a premium glossy animated feel.",
+    character_consistency:
+      "Keep the same child identity, face structure, skin tone, hair style, and proportions consistent across every page while converting the child into a stylized cartoon character instead of a real photo.",
+    quality:
+      "High-end children's storybook illustration, polished 3D rendering feel, cinematic depth, friendly emotion, premium catalog-worthy finish.",
+  });
 }
 
-function buildPredictionInput(input: StoryPageGenerationInput) {
+function isFluxStorybookModel(modelId: string): boolean {
+  return modelId.startsWith(FLUX_STORYBOOK_MODEL_PREFIX);
+}
+
+function normalizeReferenceInputs(
+  referenceImages: string[]
+): Array<Buffer | string> {
+  return referenceImages.map((referenceImage) =>
+    normalizeSubjectInput(referenceImage)
+  );
+}
+
+function getNormalizedReferenceImages(input: StoryPageGenerationInput): string[] {
+  const orderedImages = [
+    ...(Array.isArray(input.referenceImages) ? input.referenceImages : []),
+    ...(input.subjectImage ? [input.subjectImage] : []),
+  ]
+    .map((value) => String(value || "").trim())
+    .filter(Boolean);
+
+  return Array.from(new Set(orderedImages));
+}
+
+function buildFluxPredictionInput(input: StoryPageGenerationInput) {
+  const referenceImages = getNormalizedReferenceImages(input);
+
+  if (referenceImages.length === 0) {
+    throw new Error(
+      "At least one subject reference image is required to generate a story page."
+    );
+  }
+
+  return {
+    prompt: buildStorybookPrompt(input.prompt),
+    input_images: normalizeReferenceInputs(referenceImages.slice(0, 4)),
+    width: 960,
+    height: 1280,
+    safety_tolerance: 2,
+    output_format: "png",
+    output_quality: 90,
+  };
+}
+
+function buildLegacyPredictionInput(input: StoryPageGenerationInput) {
+  if (!input.subjectImage) {
+    throw new Error(
+      "subjectImage is required for the legacy story illustration model."
+    );
+  }
+
   return {
     prompt: buildStorybookPrompt(input.prompt),
     negative_prompt:
@@ -248,6 +304,14 @@ function buildPredictionInput(input: StoryPageGenerationInput) {
     output_format: "png",
     output_quality: 90,
   };
+}
+
+function buildPredictionInput(input: StoryPageGenerationInput) {
+  if (isFluxStorybookModel(STORYBOOK_MODEL)) {
+    return buildFluxPredictionInput(input);
+  }
+
+  return buildLegacyPredictionInput(input);
 }
 
 function normalizeSubjectInput(subjectImage: string): Buffer | string {
@@ -344,9 +408,7 @@ export function createFallbackStoryPageIllustration(
   const prompt = buildStorybookPrompt(input.prompt);
 
   return {
-    imageUrl: buildSvgDataUrl(
-      buildFallbackIllustrationSvg(input.prompt, input.subjectImage)
-    ),
+    imageUrl: buildSvgDataUrl(buildFallbackIllustrationSvg(input.prompt)),
     model: "storybook/demo-fallback",
     predictionId: "fallback-placeholder",
     prompt,
@@ -422,9 +484,10 @@ export async function createStoryPageIllustrationPrediction(
 ): Promise<StoryPageGenerationState> {
   const replicate = getReplicateClient();
   const version = await resolveModelVersionId(
-    CONSISTENT_CHARACTER_OWNER,
-    CONSISTENT_CHARACTER_MODEL,
-    process.env.REPLICATE_CONSISTENT_CHARACTER_VERSION
+    STORYBOOK_MODEL_PARTS.owner,
+    STORYBOOK_MODEL_PARTS.name,
+    process.env.REPLICATE_STORYBOOK_MODEL_VERSION ||
+      process.env.REPLICATE_CONSISTENT_CHARACTER_VERSION
   );
   const prompt = buildStorybookPrompt(input.prompt);
 

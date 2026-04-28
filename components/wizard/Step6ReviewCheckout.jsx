@@ -10,7 +10,12 @@ import {
   useCurrencyStore,
   useAuthStore,
 } from '@/utils/store';
-import { getTheme } from '@/utils/themes';
+import { getBookThemeLabel, getBookThemePreviewArt, getTheme } from '@/utils/themes';
+import {
+  getIllustrationApiErrorMessage,
+  prepareReferenceImagesForGeneration,
+  readIllustrationApiPayload,
+} from '@/utils/subjectImage';
 
 const isIllustratedStoryPage = (page) => page?.pageType === 'story';
 const PREVIEW_SUPPORT_EMAIL = 'support@kidzstorymagic.com';
@@ -83,68 +88,136 @@ function escapePreviewSvgText(value) {
     .replace(/>/g, '&gt;');
 }
 
-function canUseTimedFallbackSubject(subjectImage) {
-  return /^(blob:|data:image\/|https?:\/\/)/i.test(
-    String(subjectImage || '').trim()
-  );
+function isEmbeddablePreviewImage(value) {
+  return /^(blob:|data:image\/|https?:\/\/)/i.test(String(value || '').trim());
 }
 
-function createTimedFallbackIllustration(prompt, subjectImage) {
-  const normalizedSubjectImage = String(subjectImage || '').trim();
+function wrapPreviewLines(value, maxLength = 26, maxLines = 3) {
+  const words = String(value || '').trim().split(/\s+/).filter(Boolean);
+  const lines = [];
+  let currentLine = '';
 
-  if (/^blob:/i.test(normalizedSubjectImage)) {
-    return normalizedSubjectImage;
+  words.forEach((word) => {
+    if (lines.length >= maxLines) {
+      return;
+    }
+
+    const nextLine = currentLine ? `${currentLine} ${word}` : word;
+    if (nextLine.length <= maxLength) {
+      currentLine = nextLine;
+      return;
+    }
+
+    if (currentLine) {
+      lines.push(currentLine);
+    }
+
+    currentLine = word;
+  });
+
+  if (currentLine && lines.length < maxLines) {
+    lines.push(currentLine);
   }
 
-  const excerpt = String(prompt || '')
-    .replace(/\s+/g, ' ')
-    .trim()
-    .slice(0, 84);
-  const subjectMarkup =
-    normalizedSubjectImage && canUseTimedFallbackSubject(normalizedSubjectImage)
-      ? `
-      <rect x="74" y="236" width="214" height="304" rx="30" fill="#ffffff" fill-opacity="0.15" stroke="#ffffff" stroke-opacity="0.24" />
-      <image href="${escapePreviewSvgText(normalizedSubjectImage)}" x="92" y="254" width="178" height="232" preserveAspectRatio="xMidYMid slice" clip-path="url(#subjectClip)" />
-      <text x="92" y="520" fill="#fff7ed" font-family="Verdana, Arial, sans-serif" font-size="20" font-weight="700" letter-spacing="3">
-        CHILD PHOTO
-      </text>
-      `
-      : '';
-  const promptPanelX = subjectMarkup ? 324 : 90;
-  const promptPanelWidth = subjectMarkup ? 386 : 620;
+  return lines.length > 0 ? lines : ['A magical storybook scene'];
+}
+
+function createTimedFallbackIllustration({
+  prompt,
+  bookThemeValue,
+  subjectImage,
+}) {
+  const theme = getTheme(bookThemeValue || 'fantasy');
+  const promptLines = wrapPreviewLines(
+    String(prompt || '')
+      .replace(/\s+/g, ' ')
+      .trim()
+      .slice(0, 92),
+    28,
+    3
+  );
+  const promptLineMarkup = promptLines
+    .map(
+      (line, index) => `
+        <text x="88" y="${946 + index * 44}" fill="#fffdf7" font-family="Verdana, Arial, sans-serif" font-size="30" font-weight="700">
+          ${escapePreviewSvgText(line)}
+        </text>`
+    )
+    .join('');
+  const photoBadge = isEmbeddablePreviewImage(subjectImage)
+    ? `
+      <circle cx="918" cy="124" r="66" fill="#ffffff" fill-opacity="0.96" />
+      <circle cx="918" cy="124" r="70" fill="none" stroke="#ffffff" stroke-width="8" />
+      <circle cx="918" cy="124" r="74" fill="none" stroke="${theme.accentColor}" stroke-width="8" stroke-opacity="0.95" />
+      <clipPath id="subjectBadgeClip">
+        <circle cx="918" cy="124" r="62" />
+      </clipPath>
+      <image href="${escapePreviewSvgText(subjectImage)}" x="856" y="62" width="124" height="124" preserveAspectRatio="xMidYMid slice" clip-path="url(#subjectBadgeClip)" />
+    `
+    : '';
 
   const svg = `
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 1000" role="img" aria-label="Storybook preview illustration">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1100 1400" role="img" aria-label="Storybook preview illustration">
       <defs>
-        <linearGradient id="bg" x1="0%" x2="100%" y1="0%" y2="100%">
-          <stop offset="0%" stop-color="#f59e0b" />
-          <stop offset="100%" stop-color="#ea580c" />
+        <linearGradient id="sky" x1="0%" x2="100%" y1="0%" y2="100%">
+          <stop offset="0%" stop-color="${theme.primary}" />
+          <stop offset="48%" stop-color="${theme.accentColor}" />
+          <stop offset="100%" stop-color="${theme.secondary}" />
         </linearGradient>
-        <clipPath id="subjectClip">
-          <rect x="92" y="254" width="178" height="232" rx="24" />
-        </clipPath>
+        <linearGradient id="sunGlow" x1="0%" x2="0%" y1="0%" y2="100%">
+          <stop offset="0%" stop-color="#fff7cc" stop-opacity="0.82" />
+          <stop offset="100%" stop-color="#ffffff" stop-opacity="0" />
+        </linearGradient>
+        <linearGradient id="groundA" x1="0%" x2="100%" y1="0%" y2="0%">
+          <stop offset="0%" stop-color="${theme.secondary}" stop-opacity="0.88" />
+          <stop offset="100%" stop-color="${theme.accentColor}" stop-opacity="0.62" />
+        </linearGradient>
+        <linearGradient id="groundB" x1="0%" x2="100%" y1="0%" y2="0%">
+          <stop offset="0%" stop-color="${theme.primary}" stop-opacity="0.52" />
+          <stop offset="100%" stop-color="${theme.dark}" stop-opacity="0.42" />
+        </linearGradient>
       </defs>
-      <rect width="800" height="1000" fill="url(#bg)" />
-      <rect x="58" y="72" width="684" height="856" rx="42" fill="#111827" fill-opacity="0.14" stroke="#ffffff" stroke-opacity="0.42" stroke-dasharray="12 10" />
-      <text x="90" y="150" fill="#fff7ed" font-family="Verdana, Arial, sans-serif" font-size="28" font-weight="700" letter-spacing="6">
+
+      <rect width="1100" height="1400" fill="#fff7ed" />
+      <rect x="52" y="52" width="996" height="1296" rx="44" fill="#fffaf4" />
+      <rect x="82" y="82" width="936" height="886" rx="38" fill="url(#sky)" />
+      <circle cx="238" cy="222" r="152" fill="url(#sunGlow)" />
+      <ellipse cx="794" cy="188" rx="188" ry="88" fill="#ffffff" fill-opacity="0.18" />
+      <ellipse cx="282" cy="188" rx="170" ry="82" fill="#ffffff" fill-opacity="0.12" />
+      <circle cx="814" cy="256" r="24" fill="#ffffff" fill-opacity="0.22" />
+      <circle cx="754" cy="302" r="16" fill="#ffffff" fill-opacity="0.16" />
+      <circle cx="338" cy="314" r="18" fill="#ffffff" fill-opacity="0.18" />
+      <path d="M82 714 C228 612, 360 620, 504 712 S782 834, 1018 716 L1018 968 L82 968 Z" fill="url(#groundA)" />
+      <path d="M82 782 C270 666, 418 690, 604 790 S844 886, 1018 780 L1018 968 L82 968 Z" fill="url(#groundB)" />
+      <path d="M82 850 C254 742, 440 760, 632 850 S846 926, 1018 846 L1018 968 L82 968 Z" fill="${theme.dark}" fill-opacity="0.22" />
+      <path d="M284 684 C338 594, 444 588, 514 658 C552 702, 566 756, 544 818 C520 868, 470 894, 410 900 C348 894, 304 870, 274 822 C248 780, 244 730, 284 684 Z" fill="#fff7ed" fill-opacity="0.24" />
+      <path d="M360 676 C400 646, 454 648, 486 688" fill="none" stroke="#ffffff" stroke-opacity="0.42" stroke-width="10" stroke-linecap="round" />
+      <rect x="128" y="126" width="250" height="56" rx="28" fill="#fff7ed" fill-opacity="0.94" />
+      <text x="160" y="162" fill="#c2410c" font-family="Verdana, Arial, sans-serif" font-size="24" font-weight="700" letter-spacing="6">
         STORYBOOK SCENE
       </text>
-      <text x="90" y="272" fill="#ffffff" font-family="Verdana, Arial, sans-serif" font-size="60" font-weight="700">
-        Preview opened
+      ${photoBadge}
+      <text x="126" y="612" fill="#ffffff" font-family="Verdana, Arial, sans-serif" font-size="84" font-weight="700">
+        Colorful Preview
       </text>
-      <text x="90" y="330" fill="#ffedd5" font-family="Verdana, Arial, sans-serif" font-size="28">
-        This temporary illustration keeps the preview moving in under a minute.
+      <text x="126" y="690" fill="#fff7ed" font-family="Verdana, Arial, sans-serif" font-size="42" font-weight="700">
+        Your page opened while the full illustration finishes
       </text>
-      ${subjectMarkup}
-      <rect x="${promptPanelX}" y="414" width="${promptPanelWidth}" height="242" rx="28" fill="#ffffff" fill-opacity="0.12" />
-      <text x="${promptPanelX}" y="470" fill="#fff7ed" font-family="Verdana, Arial, sans-serif" font-size="22" font-weight="700" letter-spacing="4">
-        SCENE PROMPT
+      <text x="126" y="746" fill="#ffedd5" font-family="Verdana, Arial, sans-serif" font-size="28">
+        We keep the story moving with a brighter temporary scene card.
       </text>
-      <text x="${promptPanelX}" y="540" fill="#ffffff" font-family="Verdana, Arial, sans-serif" font-size="32" font-weight="700">
-        ${escapePreviewSvgText(excerpt || 'Your personalized illustration is on the way.')}
+
+      <rect x="82" y="892" width="936" height="82" rx="26" fill="#ffffff" fill-opacity="0.14" />
+      <text x="126" y="944" fill="#fffdf7" font-family="Verdana, Arial, sans-serif" font-size="28" font-weight="700">
+        Vivid palette + premium storybook energy stay active while page art finishes.
       </text>
-      <text x="90" y="886" fill="#ffffff" fill-opacity="0.9" font-family="Verdana, Arial, sans-serif" font-size="24">
-        Kidz Story Magic preview placeholder
+      <rect x="82" y="1002" width="936" height="272" rx="34" fill="${theme.dark}" fill-opacity="0.86" />
+      <text x="110" y="1050" fill="#fde68a" font-family="Verdana, Arial, sans-serif" font-size="22" font-weight="700" letter-spacing="4">
+        STORY MOMENT
+      </text>
+      ${promptLineMarkup}
+      <text x="110" y="1226" fill="#ffedd5" fill-opacity="0.94" font-family="Verdana, Arial, sans-serif" font-size="24">
+        This page will swap to the finished illustration as soon as it is ready.
       </text>
     </svg>
   `;
@@ -183,7 +256,8 @@ async function pollStoryPageIllustration(
   onPending,
   {
     fallbackPrompt,
-    fallbackSubjectImage,
+    bookThemeValue,
+    subjectImage,
     timeoutMs = PREVIEW_FIRST_PAGE_TIMEOUT_MS,
   } = {}
 ) {
@@ -202,10 +276,11 @@ async function pollStoryPageIllustration(
         elapsedMs,
         timeoutMs,
       });
-      return createTimedFallbackIllustration(
-        fallbackPrompt,
-        fallbackSubjectImage
-      );
+      return createTimedFallbackIllustration({
+        prompt: fallbackPrompt,
+        bookThemeValue,
+        subjectImage,
+      });
     }
 
     try {
@@ -217,7 +292,7 @@ async function pollStoryPageIllustration(
           signal,
         }
       );
-      const payload = await response.json();
+      const payload = await readIllustrationApiPayload(response);
 
       if (!response.ok) {
         // If it's a fallback response due to billing error, use the fallback image
@@ -234,11 +309,7 @@ async function pollStoryPageIllustration(
           return payload.imageUrl;
         }
 
-        throw new Error(
-          payload?.details ||
-            payload?.error ||
-            'Illustration generation failed for this page.'
-        );
+        throw new Error(getIllustrationApiErrorMessage(response, payload));
       }
 
       if (payload?.pending) {
@@ -285,10 +356,11 @@ async function pollStoryPageIllustration(
           elapsedMs,
           timeoutMs,
         });
-        return createTimedFallbackIllustration(
-          fallbackPrompt,
-          fallbackSubjectImage
-        );
+        return createTimedFallbackIllustration({
+          prompt: fallbackPrompt,
+          bookThemeValue,
+          subjectImage,
+        });
       }
 
       // No fallback available, re-throw the error
@@ -300,10 +372,19 @@ async function pollStoryPageIllustration(
 async function createStoryPageIllustration({
   prompt,
   subjectImage,
+  referenceImages,
+  bookThemeValue,
   signal,
   onPending,
   timeoutMs,
 }) {
+  const preparedReferenceImages = await prepareReferenceImagesForGeneration(
+    Array.isArray(referenceImages) && referenceImages.length > 0
+      ? referenceImages
+      : [subjectImage]
+  );
+  const preparedSubjectImage =
+    preparedReferenceImages[0] || String(subjectImage || '').trim();
   const response = await fetch('/api/generate-story-page', {
     method: 'POST',
     headers: {
@@ -312,17 +393,14 @@ async function createStoryPageIllustration({
     signal,
     body: JSON.stringify({
       prompt,
-      subjectImage,
+      subjectImage: preparedSubjectImage,
+      referenceImages: preparedReferenceImages,
     }),
   });
-  const payload = await response.json();
+  const payload = await readIllustrationApiPayload(response);
 
   if (!response.ok) {
-    throw new Error(
-      payload?.details ||
-        payload?.error ||
-        'Illustration generation failed for this page.'
-    );
+    throw new Error(getIllustrationApiErrorMessage(response, payload));
   }
 
   if (typeof payload?.imageUrl === 'string' && payload.imageUrl) {
@@ -333,7 +411,8 @@ async function createStoryPageIllustration({
     onPending?.(payload);
     return pollStoryPageIllustration(payload.predictionId, signal, onPending, {
       fallbackPrompt: prompt,
-      fallbackSubjectImage: subjectImage,
+      bookThemeValue,
+      subjectImage: preparedSubjectImage,
       timeoutMs,
     });
   }
@@ -371,6 +450,7 @@ export default function Step6ReviewCheckout() {
   const [faceSwapProgress, setFaceSwapProgress] = useState(0);
   const [swappedPages, setSwappedPages] = useState({});
   const [selectedFaceImage, setSelectedFaceImage] = useState(null);
+  const [selectedFaceReferenceImage, setSelectedFaceReferenceImage] = useState(null);
 
   const basePriceUSD = {
     10: 9.99,
@@ -390,30 +470,46 @@ export default function Step6ReviewCheckout() {
     INR: 'INR ',
   };
 
-  const getActiveTheme = () => {
-    if (formData.illustrationStyle) {
-      return getTheme(formData.illustrationStyle);
-    }
-
-    const themeMapping = {
-      family: 'fantasy',
-      friends: 'jungle',
-      motivational: 'superhero',
-      behavioural: 'wizard',
-      fairytale: 'fairytale',
-      customizable: 'fantasy',
-    };
-
-    const illustrationTheme = themeMapping[formData.theme] || 'fantasy';
-    return getTheme(illustrationTheme);
-  };
+  const getActiveTheme = () =>
+    getTheme(formData.illustrationStyle || formData.theme || 'fantasy');
 
   const currentTheme = getActiveTheme();
-  const storySubjectImage =
-    selectedFaceImage ||
-    formData.uploadedImages?.[0]?.preview ||
-    formData.uploadedPhoto?.watermarkedUrl ||
-    null;
+  const selectedThemeLabel = getBookThemeLabel(formData.theme);
+  const storyReferenceImages = useMemo(() => {
+    const orderedImages = [];
+
+    if (selectedFaceReferenceImage) {
+      orderedImages.push(selectedFaceReferenceImage);
+    }
+
+    if (Array.isArray(formData.uploadedImages)) {
+      formData.uploadedImages.forEach((photo) => {
+        const candidate =
+          photo?.illustrationReference || photo?.preview || null;
+
+        if (candidate) {
+          orderedImages.push(candidate);
+        }
+      });
+    }
+
+    if (formData.uploadedPhoto?.watermarkedUrl) {
+      orderedImages.push(formData.uploadedPhoto.watermarkedUrl);
+    }
+
+    return Array.from(
+      new Set(
+        orderedImages
+          .map((value) => String(value || '').trim())
+          .filter(Boolean)
+      )
+    ).slice(0, 4);
+  }, [
+    formData.uploadedImages,
+    formData.uploadedPhoto?.watermarkedUrl,
+    selectedFaceReferenceImage,
+  ]);
+  const storySubjectImage = storyReferenceImages[0] || null;
   const shouldGateIllustrations = Boolean(storySubjectImage);
 
   const updatePageGenerationState = (pageIndex, nextState) => {
@@ -501,6 +597,23 @@ export default function Step6ReviewCheckout() {
         isPageIllustrationReady(page, pageIndex)
       )
     : false;
+  const coverPreviewArt = useMemo(() => {
+    if (Array.isArray(storyPreview)) {
+      const firstReadyStoryPage = storyPreview.find(
+        (page, index) =>
+          index > 0 &&
+          index < storyPreview.length - 1 &&
+          isIllustratedStoryPage(page) &&
+          Boolean(page?.illustrationUrl)
+      );
+
+      if (firstReadyStoryPage?.illustrationUrl) {
+        return firstReadyStoryPage.illustrationUrl;
+      }
+    }
+
+    return getBookThemePreviewArt(formData.theme, storySubjectImage || '');
+  }, [formData.theme, storyPreview, storySubjectImage]);
   const illustrationsRemainingCount = Array.isArray(storyPreview)
     ? storyPreview.filter(
         (page, pageIndex) => !isPageIllustrationReady(page, pageIndex)
@@ -518,12 +631,12 @@ export default function Step6ReviewCheckout() {
       'Hi Kidz Story Magic team,',
       '',
       'My preview is still generating. Please email the preview when it is ready.',
-      '',
-      `Project ID: ${formData.projectId || 'Unavailable'}`,
-      `Child name: ${formData.childName || 'Unavailable'}`,
-      `Theme: ${formData.theme || 'Unavailable'}`,
-      `Page count: ${formData.pageCount || 'Unavailable'}`,
-      `Preferred recipient: ${previewEmailRecipient || 'Unavailable'}`,
+        '',
+        `Project ID: ${formData.projectId || 'Unavailable'}`,
+        `Child name: ${formData.childName || 'Unavailable'}`,
+        `Theme: ${selectedThemeLabel || 'Unavailable'}`,
+        `Page count: ${formData.pageCount || 'Unavailable'}`,
+        `Preferred recipient: ${previewEmailRecipient || 'Unavailable'}`,
       '',
       'Thank you!',
     ].join('\n');
@@ -535,8 +648,8 @@ export default function Step6ReviewCheckout() {
     formData.childName,
     formData.pageCount,
     formData.projectId,
-    formData.theme,
     previewEmailRecipient,
+    selectedThemeLabel,
   ]);
   const previewEmailHelpAvailable =
     previewEmailStatus === 'error' &&
@@ -608,7 +721,7 @@ export default function Step6ReviewCheckout() {
       }
 
       if (pageGenerationStates[index]?.status === 'error') {
-        return -1;
+        continue;
       }
 
       return index;
@@ -661,13 +774,13 @@ export default function Step6ReviewCheckout() {
           ? formData.customIllustrationPrompt
           : null;
 
-      const storyData = {
-        childName: formData.childName || 'Child',
-        childGender: formData.childGender || 'child',
-        ageGroup: formData.ageGroup || '5-8',
-        theme: formData.theme || 'fantasy',
-        pageCount: formData.pageCount || 20,
-      };
+        const storyData = {
+          childName: formData.childName || 'Child',
+          childGender: formData.childGender || 'child',
+          ageGroup: formData.ageGroup || '5-8',
+          theme: formData.theme || 'animal-adventure',
+          pageCount: formData.pageCount || 20,
+        };
 
       const storyResponse = await storyAPI.generateStory(
         formData.projectId,
@@ -723,7 +836,7 @@ export default function Step6ReviewCheckout() {
         projectId: formData.projectId,
         previewUrl,
         recipientEmail: previewEmailRecipient,
-        theme: formData.theme,
+        theme: selectedThemeLabel,
       });
 
       const sentRecipient =
@@ -790,6 +903,8 @@ export default function Step6ReviewCheckout() {
     createStoryPageIllustration({
       prompt,
       subjectImage: storySubjectImage,
+      referenceImages: storyReferenceImages,
+      bookThemeValue: formData.theme,
       signal: controller.signal,
       timeoutMs: PREVIEW_FIRST_PAGE_TIMEOUT_MS,
       onPending: () => {
@@ -845,24 +960,28 @@ export default function Step6ReviewCheckout() {
           generationError instanceof Error
             ? generationError.message
             : 'Illustration generation failed for this page.';
+        const fallbackImageUrl = createTimedFallbackIllustration({
+          prompt,
+          bookThemeValue: formData.theme,
+          subjectImage: storySubjectImage,
+        });
 
         console.error('[ILLUSTRATION_GENERATION_ERROR]', {
           pageIndex: nextPageIndex,
           message,
         });
 
+        handleIllustrationReady(nextPageIndex, fallbackImageUrl);
         updatePageGenerationState(nextPageIndex, {
-          status: 'error',
-          message,
+          status: 'ready',
+          message:
+            'We opened this page with a vibrant temporary scene while the final illustration is retried later.',
         });
 
         if (nextPageIndex === firstIllustratedPageIndex) {
           setPreviewPrepProgress(100);
-          setError(
-            'We could not finish the first preview page right now. You can try again or request the preview by email.'
-          );
           setPreviewPrepDetail(
-            'illustration generation encountered an issue. Please try again or request the preview by email.'
+            'The first page opened with a bright temporary scene so you can keep previewing while we continue improving the artwork.'
           );
         }
       })
@@ -884,6 +1003,7 @@ export default function Step6ReviewCheckout() {
     formData.childName,
     generationQueueVersion,
     shouldGateIllustrations,
+    storyReferenceImages,
     storyPreview,
     storySubjectImage,
   ]);
@@ -976,8 +1096,11 @@ export default function Step6ReviewCheckout() {
     }
   };
 
-  const handleSelectFaceImage = (imageUrl) => {
-    setSelectedFaceImage(imageUrl);
+  const handleSelectFaceImage = (photo) => {
+    setSelectedFaceImage(photo?.preview || null);
+    setSelectedFaceReferenceImage(
+      photo?.illustrationReference || photo?.preview || null
+    );
     setSwappedPages({});
   };
 
@@ -1100,21 +1223,14 @@ export default function Step6ReviewCheckout() {
           className="relative flex min-h-[620px] w-full flex-col items-center justify-center overflow-hidden rounded-3xl p-8 text-white sm:min-h-[700px] lg:min-h-[760px]"
           style={{ background: currentTheme.gradient }}
         >
-          <div className="absolute inset-0 opacity-10">
-            <div className="absolute -right-20 -top-20 h-64 w-64 rounded-full bg-white/20"></div>
-            <div className="absolute -bottom-20 -left-20 h-72 w-72 rounded-full bg-white/10"></div>
-          </div>
+          <img
+            src={coverPreviewArt}
+            alt={selectedThemeLabel}
+            className="absolute inset-0 h-full w-full object-cover"
+          />
+          <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(15,23,42,0.08)_0%,rgba(15,23,42,0.16)_38%,rgba(15,23,42,0.66)_100%)]" />
 
           <div className="relative z-10 text-center">
-            {formData.uploadedPhoto?.watermarkedUrl && (
-              <div className="mb-6 flex justify-center">
-                <img
-                  src={formData.uploadedPhoto.watermarkedUrl}
-                  alt="Cover"
-                  className="h-32 w-32 rounded-full border-4 border-white object-cover shadow-2xl"
-                />
-              </div>
-            )}
             <h1
               className="mb-2 text-5xl font-black"
               style={{ textShadow: '0 2px 10px rgba(0,0,0,0.3)' }}
@@ -1125,16 +1241,13 @@ export default function Step6ReviewCheckout() {
               className="mb-2 text-3xl font-bold"
               style={{ textShadow: '0 2px 10px rgba(0,0,0,0.3)' }}
             >
-              {formData.theme &&
-                formData.theme.charAt(0).toUpperCase() +
-                  formData.theme.slice(1)}{' '}
-              Adventure
+              {selectedThemeLabel}
             </h2>
             <p
               className="text-xl opacity-90"
               style={{ textShadow: '0 1px 5px rgba(0,0,0,0.2)' }}
             >
-              A personalized story just for you.
+              A premium personalized storybook preview.
             </p>
           </div>
         </div>
@@ -1154,7 +1267,7 @@ export default function Step6ReviewCheckout() {
               {formData.childName} discovered that imagination is the greatest
               superpower of all.
             </p>
-            <p className="mt-6 text-lg italic opacity-90">Your adventure awaits.</p>
+            <p className="mt-6 text-lg italic opacity-90">Your book world awaits.</p>
           </div>
         </div>
       );
@@ -1162,8 +1275,12 @@ export default function Step6ReviewCheckout() {
 
     return (
       <CharacterConsistentStoryPage
+        autoGenerateIllustration={false}
+        bookThemeValue={formData.theme}
+        generationState={pageGenerationStates[index] || null}
         page={page}
         pageIndex={index}
+        referenceImages={storyReferenceImages}
         subjectImage={storySubjectImage}
         onIllustrationReady={(imageUrl) => handleIllustrationReady(index, imageUrl)}
         onIllustrationStateChange={(nextState) =>
@@ -1579,8 +1696,7 @@ export default function Step6ReviewCheckout() {
                         className="text-sm font-black"
                         style={{ color: currentTheme.primary }}
                       >
-                        {formData.theme?.charAt(0).toUpperCase() +
-                          formData.theme?.slice(1)}
+                        {selectedThemeLabel}
                       </p>
                     </div>
 
@@ -1608,18 +1724,18 @@ export default function Step6ReviewCheckout() {
                         className="mb-4 text-xl font-bold"
                         style={{ color: currentTheme.primary }}
                       >
-                        Face Swap Integration
+                        Primary Character Photo
                       </h3>
 
                       <div className="mb-4">
                         <p className="mb-3 text-sm font-semibold text-gray-700">
-                          Select a face to swap into generated story pages:
+                          Select the clearest front-facing child photo. We use this as the main reference for the 3D cartoon story pages:
                         </p>
                         <div className="flex gap-3 overflow-x-auto pb-2">
                           {formData.uploadedImages.map((photo, idx) => (
                             <button
                               key={idx}
-                              onClick={() => handleSelectFaceImage(photo.preview)}
+                              onClick={() => handleSelectFaceImage(photo)}
                               className={`h-20 w-20 flex-shrink-0 overflow-hidden rounded-lg border-2 transition-all duration-300 ${
                                 selectedFaceImage === photo.preview
                                   ? 'scale-110 ring-2'
