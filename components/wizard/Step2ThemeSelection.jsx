@@ -94,7 +94,7 @@ export default function Step2ThemeSelection() {
         </p>
       </div>
 
-      <div className="mt-10 grid gap-6 md:grid-cols-2 xl:grid-cols-4">
+      <div className="mt-12 grid gap-8 md:grid-cols-2 xl:grid-cols-3">
         {availableThemes.map((theme) => {
           const isSelected = formData.theme === theme.value;
           const themeColors = getTheme(theme.value);
@@ -104,50 +104,59 @@ export default function Step2ThemeSelection() {
               key={theme.value}
               type="button"
               onClick={() => handleSelect(theme)}
-              className={`group overflow-hidden rounded-[28px] bg-white text-left shadow-[0_18px_48px_rgba(15,23,42,0.12)] transition-all duration-300 ${
+              className={`group overflow-hidden rounded-[32px] bg-white text-left transition-all duration-300 transform ${
                 isSelected
-                  ? 'scale-[1.02] ring-4 ring-sky-300'
-                  : 'hover:-translate-y-1 hover:shadow-[0_24px_56px_rgba(15,23,42,0.18)]'
+                  ? 'scale-[1.05] shadow-[0_32px_64px_rgba(15,23,42,0.25)] ring-4 ring-sky-300'
+                  : 'shadow-[0_16px_40px_rgba(15,23,42,0.15)] hover:-translate-y-2 hover:shadow-[0_28px_60px_rgba(15,23,42,0.22)]'
               }`}
             >
-              <div className="relative h-[280px] overflow-hidden">
+              <div className="relative h-[340px] overflow-hidden bg-gradient-to-br from-slate-50 to-slate-100">
                 <img
                   src={getBookThemePreviewArt(theme.value, referenceImage)}
                   alt={theme.label}
-                  className="h-full w-full object-cover transition duration-500 group-hover:scale-[1.03]"
+                  className="h-full w-full object-cover transition duration-500 group-hover:scale-[1.08]"
                 />
-                <div className="absolute left-4 top-4 rounded-full bg-white/92 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.25em] text-orange-700">
+                
+                {/* Top-left theme label */}
+                <div className="absolute left-4 top-4 rounded-full bg-white/95 backdrop-blur-sm px-4 py-1.5 text-[10px] font-bold uppercase tracking-[0.3em] text-orange-700 shadow-lg">
                   Theme Preview
                 </div>
+                
+                {/* Selection checkmark */}
                 {isSelected ? (
-                  <div className="absolute right-4 top-4 flex h-10 w-10 items-center justify-center rounded-full bg-emerald-500 text-lg font-bold text-white shadow-lg">
-                    OK
+                  <div className="absolute right-4 top-4 flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br from-emerald-400 to-emerald-600 text-xl font-bold text-white shadow-xl ring-2 ring-white">
+                    ✓
                   </div>
                 ) : null}
+
+                {/* Photo placeholder badge */}
+                <div className="absolute bottom-4 left-4 flex h-16 w-16 items-center justify-center rounded-full bg-white/90 backdrop-blur-sm border-4 border-white shadow-xl">
+                  <div className="text-3xl">📸</div>
+                </div>
               </div>
 
-              <div className="space-y-4 px-6 py-6">
+              <div className="space-y-5 px-7 py-7">
                 <div>
-                  <h3 className="text-2xl font-black tracking-tight text-slate-900">
+                  <h3 className="text-3xl font-black tracking-tight text-slate-900">
                     {theme.label}
                   </h3>
-                  <p className="mt-2 text-base font-semibold text-slate-600">
+                  <p className="mt-3 text-sm font-bold text-sky-600 uppercase tracking-[0.15em]">
                     {theme.ageRange}
                   </p>
                 </div>
 
-                <p className="min-h-[56px] text-sm leading-6 text-slate-600">
+                <p className="min-h-[60px] text-sm leading-7 text-slate-600 font-medium">
                   {theme.description}
                 </p>
 
                 <div
-                  className="inline-flex rounded-full px-4 py-2 text-sm font-bold text-white shadow-md"
+                  className="inline-flex rounded-full px-6 py-3 text-sm font-bold text-white shadow-lg transition-transform duration-300 hover:scale-105"
                   style={{
                     background: themeColors.gradient,
-                    boxShadow: `0 10px 24px ${themeColors.shadowColor}`,
+                    boxShadow: `0 12px 32px ${themeColors.shadowColor}`,
                   }}
                 >
-                  {isSelected ? 'Selected Book' : 'Choose This Book'}
+                  {isSelected ? '✓ Selected Book' : 'Choose This Book'}
                 </div>
               </div>
             </button>

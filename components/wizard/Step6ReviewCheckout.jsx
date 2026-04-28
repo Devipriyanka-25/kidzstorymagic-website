@@ -827,19 +827,66 @@ export default function Step6ReviewCheckout() {
           pageCount: formData.pageCount || 20,
         };
 
-      const storyResponse = await storyAPI.generateStory(
-        formData.projectId,
-        customPrompt,
-        resolvedLanguage || 'en',
-        storyData
-      );
+      // Get child photo URL from uploaded images or photo
+      const childPhotoUrl =
+        (Array.isArray(formData.uploadedImages) && formData.uploadedImages.length > 0
+          ? formData.uploadedImages[0]?.preview
+          : null) ||
+        formData.uploadedPhoto?.watermarkedUrl ||
+        null;
 
-      const pages = storyResponse.data.story.pages || [];
-      const nextPages = pages.length > 0 ? pages : [{}];
-      setStoryPreview(nextPages);
-      setPageGenerationStates(
-        buildInitialPageGenerationStates(nextPages, shouldGateIllustrations)
-      );
+      // Check if face swap should be enabled
+      const enableFaceSwap = Boolean(childPhotoUrl);
+
+      // Use new face swap pipeline endpoint if photo is available
+      if (enableFaceSwap) {
+        const faceSwapResponse = await fetch('/api/story/generate-with-faceswap', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            projectId: formData.projectId,
+            childName: formData.childName || 'Child',
+            childAge: parseInt(formData.ageGroup?.split('-')[0]) || 5,
+            theme: formData.theme || 'animal-adventure',
+            childPhotoUrl,
+            enableFaceSwap: true,
+            pageCount: formData.pageCount || 20,
+            userId: authUser?.id,
+          }),
+        });
+
+        if (!faceSwapResponse.ok) {
+          const errorData = await faceSwapResponse.json();
+          throw new Error(errorData.error || 'Failed to generate story with face swap');
+        }
+
+        const storyResponse = await faceSwapResponse.json();
+        const pages = storyResponse.story?.pages || storyResponse.pages || [];
+        const nextPages = pages.length > 0 ? pages : [{}];
+        setStoryPreview(nextPages);
+        setPageGenerationStates(
+          buildInitialPageGenerationStates(nextPages, shouldGateIllustrations)
+        );
+      } else {
+        // Fallback to original story generation if no photo
+        const storyResponse = await storyAPI.generateStory(
+          formData.projectId,
+          customPrompt,
+          resolvedLanguage || 'en',
+          storyData
+        );
+
+        const pages = storyResponse.data.story.pages || [];
+        const nextPages = pages.length > 0 ? pages : [{}];
+        setStoryPreview(nextPages);
+        setPageGenerationStates(
+          buildInitialPageGenerationStates(nextPages, shouldGateIllustrations)
+        );
+      }
+
       setPreviewPrepProgress(42);
       setPreviewPrepDetail(
         shouldGateIllustrations
@@ -1467,9 +1514,9 @@ export default function Step6ReviewCheckout() {
                     </div>
                   ) : (
                     <>
-                      {storyPreview[index].illustrationUrl ? (
+                      {storyPreview[index].faceSwappedUrl || storyPreview[index].illustrationUrl ? (
                         <img
-                          src={storyPreview[index].illustrationUrl}
+                          src={storyPreview[index].faceSwappedUrl || storyPreview[index].illustrationUrl}
                           alt={`Page ${index + 1}`}
                           className="h-full w-full object-cover"
                           onError={(event) => {
@@ -1607,10 +1654,10 @@ export default function Step6ReviewCheckout() {
                             >
                               E
                             </div>
-                          ) : storyPreview[index].illustrationUrl ? (
+                          ) : storyPreview[index].faceSwappedUrl || storyPreview[index].illustrationUrl ? (
                             <div className="relative h-full w-full">
                               <img
-                                src={storyPreview[index].illustrationUrl}
+                                src={storyPreview[index].faceSwappedUrl || storyPreview[index].illustrationUrl}
                                 alt={`Page ${index + 1}`}
                                 className="h-full w-full object-cover"
                                 onError={(event) => {
