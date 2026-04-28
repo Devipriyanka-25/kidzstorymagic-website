@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import PDFPreviewModal from './PDFPreviewModal';
 import CharacterConsistentStoryPage from '@/components/story/CharacterConsistentStoryPage';
 import { useLanguage } from '@/hooks/useLanguage';
-import { storyAPI, paymentAPI, faceSwapAPI, emailAPI } from '@/utils/api';
+import { storyAPI, paymentAPI, emailAPI } from '@/utils/api';
 import {
   useWizardStore,
   useCurrencyStore,
@@ -16,6 +16,13 @@ import {
   prepareReferenceImagesForGeneration,
   readIllustrationApiPayload,
 } from '@/utils/subjectImage';
+import {
+  COUNTRY_CURRENCY_OPTIONS,
+  CURRENCY_SYMBOLS,
+  getConvertedStoryPrice,
+  getCountryCurrencyOption,
+  getCountryOptionByCurrency,
+} from '@/utils/pricing';
 
 const isIllustratedStoryPage = (page) => page?.pageType === 'story';
 const PREVIEW_SUPPORT_EMAIL = 'support@kidzstorymagic.com';
@@ -144,18 +151,6 @@ function createTimedFallbackIllustration({
         </text>`
     )
     .join('');
-  const photoBadge = isEmbeddablePreviewImage(subjectImage)
-    ? `
-      <circle cx="918" cy="124" r="66" fill="#ffffff" fill-opacity="0.96" />
-      <circle cx="918" cy="124" r="70" fill="none" stroke="#ffffff" stroke-width="8" />
-      <circle cx="918" cy="124" r="74" fill="none" stroke="${theme.accentColor}" stroke-width="8" stroke-opacity="0.95" />
-      <clipPath id="subjectBadgeClip">
-        <circle cx="918" cy="124" r="62" />
-      </clipPath>
-      <image href="${escapePreviewSvgText(subjectImage)}" x="856" y="62" width="124" height="124" preserveAspectRatio="xMidYMid slice" clip-path="url(#subjectBadgeClip)" />
-    `
-    : '';
-
   const svg = `
     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1100 1400" role="img" aria-label="Storybook preview illustration">
       <defs>
@@ -196,7 +191,6 @@ function createTimedFallbackIllustration({
       <text x="160" y="162" fill="#c2410c" font-family="Verdana, Arial, sans-serif" font-size="24" font-weight="700" letter-spacing="6">
         STORYBOOK SCENE
       </text>
-      ${photoBadge}
       <text x="126" y="612" fill="#ffffff" font-family="Verdana, Arial, sans-serif" font-size="84" font-weight="700">
         Colorful Preview
       </text>
@@ -422,7 +416,13 @@ async function createStoryPageIllustration({
 
 export default function Step6ReviewCheckout() {
   const { formData, prevStep } = useWizardStore();
-  const { currency = 'USD', exchangeRates } = useCurrencyStore();
+  const {
+    selectedCountry = 'United States',
+    selectedCurrency = 'USD',
+    exchangeRates,
+    setCountry,
+    setCurrency,
+  } = useCurrencyStore();
   const authUser = useAuthStore((state) => state.user);
   const { currentLanguage } = useLanguage();
   const [loading, setLoading] = useState(false);
@@ -445,70 +445,55 @@ export default function Step6ReviewCheckout() {
   const [previewEmailSentTo, setPreviewEmailSentTo] = useState('');
   const [quoteIndex, setQuoteIndex] = useState(0);
 
-  // Face swap state
-  const [isFaceSwapping, setIsFaceSwapping] = useState(false);
-  const [faceSwapProgress, setFaceSwapProgress] = useState(0);
-  const [swappedPages, setSwappedPages] = useState({});
   const [selectedFaceImage, setSelectedFaceImage] = useState(null);
   const [selectedFaceReferenceImage, setSelectedFaceReferenceImage] = useState(null);
 
-  const basePriceUSD = {
-    10: 9.99,
-    20: 14.99,
-    30: 19.99,
-  }[formData.pageCount] || 9.99;
-
-  const exchangeRate = exchangeRates[currency] || 1;
-  const price = (basePriceUSD * exchangeRate).toFixed(2);
-
-  const currencySymbols = {
-    USD: '$',
-    CAD: 'C$',
-    GBP: 'GBP ',
-    EUR: 'EUR ',
-    AUD: 'A$',
-    INR: 'INR ',
-  };
+  const {
+    amount: convertedPrice,
+    currency,
+  } = getConvertedStoryPrice(formData.pageCount, selectedCurrency, exchangeRates);
+  const price = convertedPrice.toFixed(2);
+  const selectedCountryOption =
+    getCountryCurrencyOption(selectedCountry) ||
+    getCountryOptionByCurrency(currency) ||
+    COUNTRY_CURRENCY_OPTIONS[0];
 
   const getActiveTheme = () =>
     getTheme(formData.illustrationStyle || formData.theme || 'fantasy');
 
   const currentTheme = getActiveTheme();
   const selectedThemeLabel = getBookThemeLabel(formData.theme);
-  const storyReferenceImages = useMemo(() => {
-    const orderedImages = [];
-
+  const preferredStoryReferenceImage = useMemo(() => {
     if (selectedFaceReferenceImage) {
-      orderedImages.push(selectedFaceReferenceImage);
-    }
-
-    if (Array.isArray(formData.uploadedImages)) {
-      formData.uploadedImages.forEach((photo) => {
-        const candidate =
-          photo?.illustrationReference || photo?.preview || null;
-
-        if (candidate) {
-          orderedImages.push(candidate);
-        }
-      });
+      return String(selectedFaceReferenceImage || '').trim();
     }
 
     if (formData.uploadedPhoto?.watermarkedUrl) {
-      orderedImages.push(formData.uploadedPhoto.watermarkedUrl);
+      return String(formData.uploadedPhoto.watermarkedUrl || '').trim();
     }
 
-    return Array.from(
-      new Set(
-        orderedImages
-          .map((value) => String(value || '').trim())
-          .filter(Boolean)
-      )
-    ).slice(0, 4);
+    if (Array.isArray(formData.uploadedImages)) {
+      const firstPhoto = formData.uploadedImages.find(
+        (photo) => photo?.illustrationReference || photo?.preview
+      );
+
+      if (firstPhoto) {
+        return String(
+          firstPhoto.illustrationReference || firstPhoto.preview || ''
+        ).trim();
+      }
+    }
+
+    return '';
   }, [
     formData.uploadedImages,
     formData.uploadedPhoto?.watermarkedUrl,
     selectedFaceReferenceImage,
   ]);
+  const storyReferenceImages = useMemo(
+    () => (preferredStoryReferenceImage ? [preferredStoryReferenceImage] : []),
+    [preferredStoryReferenceImage]
+  );
   const storySubjectImage = storyReferenceImages[0] || null;
   const shouldGateIllustrations = Boolean(storySubjectImage);
 
@@ -612,7 +597,7 @@ export default function Step6ReviewCheckout() {
       }
     }
 
-    return getBookThemePreviewArt(formData.theme, storySubjectImage || '');
+    return getBookThemePreviewArt(formData.theme, '');
   }, [formData.theme, storyPreview, storySubjectImage]);
   const illustrationsRemainingCount = Array.isArray(storyPreview)
     ? storyPreview.filter(
@@ -656,6 +641,66 @@ export default function Step6ReviewCheckout() {
     ['not configured', 'test mode', 'verify a domain', 'testing emails'].some(
       (needle) => previewEmailFeedback.toLowerCase().includes(needle)
     );
+  const handleCountryChange = (event) => {
+    const nextCountry = String(event?.target?.value || '');
+    const nextOption = getCountryCurrencyOption(nextCountry);
+
+    if (!nextOption) {
+      return;
+    }
+
+    setCountry(nextOption.country);
+    setCurrency(nextOption.currency);
+  };
+
+  useEffect(() => {
+    if (selectedFaceImage || selectedFaceReferenceImage) {
+      return;
+    }
+
+    if (Array.isArray(formData.uploadedImages) && formData.uploadedImages.length > 0) {
+      const defaultPhoto = formData.uploadedImages[0];
+      setSelectedFaceImage(defaultPhoto?.preview || null);
+      setSelectedFaceReferenceImage(
+        defaultPhoto?.illustrationReference || defaultPhoto?.preview || null
+      );
+      return;
+    }
+
+    if (formData.uploadedPhoto?.watermarkedUrl) {
+      setSelectedFaceImage(formData.uploadedPhoto.watermarkedUrl);
+      setSelectedFaceReferenceImage(formData.uploadedPhoto.watermarkedUrl);
+    }
+  }, [
+    formData.uploadedImages,
+    formData.uploadedPhoto?.watermarkedUrl,
+    selectedFaceImage,
+    selectedFaceReferenceImage,
+  ]);
+
+  useEffect(() => {
+    if (selectedCountry !== 'United States' || selectedCurrency !== 'USD') {
+      return;
+    }
+
+    const preferredCurrency = String(authUser?.preferredCurrency || '').trim().toUpperCase();
+    if (!preferredCurrency) {
+      return;
+    }
+
+    const preferredOption = getCountryOptionByCurrency(preferredCurrency);
+
+    if (preferredOption) {
+      setCountry(preferredOption.country);
+      setCurrency(preferredOption.currency);
+    }
+  }, [
+    authUser?.preferredCurrency,
+    selectedCountry,
+    selectedCurrency,
+    setCountry,
+    setCurrency,
+  ]);
 
   const handleRetryPreviewPreparation = () => {
     if (firstIllustratedPageIndex === -1) {
@@ -1028,80 +1073,11 @@ export default function Step6ReviewCheckout() {
     }
   };
 
-  const handleFaceSwap = async () => {
-    if (
-      !selectedFaceImage ||
-      !storyPreview ||
-      currentPage === 0 ||
-      currentPage === storyPreview.length - 1 ||
-      !isPageIllustrationReady(storyPreview[currentPage], currentPage)
-    ) {
-      setError('Please select a face image and a story page.');
-      return;
-    }
-
-    setIsFaceSwapping(true);
-    setFaceSwapProgress(0);
-    setError('');
-
-    try {
-      const page = storyPreview[currentPage];
-
-      if (!page.illustrationUrl) {
-        setError('This page does not have an illustration yet.');
-        setIsFaceSwapping(false);
-        return;
-      }
-
-      setFaceSwapProgress(25);
-
-      const result = await faceSwapAPI.swapFaceDeepAI(
-        selectedFaceImage,
-        page.illustrationUrl,
-        {
-          pageNumber: currentPage,
-          childName: formData.childName,
-          storyId: formData.projectId,
-        }
-      );
-
-      setFaceSwapProgress(100);
-
-      const swappedUrl = result?.data?.swappedUrl || result?.swappedUrl;
-      if (swappedUrl) {
-        setStoryPreview((currentPages) => {
-          const nextPages = [...currentPages];
-          nextPages[currentPage] = {
-            ...nextPages[currentPage],
-            illustrationUrl: swappedUrl,
-          };
-          return nextPages;
-        });
-
-        setSwappedPages((prev) => ({
-          ...prev,
-          [currentPage]: true,
-        }));
-      }
-    } catch (err) {
-      console.error('[FACE_SWAP_ERROR]', err);
-      setError(
-        err.response?.data?.error ||
-          err.message ||
-          'Face swap failed. Please try again.'
-      );
-    } finally {
-      setIsFaceSwapping(false);
-      setFaceSwapProgress(0);
-    }
-  };
-
   const handleSelectFaceImage = (photo) => {
     setSelectedFaceImage(photo?.preview || null);
     setSelectedFaceReferenceImage(
       photo?.illustrationReference || photo?.preview || null
     );
-    setSwappedPages({});
   };
 
   useEffect(() => {
@@ -1174,6 +1150,8 @@ export default function Step6ReviewCheckout() {
       const response = await paymentAPI.createCheckout({
         projectId: formData.projectId,
         currency,
+        country: selectedCountryOption.country,
+        pageCount: formData.pageCount,
       });
 
       if (response.data.checkoutUrl) {
@@ -1503,11 +1481,6 @@ export default function Step6ReviewCheckout() {
                           Scene
                         </div>
                       )}
-                      {swappedPages[index] && (
-                        <div className="absolute right-1 top-1 flex h-5 w-5 items-center justify-center rounded-full bg-green-500 text-xs font-bold text-white">
-                          S
-                        </div>
-                      )}
                     </>
                   )}
                 </button>
@@ -1644,11 +1617,6 @@ export default function Step6ReviewCheckout() {
                                   event.target.style.display = 'none';
                                 }}
                               />
-                              {swappedPages[index] && (
-                                <div className="absolute right-0 top-0 flex h-4 w-4 items-center justify-center rounded-full bg-green-500 text-xs font-bold text-white">
-                                  S
-                                </div>
-                              )}
                             </div>
                           ) : (
                             <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-amber-100 to-rose-100 text-[10px] font-bold text-slate-600">
@@ -1660,7 +1628,56 @@ export default function Step6ReviewCheckout() {
                     </div>
                   </div>
 
-                  <div className="mb-4 grid grid-cols-2 gap-2 text-sm md:grid-cols-4">
+                  <div
+                    className="mb-4 rounded-2xl border bg-white/90 p-4 shadow-sm"
+                    style={{ borderColor: `${currentTheme.primary}25` }}
+                  >
+                    <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+                      <div>
+                        <p
+                          className="text-xs font-black uppercase tracking-[0.24em]"
+                          style={{ color: currentTheme.primary }}
+                        >
+                          Pricing Region
+                        </p>
+                        <p className="mt-1 text-sm text-gray-600">
+                          Choose the checkout country and we will update the
+                          currency and preview price instantly.
+                        </p>
+                      </div>
+
+                      <div className="w-full md:max-w-sm">
+                        <label
+                          htmlFor="checkout-country"
+                          className="mb-2 block text-xs font-bold text-gray-600"
+                        >
+                          Country
+                        </label>
+                        <select
+                          id="checkout-country"
+                          value={selectedCountryOption.country}
+                          onChange={handleCountryChange}
+                          className="w-full rounded-xl border bg-white px-4 py-3 text-sm font-semibold text-gray-900 shadow-sm outline-none transition-all focus:ring-2"
+                          style={{
+                            borderColor: `${currentTheme.primary}40`,
+                            boxShadow: `0 0 0 0 ${currentTheme.primary}`,
+                          }}
+                        >
+                          {COUNTRY_CURRENCY_OPTIONS.map((option) => (
+                            <option key={option.country} value={option.country}>
+                              {option.country} ({option.currency})
+                            </option>
+                          ))}
+                        </select>
+                        <p className="mt-2 text-xs text-gray-500">
+                          Billing preview: {CURRENCY_SYMBOLS[currency]}
+                          {price} for {formData.pageCount} pages
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="mb-4 grid grid-cols-2 gap-2 text-sm md:grid-cols-5">
                     <div
                       className="rounded-lg p-2"
                       style={{ background: currentTheme.light }}
@@ -1704,14 +1721,28 @@ export default function Step6ReviewCheckout() {
                       className="rounded-lg p-2"
                       style={{ background: currentTheme.light }}
                     >
+                      <p className="mb-1 text-xs font-bold text-gray-600">Country</p>
+                      <p
+                        className="text-sm font-black"
+                        style={{ color: currentTheme.primary }}
+                      >
+                        {selectedCountryOption.country}
+                      </p>
+                    </div>
+
+                    <div
+                      className="rounded-lg p-2"
+                      style={{ background: currentTheme.light }}
+                    >
                       <p className="mb-1 text-xs font-bold text-gray-600">Price</p>
                       <p
                         className="text-sm font-black"
                         style={{ color: currentTheme.primary }}
                       >
-                        {currencySymbols[currency]}
+                        {CURRENCY_SYMBOLS[currency]}
                         {price}
                       </p>
+                      <p className="mt-1 text-xs text-gray-500">{currency}</p>
                     </div>
                   </div>
 
@@ -1724,12 +1755,12 @@ export default function Step6ReviewCheckout() {
                         className="mb-4 text-xl font-bold"
                         style={{ color: currentTheme.primary }}
                       >
-                        Primary Character Photo
+                        Main Character Reference
                       </h3>
 
                       <div className="mb-4">
                         <p className="mb-3 text-sm font-semibold text-gray-700">
-                          Select the clearest front-facing child photo. We use this as the main reference for the 3D cartoon story pages:
+                          Select the clearest front-facing child photo. We now use only this selected photo as the main identity reference so the generated cartoon face stays closer to your child:
                         </p>
                         <div className="flex gap-3 overflow-x-auto pb-2">
                           {formData.uploadedImages.map((photo, idx) => (
@@ -1762,46 +1793,22 @@ export default function Step6ReviewCheckout() {
 
                       <div className="flex items-center gap-3">
                         <button
-                          onClick={handleFaceSwap}
-                          disabled={
-                            isFaceSwapping ||
-                            !selectedFaceImage ||
-                            currentPage === 0 ||
-                            currentPage === storyPreview.length - 1 ||
-                            !isPageIllustrationReady(storyPreview[currentPage], currentPage)
-                          }
+                          type="button"
+                          onClick={() => handleGenerateStory()}
+                          disabled={loading || !selectedFaceReferenceImage}
                           className="flex-1 rounded-lg px-4 py-3 font-bold text-white transition-all duration-300 hover:scale-105 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
                           style={{
-                            background: isFaceSwapping
-                              ? '#999'
-                              : currentTheme.gradient,
+                            background: currentTheme.gradient,
                           }}
                         >
-                          {isFaceSwapping
-                            ? `Swapping... ${faceSwapProgress}%`
-                            : swappedPages[currentPage]
-                              ? 'Face Swapped'
-                              : 'Swap Face on This Page'}
+                          {loading
+                            ? 'Regenerating...'
+                            : 'Regenerate Preview With Selected Photo'}
                         </button>
                       </div>
-
-                      {currentPage === 0 && (
-                        <p className="mt-2 text-xs text-gray-600">
-                          Cover page selected. Move to a story page to swap.
-                        </p>
-                      )}
-                      {currentPage === storyPreview.length - 1 && (
-                        <p className="mt-2 text-xs text-gray-600">
-                          End page selected. Move to a story page to swap.
-                        </p>
-                      )}
-                      {selectedFaceImage &&
-                        currentPage !== 0 &&
-                        currentPage !== storyPreview.length - 1 && (
-                          <p className="mt-2 text-xs text-green-700">
-                            Ready to swap this page.
-                          </p>
-                        )}
+                      <p className="mt-2 text-xs text-gray-600">
+                        This rebuilds the preview using the selected photo as the primary face reference instead of blending multiple child photos.
+                      </p>
                     </div>
                   )}
 
@@ -1855,7 +1862,7 @@ export default function Step6ReviewCheckout() {
                     >
                       {loading
                         ? 'Processing...'
-                        : `${currencySymbols[currency]}${price} - Checkout`}
+                        : `${CURRENCY_SYMBOLS[currency]}${price} - Checkout`}
                     </button>
                   </div>
 

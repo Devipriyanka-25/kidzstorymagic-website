@@ -157,6 +157,62 @@ export const ILLUSTRATION_THEMES = {
     shadowColor: "rgba(124, 58, 237, 0.28)",
     accentColor: "#FBBF24",
   },
+  celebration: {
+    value: "celebration",
+    label: "Celebration",
+    description: "Golden party light, elegant joy, and welcoming event energy.",
+    primary: "#DB2777",
+    secondary: "#FBCFE8",
+    light: "#FFF1F7",
+    dark: "#831843",
+    gradient:
+      "linear-gradient(135deg, #F472B6 0%, #DB2777 48%, #F59E0B 100%)",
+    borderColor: "#DB2777",
+    shadowColor: "rgba(219, 39, 119, 0.26)",
+    accentColor: "#F59E0B",
+  },
+  birthday: {
+    value: "birthday",
+    label: "Birthday",
+    description: "Confetti color, candles, and spotlight celebration magic.",
+    primary: "#EA580C",
+    secondary: "#FED7AA",
+    light: "#FFF7ED",
+    dark: "#9A3412",
+    gradient:
+      "linear-gradient(135deg, #F97316 0%, #EA580C 48%, #FACC15 100%)",
+    borderColor: "#EA580C",
+    shadowColor: "rgba(234, 88, 12, 0.26)",
+    accentColor: "#EC4899",
+  },
+  gala: {
+    value: "gala",
+    label: "Gala",
+    description: "Elegant lights, floral warmth, and polished keepsake glamour.",
+    primary: "#7C2D12",
+    secondary: "#FDE68A",
+    light: "#FFF8E7",
+    dark: "#4A1D0F",
+    gradient:
+      "linear-gradient(135deg, #7C2D12 0%, #B45309 52%, #FDE68A 100%)",
+    borderColor: "#7C2D12",
+    shadowColor: "rgba(124, 45, 18, 0.26)",
+    accentColor: "#FBBF24",
+  },
+  tribute: {
+    value: "tribute",
+    label: "Tribute",
+    description: "Heartfelt spotlight, rich color, and premium gift-book warmth.",
+    primary: "#9F1239",
+    secondary: "#FBCFE8",
+    light: "#FFF1F2",
+    dark: "#500724",
+    gradient:
+      "linear-gradient(135deg, #BE123C 0%, #9F1239 45%, #F59E0B 100%)",
+    borderColor: "#9F1239",
+    shadowColor: "rgba(159, 18, 57, 0.26)",
+    accentColor: "#F59E0B",
+  },
 };
 
 const BOOK_THEME_MAP = {
@@ -288,11 +344,143 @@ const BOOK_THEME_MAP = {
       <path d="M388 226 C422 206, 452 208, 482 228 C448 240, 420 248, 388 226 Z" stroke="#F472B6" stroke-width="8" fill="none" stroke-linecap="round" />
     `,
   },
+  "family-celebration": {
+    value: "family-celebration",
+    label: "Family Celebration",
+    ageRange: "Ages: 12+",
+    ageRangeShort: "12+",
+    description: "Garden parties, loving family moments, and keepsake celebration warmth.",
+    storyTheme: "celebration",
+    illustrationTheme: "celebration",
+    titleTemplate: (childName) => `${childName}'s Family Celebration`,
+    cardGradient: "linear-gradient(180deg, #F7C6E7 0%, #F59E0B 100%)",
+    anchorPoint: "M536 244 C502 280, 466 320, 426 362",
+    sceneMarkup: `
+      <circle cx="114" cy="92" r="82" fill="#FFFFFF" fill-opacity="0.18" />
+      <path d="M0 378 C132 306, 272 322, 404 390 S554 454, 640 426 L640 540 L0 540 Z" fill="#FBCFE8" fill-opacity="0.42" />
+      <path d="M0 420 C154 350, 290 360, 434 426 S566 482, 640 452 L640 540 L0 540 Z" fill="#FDBA74" fill-opacity="0.44" />
+      <path d="M72 134 L566 134" stroke="#FFFFFF" stroke-width="8" stroke-linecap="round" stroke-dasharray="12 12" opacity="0.86" />
+      <path d="M112 134 L138 170 L164 134 L190 170 L216 134 L242 170 L268 134" fill="none" stroke="#F59E0B" stroke-width="8" stroke-linecap="round" />
+      <path d="M316 134 L342 170 L368 134 L394 170 L420 134 L446 170 L472 134" fill="none" stroke="#EC4899" stroke-width="8" stroke-linecap="round" />
+      <circle cx="212" cy="318" r="28" fill="#F8D3B0" />
+      <rect x="184" y="346" width="64" height="108" rx="24" fill="#DB2777" />
+      <path d="M176 372 L136 414" stroke="#DB2777" stroke-width="18" stroke-linecap="round" />
+      <path d="M256 372 L302 336" stroke="#DB2777" stroke-width="18" stroke-linecap="round" />
+      <path d="M204 448 L184 516" stroke="#DB2777" stroke-width="18" stroke-linecap="round" />
+      <path d="M228 448 L260 514" stroke="#DB2777" stroke-width="18" stroke-linecap="round" />
+      <circle cx="398" cy="292" r="24" fill="#FDE68A" />
+      <rect x="360" y="316" width="78" height="80" rx="18" fill="#FFF7ED" fill-opacity="0.96" />
+      <rect x="372" y="332" width="54" height="18" rx="8" fill="#F59E0B" fill-opacity="0.48" />
+      <rect x="372" y="360" width="54" height="18" rx="8" fill="#EC4899" fill-opacity="0.42" />
+      <circle cx="324" cy="226" r="12" fill="#F59E0B" />
+      <circle cx="356" cy="202" r="10" fill="#F472B6" />
+      <circle cx="394" cy="226" r="12" fill="#FB7185" />
+      <circle cx="434" cy="202" r="10" fill="#F59E0B" />
+    `,
+  },
+  "birthday-bash": {
+    value: "birthday-bash",
+    label: "Birthday Bash",
+    ageRange: "Ages: 12+",
+    ageRangeShort: "12+",
+    description: "Cake, candles, balloons, and a joyful spotlight birthday story.",
+    storyTheme: "birthday",
+    illustrationTheme: "birthday",
+    titleTemplate: (childName) => `${childName}'s Birthday Bash`,
+    cardGradient: "linear-gradient(180deg, #7DD3FC 0%, #F97316 100%)",
+    anchorPoint: "M536 246 C504 284, 468 324, 426 364",
+    sceneMarkup: `
+      <circle cx="500" cy="84" r="68" fill="#FFF7ED" fill-opacity="0.38" />
+      <path d="M0 386 C138 314, 280 326, 410 392 S558 452, 640 426 L640 540 L0 540 Z" fill="#FDBA74" fill-opacity="0.42" />
+      <path d="M0 426 C154 354, 304 362, 444 426 S572 482, 640 454 L640 540 L0 540 Z" fill="#FDE68A" fill-opacity="0.48" />
+      <circle cx="148" cy="122" r="26" fill="#EC4899" />
+      <circle cx="204" cy="160" r="22" fill="#F59E0B" />
+      <circle cx="490" cy="148" r="28" fill="#38BDF8" />
+      <circle cx="548" cy="114" r="22" fill="#A855F7" />
+      <circle cx="248" cy="312" r="28" fill="#F8D3B0" />
+      <rect x="220" y="340" width="64" height="106" rx="24" fill="#F97316" />
+      <path d="M212 366 L166 408" stroke="#F97316" stroke-width="18" stroke-linecap="round" />
+      <path d="M292 366 L338 332" stroke="#F97316" stroke-width="18" stroke-linecap="round" />
+      <path d="M236 444 L212 514" stroke="#F97316" stroke-width="18" stroke-linecap="round" />
+      <path d="M262 444 L296 512" stroke="#F97316" stroke-width="18" stroke-linecap="round" />
+      <rect x="366" y="314" width="92" height="78" rx="18" fill="#FFF7ED" fill-opacity="0.96" />
+      <rect x="380" y="332" width="64" height="18" rx="8" fill="#F9A8D4" />
+      <rect x="376" y="354" width="72" height="16" rx="8" fill="#FDBA74" />
+      <path d="M388 314 L388 284" stroke="#F59E0B" stroke-width="5" stroke-linecap="round" />
+      <path d="M412 314 L412 280" stroke="#F59E0B" stroke-width="5" stroke-linecap="round" />
+      <path d="M436 314 L436 284" stroke="#F59E0B" stroke-width="5" stroke-linecap="round" />
+      <circle cx="388" cy="276" r="8" fill="#FDE68A" />
+      <circle cx="412" cy="270" r="8" fill="#FDE68A" />
+      <circle cx="436" cy="276" r="8" fill="#FDE68A" />
+    `,
+  },
+  "festive-gathering": {
+    value: "festive-gathering",
+    label: "Festive Gathering",
+    ageRange: "Ages: 12+",
+    ageRangeShort: "12+",
+    description: "Community joy, cultural togetherness, and bright event atmosphere.",
+    storyTheme: "gathering",
+    illustrationTheme: "gala",
+    titleTemplate: (childName) => `${childName}'s Festive Gathering`,
+    cardGradient: "linear-gradient(180deg, #2DD4BF 0%, #F59E0B 100%)",
+    anchorPoint: "M534 246 C500 282, 466 322, 424 364",
+    sceneMarkup: `
+      <circle cx="132" cy="96" r="84" fill="#FFFFFF" fill-opacity="0.14" />
+      <path d="M0 390 C142 314, 278 326, 402 390 S550 452, 640 424 L640 540 L0 540 Z" fill="#A7F3D0" fill-opacity="0.44" />
+      <path d="M0 430 C154 356, 308 366, 444 432 S570 484, 640 454 L640 540 L0 540 Z" fill="#FCD34D" fill-opacity="0.42" />
+      <path d="M70 148 L566 148" stroke="#FFFFFF" stroke-width="8" stroke-linecap="round" stroke-dasharray="10 14" opacity="0.86" />
+      <path d="M110 148 L136 180 L162 148 L188 180 L214 148 L240 180 L266 148 L292 180 L318 148" fill="none" stroke="#14B8A6" stroke-width="8" stroke-linecap="round" />
+      <path d="M352 148 L378 180 L404 148 L430 180 L456 148 L482 180 L508 148" fill="none" stroke="#F59E0B" stroke-width="8" stroke-linecap="round" />
+      <circle cx="250" cy="316" r="28" fill="#F8D3B0" />
+      <rect x="222" y="344" width="64" height="108" rx="24" fill="#0F766E" />
+      <path d="M214 370 L170 408" stroke="#0F766E" stroke-width="18" stroke-linecap="round" />
+      <path d="M294 368 L338 334" stroke="#0F766E" stroke-width="18" stroke-linecap="round" />
+      <path d="M238 448 L214 514" stroke="#0F766E" stroke-width="18" stroke-linecap="round" />
+      <path d="M264 448 L296 514" stroke="#0F766E" stroke-width="18" stroke-linecap="round" />
+      <circle cx="414" cy="258" r="22" fill="#FDE68A" />
+      <circle cx="470" cy="276" r="22" fill="#FB7185" />
+      <circle cx="526" cy="258" r="22" fill="#38BDF8" />
+      <rect x="400" y="322" width="146" height="18" rx="9" fill="#FFF7ED" fill-opacity="0.82" />
+      <rect x="410" y="348" width="126" height="14" rx="7" fill="#FFF7ED" fill-opacity="0.68" />
+    `,
+  },
+  "heartfelt-tribute": {
+    value: "heartfelt-tribute",
+    label: "Heartfelt Tribute",
+    ageRange: "Ages: 12+",
+    ageRangeShort: "12+",
+    description: "A premium keepsake theme for love, gratitude, and meaningful memories.",
+    storyTheme: "tribute",
+    illustrationTheme: "tribute",
+    titleTemplate: (childName) => `Why ${childName} Is So Loved`,
+    cardGradient: "linear-gradient(180deg, #7F1D1D 0%, #F59E0B 100%)",
+    anchorPoint: "M534 246 C500 284, 466 324, 424 362",
+    sceneMarkup: `
+      <rect x="0" y="0" width="640" height="540" fill="#7F1D1D" fill-opacity="0.16" />
+      <circle cx="520" cy="86" r="62" fill="#FFFFFF" fill-opacity="0.12" />
+      <path d="M0 390 C138 316, 280 326, 408 392 S556 452, 640 424 L640 540 L0 540 Z" fill="#FB7185" fill-opacity="0.24" />
+      <path d="M0 428 C154 358, 306 368, 446 430 S572 484, 640 454 L640 540 L0 540 Z" fill="#F59E0B" fill-opacity="0.24" />
+      <path d="M128 116 C148 82, 204 82, 224 118 C234 146, 222 168, 196 186 C170 168, 120 146, 128 116 Z" fill="#FDE68A" fill-opacity="0.84" />
+      <path d="M166 118 C182 94, 220 94, 236 118 C244 138, 236 154, 214 168 C192 154, 158 138, 166 118 Z" fill="#FFF7ED" fill-opacity="0.92" />
+      <circle cx="256" cy="318" r="28" fill="#F8D3B0" />
+      <rect x="228" y="346" width="64" height="108" rx="24" fill="#9F1239" />
+      <path d="M220 372 L176 412" stroke="#9F1239" stroke-width="18" stroke-linecap="round" />
+      <path d="M300 372 L344 338" stroke="#9F1239" stroke-width="18" stroke-linecap="round" />
+      <path d="M242 448 L220 514" stroke="#9F1239" stroke-width="18" stroke-linecap="round" />
+      <path d="M268 448 L300 514" stroke="#9F1239" stroke-width="18" stroke-linecap="round" />
+      <circle cx="420" cy="270" r="34" fill="#FFFFFF" fill-opacity="0.82" />
+      <path d="M404 264 C412 250, 434 250, 442 264 C446 276, 440 286, 428 296 C416 286, 402 276, 404 264 Z" fill="#FB7185" />
+      <rect x="380" y="326" width="104" height="54" rx="18" fill="#FFF7ED" fill-opacity="0.92" />
+      <rect x="394" y="344" width="76" height="10" rx="5" fill="#F59E0B" fill-opacity="0.48" />
+      <rect x="404" y="360" width="56" height="8" rx="4" fill="#FB7185" fill-opacity="0.4" />
+    `,
+  },
   customizable: {
     value: "customizable",
     label: "Custom Magic",
-    ageRange: "Ages: 2 to 8",
-    ageRangeShort: "2 to 8",
+    ageRange: "All ages",
+    ageRangeShort: "All ages",
     description: "Design your own world with a custom scene direction.",
     storyTheme: "adventure",
     illustrationTheme: "fantasy",
@@ -364,14 +552,25 @@ function buildBookThemeSvg(theme, referenceImage) {
 
 export const STORY_THEMES = Object.values(BOOK_THEME_MAP);
 
+const ADULT_BOOK_THEME_VALUES = new Set([
+  "family-celebration",
+  "birthday-bash",
+  "festive-gathering",
+  "heartfelt-tribute",
+]);
+
 const LEGACY_BOOK_THEME_ALIASES = {
-  family: "goodnight-garage",
+  family: "family-celebration",
   friends: "animal-adventure",
   motivational: "dino-quest",
   behavioural: "goodnight-garage",
   fairytale: "unicorn-magic",
   fantasy: "unicorn-magic",
   adventure: "animal-adventure",
+  birthday: "birthday-bash",
+  congregation: "festive-gathering",
+  celebration: "family-celebration",
+  tribute: "heartfelt-tribute",
 };
 
 export function getBookTheme(themeValue) {
@@ -380,6 +579,22 @@ export function getBookTheme(themeValue) {
     : LEGACY_BOOK_THEME_ALIASES[themeValue];
 
   return BOOK_THEME_MAP[normalizedTheme] || BOOK_THEME_MAP["animal-adventure"];
+}
+
+export function getStoryThemesForAgeGroup(ageGroup) {
+  const isAdultAudience = String(ageGroup || "").trim() === "12+";
+
+  return STORY_THEMES.filter((theme) => {
+    if (theme.value === "customizable") {
+      return true;
+    }
+
+    if (isAdultAudience) {
+      return ADULT_BOOK_THEME_VALUES.has(theme.value);
+    }
+
+    return !ADULT_BOOK_THEME_VALUES.has(theme.value);
+  });
 }
 
 export function getBookThemeLabel(themeValue) {

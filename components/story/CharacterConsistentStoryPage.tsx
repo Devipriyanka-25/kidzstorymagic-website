@@ -163,7 +163,6 @@ export default function CharacterConsistentStoryPage({
   const pageNumberLabel = page.pageNumber || pageIndex + 1;
   const pageTitle = page.title || `Page ${pageIndex + 1}`;
   const pageBody = page.page_text || page.text || "";
-  const hasReferencePhoto = Boolean(subjectImage);
   const displayIllustrationUrl = imageUrl || friendlyPreviewArt;
 
   useEffect(() => {
@@ -370,60 +369,6 @@ export default function CharacterConsistentStoryPage({
             <div className="absolute left-5 top-5 z-20 rounded-full bg-white/95 px-4 py-1.5 text-[11px] font-bold uppercase tracking-[0.28em] text-orange-700 shadow-lg sm:left-6 sm:top-6">
               Storybook Cover
             </div>
-
-            {hasReferencePhoto ? (
-              <>
-                <div className="absolute right-5 top-5 z-20 sm:right-6 sm:top-6">
-                  <div
-                    className="rounded-full bg-white p-1.5 shadow-[0_12px_30px_rgba(15,23,42,0.18)]"
-                    style={{
-                      boxShadow: `0 12px 30px ${frameTheme.shadowColor}`,
-                    }}
-                  >
-                    <img
-                      src={subjectImage || ""}
-                      alt="Photo reference"
-                      className="h-16 w-16 rounded-full object-cover sm:h-20 sm:w-20"
-                      style={{
-                        border: `3px solid ${frameTheme.primary}`,
-                      }}
-                    />
-                  </div>
-                </div>
-
-                <svg
-                  className="pointer-events-none absolute inset-0 z-10 h-full w-full"
-                  viewBox="0 0 100 100"
-                  preserveAspectRatio="none"
-                  aria-hidden="true"
-                >
-                  <path
-                    d="M84 18 C80 24, 75 30, 69 37 S55 50, 46 60"
-                    fill="none"
-                    stroke={frameTheme.primary}
-                    strokeWidth="0.78"
-                    strokeLinecap="round"
-                    opacity="0.88"
-                  />
-                  <path
-                    d="M46 60 L48.9 57.8"
-                    fill="none"
-                    stroke={frameTheme.primary}
-                    strokeWidth="0.78"
-                    strokeLinecap="round"
-                    opacity="0.88"
-                  />
-                  <path
-                    d="M46 60 L49.2 62.2"
-                    fill="none"
-                    stroke={frameTheme.primary}
-                    strokeWidth="0.78"
-                    strokeLinecap="round"
-                    opacity="0.88"
-                  />
-                </svg>
-              </>
-            ) : null}
 
             {isGenerating ? (
               <div className="absolute inset-0 z-20 flex items-center justify-center p-8">

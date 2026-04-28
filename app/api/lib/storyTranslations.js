@@ -86,6 +86,58 @@ export const storyTranslations = {
         `The sky fills with pastel light as the unicorn bows to ${name}, celebrating a new magical hero.`,
         `${name} returns home with stardust dreams, rainbow memories, and a little magic still glowing inside.`,
       ],
+    },
+    celebration: {
+      title: (name) => `${name}'s Family Celebration`,
+      arcs: (name) => [
+        `${name} wakes up to a day full of happy decorations, warm hugs, and the feeling that something special is about to begin.`,
+        `Family members gather with flowers, lights, and joyful smiles to help create a beautiful celebration just for ${name}.`,
+        `${name} helps add the final magical touches, turning the space into a bright keepsake moment filled with color and love.`,
+        `As music begins to play, ${name} welcomes everyone with confidence and a heart full of excitement.`,
+        `One sweet surprise after another reminds ${name} how deeply they are loved by the people around them.`,
+        `${name} shares laughter, stories, and meaningful moments that make the entire celebration feel unforgettable.`,
+        `When the room glows with warm light and happy cheers, ${name} realizes this day is about love, connection, and treasured memories.`,
+        `${name} ends the celebration feeling grateful, celebrated, and surrounded by the people who matter most.`,
+      ],
+    },
+    birthday: {
+      title: (name) => `${name}'s Birthday Bash`,
+      arcs: (name) => [
+        `${name} wakes up to colorful balloons, cheerful music, and a birthday feeling sparkling through the air.`,
+        `A beautifully decorated celebration space is waiting, filled with gifts, bright banners, and sweet surprises.`,
+        `${name} laughs with delight while loved ones gather to make the day feel extra magical.`,
+        `There are candles glowing on a beautiful cake, and everyone waits for ${name}'s big birthday wish.`,
+        `${name} opens thoughtful gifts and discovers that each one carries a little piece of love.`,
+        `Games, photos, and joyful cheers keep the celebration full of movement, color, and unforgettable energy.`,
+        `As the party reaches its happiest moment, ${name} feels proud, loved, and surrounded by pure celebration joy.`,
+        `${name} ends the birthday with a heart full of gratitude and memories that will shine for a long time.`,
+      ],
+    },
+    gathering: {
+      title: (name) => `${name}'s Festive Gathering`,
+      arcs: (name) => [
+        `${name} steps into a bright festive gathering where lights, flowers, and joyful voices fill the air.`,
+        `Friends and family arrive one by one, bringing warm smiles and making the event feel bigger and brighter.`,
+        `${name} moves through the celebration with confidence, greeting everyone and sharing in the happiness of the day.`,
+        `Music, decorations, and meaningful traditions make every corner of the gathering feel alive with storybook magic.`,
+        `${name} helps bring people together for a moment that feels both elegant and deeply personal.`,
+        `Laughter and heartfelt conversations turn the celebration into a memory everyone wants to hold onto.`,
+        `As the golden lights glow more softly, ${name} looks around and sees a room full of connection and joy.`,
+        `${name} finishes the gathering with a peaceful smile, knowing this beautiful moment will stay close forever.`,
+      ],
+    },
+    tribute: {
+      title: (name) => `Why ${name} Is So Loved`,
+      arcs: (name) => [
+        `${name} begins a beautiful day filled with thoughtful details that celebrate everything people adore about them.`,
+        `Warm messages, loving smiles, and meaningful little surprises remind ${name} how much they mean to others.`,
+        `Every memory shared becomes a shining scene in a story of gratitude, admiration, and deep affection.`,
+        `${name} discovers that even the smallest qualities, like kindness and courage, have touched many hearts.`,
+        `A heartfelt tribute grows around ${name}, rich with laughter, tears of joy, and proud celebration.`,
+        `The people closest to ${name} speak about the light they bring into everyday life.`,
+        `${name} feels wrapped in appreciation and realizes how powerful it is to be truly seen and cherished.`,
+        `${name} closes the day with a full heart, knowing love leaves the brightest and most lasting story of all.`,
+      ],
     }
   },
   
@@ -260,6 +312,10 @@ const themeAliases = {
   'dino-quest': 'adventure',
   'goodnight-garage': 'adventure',
   'unicorn-magic': 'fantasy',
+  'family-celebration': 'celebration',
+  'birthday-bash': 'birthday',
+  'festive-gathering': 'gathering',
+  'heartfelt-tribute': 'tribute',
   customizable: 'adventure',
 };
 

@@ -33,7 +33,7 @@ const STORYBOOK_MODEL_PARTS = splitStorybookModelId(STORYBOOK_MODEL);
 const FLUX_STORYBOOK_MODEL_PREFIX = "black-forest-labs/flux-2-";
 
 export const DEFAULT_STORYBOOK_NEGATIVE_PROMPT =
-  "photorealistic, real photo, live action, portrait photo, selfie, school photo, documentary look, close-up face, cropped head, giant face, floating head, split layout, collage, side-by-side comparison, flat vector, dull colors, desaturated, gloomy, sad, somber, dark horror mood, eerie forest, creepy, scary, spooky, haunted, thriller lighting, blue-grey darkness, dim lighting, harsh shadows, low detail, blurry, text, watermark, random face, adult face, duplicate child, deformed anatomy, extra limbs, realistic skin pores, realistic hair strands, horror poster, moody realism";
+  "photorealistic, real photo, live action, portrait photo, selfie, school photo, documentary look, close-up face, cropped head, giant face, floating head, split layout, collage, side-by-side comparison, flat vector, dull colors, desaturated, gloomy, sad, somber, dark horror mood, eerie forest, creepy, scary, spooky, haunted, thriller lighting, blue-grey darkness, dim lighting, harsh shadows, low detail, blurry, text, watermark, random face, wrong child, unrecognizable child, adult face, duplicate child, deformed anatomy, extra limbs, realistic skin pores, realistic hair strands, horror poster, moody realism, face swap look, pasted photo face";
 
 export type StoryPageGenerationInput = {
   prompt: string;
@@ -237,7 +237,7 @@ function buildStorybookPrompt(prompt: string): string {
     color_palette:
       "Ultra-vibrant joyful storybook colors with warm sky tones, candy-bright accents, playful contrast, jewel-tone depth, pastel glow, and a premium glossy animated feel.",
     character_consistency:
-      "Keep the same child identity, face structure, skin tone, hair style, and proportions consistent across every page while converting the child into a stylized cartoon character instead of a real photo.",
+      "Keep the same child identity, face structure, skin tone, hairstyle, eye spacing, nose shape, smile shape, and proportions consistent across every page while converting the child into a stylized cartoon character instead of a real photo. The child should still feel clearly recognizable as the uploaded child.",
     quality:
       "High-end children's storybook illustration, polished 3D rendering feel, cinematic depth, friendly emotion, premium catalog-worthy finish.",
   });

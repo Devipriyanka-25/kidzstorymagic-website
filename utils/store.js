@@ -1,6 +1,7 @@
 // Frontend state management (Zustand store)
 import { create } from 'zustand';
 import { authAPI, getAuthToken } from './api';
+import { DEFAULT_EXCHANGE_RATES } from './pricing';
 
 function buildDraftSafeFormData(formData = {}) {
   const {
@@ -293,10 +294,19 @@ export const useWizardStore = create((set, get) => ({
 // Currency Store
 export const useCurrencyStore = create((set) => ({
   selectedCurrency: 'USD',
+  selectedCountry: 'United States',
   supportedCurrencies: ['USD', 'CAD', 'GBP', 'EUR', 'AUD', 'INR'],
-  exchangeRates: {},
+  exchangeRates: DEFAULT_EXCHANGE_RATES,
   pricing: null,
 
   setCurrency: (currency) => set({ selectedCurrency: currency }),
+  setCountry: (country) => set({ selectedCountry: country }),
+  setExchangeRates: (exchangeRates) =>
+    set({
+      exchangeRates: {
+        ...DEFAULT_EXCHANGE_RATES,
+        ...(exchangeRates || {}),
+      },
+    }),
   setPricing: (pricing) => set({ pricing })
 }));

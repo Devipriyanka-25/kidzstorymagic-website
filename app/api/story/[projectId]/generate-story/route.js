@@ -179,6 +179,70 @@ const PREMIUM_SCENE_GUIDES = {
     palette:
       'amethyst, midnight blue, candle gold, and silver sparkle',
   },
+  celebration: {
+    setting:
+      'a premium celebration scene with floral details, soft event lighting, elegant decorations, joyful family energy, and a polished keepsake atmosphere',
+    interaction:
+      'welcoming loved ones, smiling beside a decorated table, or sharing a joyful family milestone moment as the clear hero of the page',
+    palette:
+      'rose pink, champagne gold, warm cream, coral, and radiant highlights',
+  },
+  birthday: {
+    setting:
+      'a vibrant birthday celebration with balloons, cake, confetti, party lights, colorful gifts, and a bright premium event backdrop',
+    interaction:
+      'making a wish, cutting the cake, opening a special gift, or leading a joyful birthday moment with playful confidence',
+    palette:
+      'confetti orange, sky blue, sunshine yellow, berry pink, and bright celebratory light',
+  },
+  gala: {
+    setting:
+      'an elegant gathering scene with floral arches, premium decor, glowing lanterns, and warm polished event ambiance',
+    interaction:
+      'welcoming guests, sharing a heartfelt smile, or standing proudly in the center of a meaningful celebration scene',
+    palette:
+      'deep teal, honey gold, ivory, berry rose, and luminous evening warmth',
+  },
+  tribute: {
+    setting:
+      'a heartfelt premium keepsake scene with rich backdrop color, glowing accents, elegant decor, and affectionate celebration energy',
+    interaction:
+      'sharing a loving smile, holding a meaningful keepsake, or standing confidently in a warm tribute-style spotlight moment',
+    palette:
+      'crimson, gold, blush, soft ivory, and glowing celebratory highlights',
+  },
+  'family-celebration': {
+    setting:
+      'a joyful family event scene with floral decor, celebration tables, string lights, a welcoming garden or hall backdrop, and keepsake-book warmth',
+    interaction:
+      'sharing a family milestone, smiling with pride, or leading a warm event moment surrounded by celebration details',
+    palette:
+      'rose pink, coral, butter gold, cream, and joyful light',
+  },
+  'birthday-bash': {
+    setting:
+      'a premium birthday party world with balloons, candles, gifts, confetti, bright stage decor, and a vivid party backdrop',
+    interaction:
+      'making a birthday wish, opening gifts, or enjoying a cheerful spotlight moment at the center of the party',
+    palette:
+      'orange, sky blue, candy pink, yellow, and vibrant celebratory glow',
+  },
+  'festive-gathering': {
+    setting:
+      'a polished family gathering or community celebration with bunting, lights, flowers, rich decor, and a bright welcoming event environment',
+    interaction:
+      'welcoming everyone, sharing a festive smile, or leading a meaningful gathering with warmth and grace',
+    palette:
+      'teal, marigold, cream, berry pink, and soft golden light',
+  },
+  'heartfelt-tribute': {
+    setting:
+      'a premium tribute scene with elegant backdrop color, decorative flourishes, warm spotlighting, and meaningful keepsake-book charm',
+    interaction:
+      'standing proudly, sharing a loving glance, or holding a symbolic gift in a heartfelt celebratory moment',
+    palette:
+      'crimson, rose, gold, ivory, and rich warm highlights',
+  },
   customizable: {
     setting:
       "a premium children's storybook world tailored to the custom theme, with a complete cinematic environment and magical depth",
@@ -270,9 +334,9 @@ function buildIllustrationPrompt({
     : '';
 
   return [
-    `Create a full-scene premium children's storybook illustration for ${childName}.`,
+    `Create a full-scene premium personalized storybook illustration for ${childName}.`,
     'Use the uploaded child reference photos only as visual guidance, then recreate the child as a premium 3D animated cartoon character instead of showing any real photo.',
-    "Preserve the child's face structure, skin tone, hairstyle, expression, and recognizable identity with big expressive eyes, cute proportions, rounded facial features, smooth toy-like textures, glossy family-film shading, and a bright premium storybook finish.",
+    "Preserve the child's recognizable identity closely: match the face structure, skin tone, hairline, hairstyle, eye shape and spacing, nose shape, smile shape, and overall age appearance while converting the child into a premium 3D cartoon hero.",
     'Render the child as a joyful full-body or three-quarter-body cartoon hero inside the world, not as a close-up portrait.',
     `Build a complete cinematic environment: ${sceneGuide.setting}.`,
     `The child should be actively interacting with the world by ${sceneGuide.interaction}.`,
@@ -285,7 +349,7 @@ function buildIllustrationPrompt({
     notesInstruction,
     'Lighting must be bright, warm, cheerful, and child-safe. Prefer sunny daylight, pastel sky glow, rainbow bounce light, or golden sunrise light over moody, gloomy, or dark scenes.',
     'Composition should feel like a premium vertical storybook cover or book-selection card with a full background, visible depth, and plenty of room for the environment to breathe around the child.',
-    'Keep the same child character design, costume palette, facial proportions, and overall bright 3D style consistent across every page in the book by following the reference photos carefully.',
+    'Keep the same child character design, costume palette, facial proportions, and overall bright 3D style consistent across every page in the book by following the selected primary reference photo carefully.',
     'Make this feel like a polished animated feature film still for kids: colorful, magical, playful, emotionally warm, immediately welcoming, and rich with vibrant premium color.',
     'Absolutely avoid horror vibes, eerie woods, realistic skin pores, photo textures, blue-grey darkness, thriller mood, flat vector art, split layout, or a simple headshot.',
   ].join(' ');
@@ -373,7 +437,11 @@ export async function POST(request, { params }) {
       'dino-quest': 'dino-quest',
       'goodnight-garage': 'goodnight-garage',
       'unicorn-magic': 'unicorn-magic',
-      family: 'goodnight-garage',
+      'family-celebration': 'celebration',
+      'birthday-bash': 'birthday',
+      'festive-gathering': 'gathering',
+      'heartfelt-tribute': 'tribute',
+      family: 'celebration',
       friends: 'animal-adventure',
       motivational: 'dino-quest',
       behavioural: 'goodnight-garage',
@@ -403,6 +471,7 @@ export async function POST(request, { params }) {
       '3-5': 'fun, colorful, and easy to follow',
       '5-8': 'exciting with good lessons',
       '8-12': 'adventurous and thought-provoking',
+      '12+': 'celebratory, heartfelt, polished, and emotionally meaningful',
     };
 
     const storyArcs = selectedTheme.storyArcs || [];

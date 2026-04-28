@@ -1,10 +1,10 @@
 'use client';
 
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useWizardStore } from '@/utils/store';
 import {
-  STORY_THEMES,
   getBookThemePreviewArt,
+  getStoryThemesForAgeGroup,
   getTheme,
 } from '@/utils/themes';
 
@@ -22,10 +22,41 @@ export default function Step2ThemeSelection() {
     [formData.uploadedImages, formData.uploadedPhoto]
   );
 
-  const selectedTheme = useMemo(
-    () => STORY_THEMES.find((theme) => theme.value === formData.theme) || null,
-    [formData.theme]
+  const availableThemes = useMemo(
+    () => getStoryThemesForAgeGroup(formData.ageGroup),
+    [formData.ageGroup]
   );
+
+  const selectedTheme = useMemo(
+    () => availableThemes.find((theme) => theme.value === formData.theme) || null,
+    [availableThemes, formData.theme]
+  );
+
+  const isAdultAudience = formData.ageGroup === '12+';
+
+  useEffect(() => {
+    if (!formData.theme) {
+      return;
+    }
+
+    const themeStillAvailable = availableThemes.some(
+      (theme) => theme.value === formData.theme
+    );
+
+    if (!themeStillAvailable) {
+      updateFormData('theme', '');
+      updateFormData('illustrationStyle', '');
+      if (formData.theme !== 'customizable') {
+        updateFormData('customIllustrationPrompt', '');
+        setCustomPrompt('');
+      }
+    }
+  }, [
+    availableThemes,
+    formData.theme,
+    setCustomPrompt,
+    updateFormData,
+  ]);
 
   const handleSelect = (theme) => {
     updateFormData('theme', theme.value);
@@ -44,7 +75,7 @@ export default function Step2ThemeSelection() {
   };
 
   const isValid =
-    formData.theme &&
+    Boolean(selectedTheme) &&
     (formData.theme !== 'customizable' || customPrompt.trim().length > 0);
 
   return (
@@ -57,14 +88,14 @@ export default function Step2ThemeSelection() {
           Choose Your Book
         </h2>
         <p className="mx-auto mt-4 max-w-3xl text-base leading-7 text-slate-600 sm:text-lg">
-          Pick the premium story world you want us to build around your child.
-          These cards show the theme direction only. The final Pixar-style 3D
-          child illustration is generated later from the uploaded photos.
+          {isAdultAudience
+            ? 'Pick the premium celebration, tribute, or event-style story experience you want us to build. These cards preview the visual direction for a keepsake-quality illustrated book.'
+            : 'Pick the premium story world you want us to build around your child. These cards show the theme direction only. The final Pixar-style 3D child illustration is generated later from the uploaded photos.'}
         </p>
       </div>
 
       <div className="mt-10 grid gap-6 md:grid-cols-2 xl:grid-cols-4">
-        {STORY_THEMES.map((theme) => {
+        {availableThemes.map((theme) => {
           const isSelected = formData.theme === theme.value;
           const themeColors = getTheme(theme.value);
 

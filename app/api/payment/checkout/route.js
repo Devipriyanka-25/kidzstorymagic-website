@@ -5,6 +5,7 @@
  */
 
 import { NextResponse } from 'next/server';
+import { getConvertedStoryPrice, normalizeStoryPageCount } from '@/utils/pricing';
 const jwt = require('jsonwebtoken');
 
 export const runtime = 'nodejs';
@@ -41,9 +42,24 @@ export async function POST(request) {
     }
 
     const body = await request.json();
-    const { projectId, currency = 'USD' } = body;
+    const {
+      projectId,
+      currency = 'USD',
+      country = 'United States',
+      pageCount = 10,
+    } = body;
+    const normalizedPageCount = normalizeStoryPageCount(pageCount);
 
-    console.log('[CHECKOUT] Creating checkout session for project:', projectId, 'Currency:', currency);
+    console.log(
+      '[CHECKOUT] Creating checkout session for project:',
+      projectId,
+      'Currency:',
+      currency,
+      'Country:',
+      country,
+      'Page count:',
+      normalizedPageCount
+    );
 
     // Validate required fields
     if (!projectId) {
@@ -53,28 +69,19 @@ export async function POST(request) {
       );
     }
 
-    // Base prices in USD
-    const basePrice = 14.99; // Default price
-
-    // Currency exchange rates (fallback if API unavailable)
-    const exchangeRates = {
-      USD: 1,
-      CAD: 1.35,
-      GBP: 0.79,
-      EUR: 0.92,
-      AUD: 1.52,
-      INR: 83.12,
-    };
-
-    const exchangeRate = exchangeRates[currency] || 1;
-    const amount = Math.round(basePrice * exchangeRate * 100); // Convert to cents
+    const {
+      amount: convertedPrice,
+      basePriceUSD,
+      currency: normalizedCurrency,
+    } = getConvertedStoryPrice(normalizedPageCount, currency);
+    const amount = Math.round(convertedPrice * 100);
 
     // Check if Stripe is configured
     const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
     const isStripeConfigured = stripeSecretKey && !stripeSecretKey.includes('sk_test_your');
 
     console.log('[CHECKOUT] Stripe configured:', isStripeConfigured);
-    console.log('[CHECKOUT] Amount:', amount, currency);
+    console.log('[CHECKOUT] Amount:', amount, normalizedCurrency);
 
     // If Stripe is not configured, create a mock session
     if (!isStripeConfigured) {
@@ -89,7 +96,9 @@ export async function POST(request) {
           sessionId: mockSessionId,
           projectId: projectId,
           amount: amount,
-          currency: currency,
+          currency: normalizedCurrency,
+          country,
+          pageCount: normalizedPageCount,
           isTestMode: true,
         },
         { status: 200 }
@@ -113,7 +122,7 @@ export async function POST(request) {
               currency: currency.toLowerCase(),
               product_data: {
                 name: `Kidz Story Magic - Story Book`,
-                description: `Personalized story book for project ${projectId}`,
+                description: `${normalizedPageCount}-page personalized story book for project ${projectId}`,
                 images: [
                   'https://www.kidzstorymagic.org/logo.png'
                 ],
@@ -131,7 +140,10 @@ export async function POST(request) {
           projectId: projectId,
           userId: decoded.id || decoded.email,
           userEmail: decoded.email,
-          currency: currency,
+          currency: normalizedCurrency,
+          country,
+          pageCount: String(normalizedPageCount),
+          basePriceUSD: basePriceUSD.toFixed(2),
         },
       });
 
@@ -144,6 +156,10 @@ export async function POST(request) {
           sessionId: session.id,
           checkoutUrl: session.url,
           projectId: projectId,
+          amount,
+          currency: normalizedCurrency,
+          country,
+          pageCount: normalizedPageCount,
         },
         { status: 200 }
       );
@@ -160,7 +176,9 @@ export async function POST(request) {
           sessionId: mockSessionId,
           projectId: projectId,
           amount: amount,
-          currency: currency,
+          currency: normalizedCurrency,
+          country,
+          pageCount: normalizedPageCount,
           isTestMode: true,
           warning: 'Stripe is configured but unavailable, using test mode',
         },
