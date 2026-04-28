@@ -16,16 +16,20 @@ export default function ForgotPasswordPage() {
     setSuccess('');
     setIsLoading(true);
 
-    try {
-      await authAPI.forgotPassword(email);
+      try {
+        await authAPI.forgotPassword(email);
 
-      setSuccess('Check your email for password reset instructions');
-      setEmail('');
-    } catch (err) {
-      setError(err.response?.data?.error || 'Failed to send reset email');
-    } finally {
-      setIsLoading(false);
-    }
+        setSuccess('Check your email for password reset instructions');
+        setEmail('');
+      } catch (err) {
+        setError(
+          err.response?.data?.details ||
+            err.response?.data?.error ||
+            'Failed to send reset email'
+        );
+      } finally {
+        setIsLoading(false);
+      }
   };
 
   return (

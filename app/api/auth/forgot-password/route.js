@@ -98,6 +98,20 @@ function buildForgotPasswordEmail({ recipientName, resetUrl }) {
   };
 }
 
+function isResendTestingModeMessage(message) {
+  const normalizedMessage = String(message || '').toLowerCase();
+  return (
+    normalizedMessage.includes('testing emails') ||
+    normalizedMessage.includes('verify a domain') ||
+    normalizedMessage.includes('own email address')
+  );
+}
+
+function extractResendTestingAddress(message) {
+  const match = String(message || '').match(/\(([^)]+@[^)]+)\)/);
+  return match ? match[1] : '';
+}
+
 function isMissingResetColumnsError(error) {
   const message = String(error?.message || '').toLowerCase();
   return (
@@ -194,6 +208,25 @@ export async function POST(request) {
             'The users table is missing reset_token_hash/reset_token_expiry columns. Run the password-reset DB migration before using forgot password.',
         },
         { status: 503 }
+      );
+    }
+
+    if (isResendTestingModeMessage(error?.message)) {
+      const allowedEmail = extractResendTestingAddress(error?.message);
+      const details = [
+        'Resend is still in test mode, so password reset emails can only be delivered to the account owner right now.',
+        allowedEmail ? `Current allowed testing address: ${allowedEmail}.` : null,
+        'To send reset links to customer email addresses, verify your domain in Resend and change RESEND_FROM_EMAIL to an address on that verified domain.',
+      ]
+        .filter(Boolean)
+        .join(' ');
+
+      return NextResponse.json(
+        {
+          error: 'Password reset email is still in Resend test mode.',
+          details,
+        },
+        { status: 400 }
       );
     }
 
