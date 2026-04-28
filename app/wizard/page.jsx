@@ -4,7 +4,9 @@ import dynamic from 'next/dynamic';
 import { useWizardStore } from '@/utils/store';
 import { useEffect, useState } from 'react';
 import LanguageSelector from '@/components/i18n/LanguageSelector';
+import AgeGateModal from '@/components/wizard/AgeGateModal';
 import ChildSafetyVerificationModal from '@/components/wizard/ChildSafetyVerificationModal';
+import AdultUserFormModal from '@/components/wizard/AdultUserFormModal';
 
 // Dynamically import wizard steps
 const Step1AgeSelection = dynamic(() =>
@@ -38,10 +40,13 @@ const steps = [
 export default function WizardPage() {
   const { step: currentStep, loadDraft, clearDraft, resetWizard, formData, updateFormData } = useWizardStore();
   const [showDraftPrompt, setShowDraftPrompt] = useState(false);
+  const [showAgeGateModal, setShowAgeGateModal] = useState(false);
   const [showSafetyModal, setShowSafetyModal] = useState(false);
+  const [showAdultFormModal, setShowAdultFormModal] = useState(false);
   const [draftStep, setDraftStep] = useState(null);
   const [error, setError] = useState(null);
   const [languageChanged, setLanguageChanged] = useState(false);
+  const [selectedAge, setSelectedAge] = useState(null);
 
   useEffect(() => {
     // Check for existing draft on mount
@@ -53,14 +58,14 @@ export default function WizardPage() {
           setDraftStep(step);
           setShowDraftPrompt(true);
         } else {
-          // No draft, reset wizard and show safety modal
+          // No draft, reset wizard and show age gate modal
           resetWizard();
-          setShowSafetyModal(true);
+          setShowAgeGateModal(true);
         }
       } catch (err) {
         console.error('[WIZARD] Error checking draft:', err);
         resetWizard();
-        setShowSafetyModal(true);
+        setShowAgeGateModal(true);
       }
     }
   }, [resetWizard]);
@@ -70,11 +75,34 @@ export default function WizardPage() {
     setShowDraftPrompt(false);
   };
 
+  const handleAgeGateComplete = (ageData) => {
+    console.log('[WIZARD] Age Gate Data:', ageData);
+    setSelectedAge(ageData.age);
+    setShowAgeGateModal(false);
+
+    // Route based on age
+    if (ageData.age < 12) {
+      // Show child safety verification for users under 12
+      console.log('[WIZARD] Age < 12, showing child safety verification');
+      setShowSafetyModal(true);
+    } else {
+      // Show adult user form for users 12+
+      console.log('[WIZARD] Age >= 12, showing adult user form');
+      setShowAdultFormModal(true);
+    }
+  };
+
+  const handleAgeGateCancel = () => {
+    setShowAgeGateModal(false);
+    // Redirect to home if user cancels
+    window.location.href = '/';
+  };
+
   const handleStartNew = () => {
     clearDraft();
     resetWizard();
     setShowDraftPrompt(false);
-    setShowSafetyModal(true);
+    setShowAgeGateModal(true);
   };
 
   const handleSafetyModalComplete = (safetyData) => {
@@ -86,32 +114,53 @@ export default function WizardPage() {
     updateFormData('parentEmail', safetyData.parentEmail);
     updateFormData('parentConsent', safetyData.parentConsent);
     
-    // Auto-fill age group if age < 13, skip Step 1
+    // Auto-fill age group based on child's age, go directly to Step 2 (Theme Selection)
     const age = parseInt(safetyData.childAge, 10);
     const { setStep } = useWizardStore.getState();
     
-    if (age < 13) {
-      // Auto-select age group based on child's age
-      let ageGroup = '0-2';
-      if (age >= 3 && age <= 5) ageGroup = '3-5';
-      else if (age >= 6 && age <= 8) ageGroup = '5-8';
-      else if (age >= 9 && age <= 12) ageGroup = '8-12';
-      
-      console.log(`[WIZARD] Auto-filling age group: ${ageGroup} for age ${age}`);
-      updateFormData('ageGroup', ageGroup);
-      
-      // Skip Step 1, go directly to Step 2 (Theme Selection)
-      setStep(2);
-    } else {
-      // For 13+, go to Step 1 (Age Selection)
-      setStep(1);
-    }
+    let ageGroup = '0-2';
+    if (age >= 3 && age <= 5) ageGroup = '3-5';
+    else if (age >= 6 && age <= 8) ageGroup = '5-8';
+    else if (age >= 9 && age <= 12) ageGroup = '8-12';
     
+    console.log(`[WIZARD] Child safety verified for age ${age}, auto-filling age group: ${ageGroup}`);
+    updateFormData('ageGroup', ageGroup);
+    
+    // Skip Step 1, go directly to Step 2 (Theme Selection)
+    setStep(2);
     setShowSafetyModal(false);
   };
 
   const handleSafetyModalCancel = () => {
     setShowSafetyModal(false);
+    // Redirect to home if user cancels
+    window.location.href = '/';
+  };
+
+  const handleAdultFormComplete = (adultData) => {
+    console.log('[WIZARD] Adult User Data Collected:', adultData);
+    
+    // Store adult user data - map to childName/childAge for compatibility with downstream steps
+    updateFormData('username', adultData.username);
+    updateFormData('userAge', adultData.age);
+    updateFormData('isAdultUser', true);
+    
+    // Map adult data to child data fields for step compatibility
+    // This allows adult users to proceed through the same step flow as children
+    updateFormData('childName', adultData.username);  // Use username as the character name
+    updateFormData('childAge', adultData.age);  // Use adult age
+    updateFormData('childGender', adultData.gender);  // Use selected gender
+    updateFormData('parentConsent', true);  // Adults don't need parental consent
+    updateFormData('parentEmail', 'N/A');  // Placeholder for adults
+    
+    // Route to Step 1 (Age Selection) to let them pick age group
+    const { setStep } = useWizardStore.getState();
+    setStep(1);
+    setShowAdultFormModal(false);
+  };
+
+  const handleAdultFormCancel = () => {
+    setShowAdultFormModal(false);
     // Redirect to home if user cancels
     window.location.href = '/';
   };
@@ -243,6 +292,20 @@ export default function WizardPage() {
         isOpen={showSafetyModal}
         onComplete={handleSafetyModalComplete}
         onCancel={handleSafetyModalCancel}
+      />
+
+      {/* Age Gate Modal */}
+      <AgeGateModal
+        isOpen={showAgeGateModal}
+        onComplete={handleAgeGateComplete}
+        onCancel={handleAgeGateCancel}
+      />
+
+      {/* Adult User Form Modal */}
+      <AdultUserFormModal
+        isOpen={showAdultFormModal}
+        onComplete={handleAdultFormComplete}
+        onCancel={handleAdultFormCancel}
       />
     </main>
   );

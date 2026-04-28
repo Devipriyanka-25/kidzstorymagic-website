@@ -914,6 +914,9 @@ video {
 .h-\[340px\] {
   height: 340px;
 }
+.h-px {
+  height: 1px;
+}
 .max-h-32 {
   max-height: 8rem;
 }
@@ -1551,6 +1554,14 @@ video {
 .border-yellow-400 {
   --tw-border-opacity: 1;
   border-color: rgb(250 204 21 / var(--tw-border-opacity, 1));
+}
+.border-gray-100 {
+  --tw-border-opacity: 1;
+  border-color: rgb(243 244 246 / var(--tw-border-opacity, 1));
+}
+.border-gray-400 {
+  --tw-border-opacity: 1;
+  border-color: rgb(156 163 175 / var(--tw-border-opacity, 1));
 }
 .border-t-indigo-600 {
   --tw-border-opacity: 1;
