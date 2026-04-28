@@ -15,24 +15,28 @@ export async function POST(request) {
   try {
     console.log('[STORY] Story generation request received');
 
-    // Verify authentication
+    // Verify authentication (optional for internal calls)
     const authHeader = request.headers.get('authorization');
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    const isInternalCall = request.headers.get('x-internal-call') === 'true';
+    
+    let decoded = null;
+    
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      const token = authHeader.substring(7);
+      const jwtSecret = process.env.JWT_SECRET || 'kidz-story-magic-jwt-secret-key-2024-production-secure-random-12345';
+
+      try {
+        decoded = jwt.verify(token, jwtSecret);
+      } catch (err) {
+        return NextResponse.json(
+          { error: 'Unauthorized - Invalid token' },
+          { status: 401 }
+        );
+      }
+    } else if (!isInternalCall) {
+      // Only require auth for external calls
       return NextResponse.json(
         { error: 'Unauthorized - Bearer token required' },
-        { status: 401 }
-      );
-    }
-
-    const token = authHeader.substring(7);
-    const jwtSecret = process.env.JWT_SECRET || 'kidz-story-magic-jwt-secret-key-2024-production-secure-random-12345';
-
-    let decoded;
-    try {
-      decoded = jwt.verify(token, jwtSecret);
-    } catch (err) {
-      return NextResponse.json(
-        { error: 'Unauthorized - Invalid token' },
         { status: 401 }
       );
     }

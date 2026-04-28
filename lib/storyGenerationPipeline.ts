@@ -95,10 +95,13 @@ export async function generateStoryWithFaceSwap(
 async function generateStoryStructure(
   request: StoryGenerationRequest
 ): Promise<GeneratedStory> {
-  // Call your existing story generation endpoint
+  // Call your existing story generation endpoint with internal call header
   const response = await fetch('/api/story/generate', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: {
+      'Content-Type': 'application/json',
+      'X-Internal-Call': 'true', // Mark as internal call to skip auth
+    },
     body: JSON.stringify({
       projectId: request.projectId,
       childName: request.childName,
