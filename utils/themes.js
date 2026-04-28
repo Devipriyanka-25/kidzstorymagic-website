@@ -476,6 +476,193 @@ const BOOK_THEME_MAP = {
       <rect x="404" y="360" width="56" height="8" rx="4" fill="#FB7185" fill-opacity="0.4" />
     `,
   },
+  "baby-shower": {
+    value: "baby-shower",
+    label: "Baby Shower",
+    ageRange: "Ages: 12+",
+    ageRangeShort: "12+",
+    description: "Soft pastels, baby celebration, and joyful welcoming moments.",
+    storyTheme: "celebration",
+    illustrationTheme: "celebration",
+    titleTemplate: (childName) => `${childName}'s Baby Shower Celebration`,
+    cardGradient: "linear-gradient(180deg, #FDD7E6 0%, #BFDBFE 100%)",
+    anchorPoint: "M536 244 C502 280, 466 320, 426 362",
+    sceneMarkup: `
+      <circle cx="120" cy="100" r="80" fill="#FFFFFF" fill-opacity="0.16" />
+      <path d="M0 390 C140 314, 280 326, 410 392 S558 452, 640 426 L640 540 L0 540 Z" fill="#F8D3B0" fill-opacity="0.32" />
+      <path d="M0 430 C154 356, 308 366, 444 432 S570 484, 640 454 L640 540 L0 540 Z" fill="#DBEAFE" fill-opacity="0.36" />
+      <circle cx="162" cy="148" r="24" fill="#F9A8D4" />
+      <circle cx="224" cy="130" r="20" fill="#BFDBFE" />
+      <circle cx="476" cy="164" r="26" fill="#FDD7E6" />
+      <circle cx="540" cy="126" r="22" fill="#F9A8D4" />
+      <circle cx="212" cy="318" r="28" fill="#F8D3B0" />
+      <rect x="184" y="346" width="64" height="108" rx="24" fill="#DB2777" />
+      <path d="M176 372 L136 414" stroke="#DB2777" stroke-width="18" stroke-linecap="round" />
+      <path d="M256 372 L302 336" stroke="#DB2777" stroke-width="18" stroke-linecap="round" />
+      <path d="M204 448 L184 516" stroke="#DB2777" stroke-width="18" stroke-linecap="round" />
+      <path d="M228 448 L260 514" stroke="#DB2777" stroke-width="18" stroke-linecap="round" />
+      <rect x="360" y="310" width="100" height="84" rx="18" fill="#FFF7ED" fill-opacity="0.94" />
+      <path d="M380 330 L396 308" stroke="#F9A8D4" stroke-width="6" stroke-linecap="round" />
+      <path d="M420 330 L436 308" stroke="#BFDBFE" stroke-width="6" stroke-linecap="round" />
+      <rect x="372" y="356" width="76" height="12" rx="6" fill="#FDD7E6" fill-opacity="0.64" />
+    `,
+  },
+  "gender-reveal": {
+    value: "gender-reveal",
+    label: "Gender Reveal",
+    ageRange: "Ages: 12+",
+    ageRangeShort: "12+",
+    description: "Pink and blue celebration, special reveal moment joy.",
+    storyTheme: "celebration",
+    illustrationTheme: "celebration",
+    titleTemplate: (childName) => `${childName}'s Gender Reveal Party`,
+    cardGradient: "linear-gradient(180deg, #F9A8D4 0%, #60A5FA 100%)",
+    anchorPoint: "M536 246 C504 284, 468 324, 426 364",
+    sceneMarkup: `
+      <circle cx="500" cy="84" r="68" fill="#FFFFFF" fill-opacity="0.12" />
+      <path d="M0 386 C138 314, 280 326, 410 392 S558 452, 640 426 L640 540 L0 540 Z" fill="#F9A8D4" fill-opacity="0.38" />
+      <path d="M0 426 C154 354, 304 362, 444 426 S572 482, 640 454 L640 540 L0 540 Z" fill="#60A5FA" fill-opacity="0.38" />
+      <circle cx="148" cy="122" r="26" fill="#F9A8D4" />
+      <circle cx="204" cy="160" r="22" fill="#60A5FA" />
+      <circle cx="490" cy="148" r="28" fill="#F9A8D4" />
+      <circle cx="548" cy="114" r="22" fill="#60A5FA" />
+      <path d="M72 134 L566 134" stroke="#FFFFFF" stroke-width="8" stroke-linecap="round" stroke-dasharray="12 12" opacity="0.82" />
+      <circle cx="248" cy="312" r="28" fill="#F8D3B0" />
+      <rect x="220" y="340" width="64" height="106" rx="24" fill="#3B82F6" />
+      <path d="M212 366 L166 408" stroke="#3B82F6" stroke-width="18" stroke-linecap="round" />
+      <path d="M292 366 L338 332" stroke="#3B82F6" stroke-width="18" stroke-linecap="round" />
+      <path d="M236 444 L212 514" stroke="#3B82F6" stroke-width="18" stroke-linecap="round" />
+      <path d="M262 444 L296 512" stroke="#3B82F6" stroke-width="18" stroke-linecap="round" />
+      <circle cx="404" cy="270" r="22" fill="#F9A8D4" />
+      <circle cx="456" cy="280" r="22" fill="#60A5FA" />
+      <rect x="380" y="326" width="104" height="54" rx="18" fill="#FFF7ED" fill-opacity="0.92" />
+      <rect x="394" y="344" width="76" height="10" rx="5" fill="#F9A8D4" fill-opacity="0.52" />
+    `,
+  },
+  anniversary: {
+    value: "anniversary",
+    label: "Anniversary",
+    ageRange: "Ages: 12+",
+    ageRangeShort: "12+",
+    description: "Romantic elegance, love stories, and timeless moments together.",
+    storyTheme: "celebration",
+    illustrationTheme: "tribute",
+    titleTemplate: (childName) => `${childName}'s Anniversary Story`,
+    cardGradient: "linear-gradient(180deg, #DC2626 0%, #F59E0B 100%)",
+    anchorPoint: "M534 246 C500 282, 466 322, 424 362",
+    sceneMarkup: `
+      <rect x="0" y="0" width="640" height="540" fill="#DC2626" fill-opacity="0.08" />
+      <circle cx="520" cy="86" r="62" fill="#FFFFFF" fill-opacity="0.08" />
+      <path d="M0 390 C138 316, 280 326, 408 392 S556 452, 640 424 L640 540 L0 540 Z" fill="#FB7185" fill-opacity="0.22" />
+      <path d="M0 428 C154 358, 306 368, 446 430 S572 484, 640 454 L640 540 L0 540 Z" fill="#F59E0B" fill-opacity="0.22" />
+      <path d="M128 116 C148 82, 204 82, 224 118 C234 146, 222 168, 196 186 C170 168, 120 146, 128 116 Z" fill="#FB7185" fill-opacity="0.82" />
+      <path d="M166 118 C182 94, 220 94, 236 118 C244 138, 236 154, 214 168 C192 154, 158 138, 166 118 Z" fill="#FECACA" fill-opacity="0.88" />
+      <path d="M284 110 C298 88, 328 88, 342 108 C350 128, 340 146, 320 160 C300 146, 270 128, 284 110 Z" fill="#FB7185" fill-opacity="0.72" />
+      <circle cx="256" cy="318" r="28" fill="#F8D3B0" />
+      <rect x="228" y="346" width="64" height="108" rx="24" fill="#9F1239" />
+      <path d="M220 372 L176 412" stroke="#9F1239" stroke-width="18" stroke-linecap="round" />
+      <path d="M300 372 L344 338" stroke="#9F1239" stroke-width="18" stroke-linecap="round" />
+      <path d="M242 448 L220 514" stroke="#9F1239" stroke-width="18" stroke-linecap="round" />
+      <path d="M268 448 L300 514" stroke="#9F1239" stroke-width="18" stroke-linecap="round" />
+      <circle cx="420" cy="270" r="34" fill="#FFFFFF" fill-opacity="0.78" />
+      <path d="M404 264 C412 250, 434 250, 442 264 C446 276, 440 286, 428 296 C416 286, 402 276, 404 264 Z" fill="#FB7185" />
+      <rect x="380" y="326" width="104" height="54" rx="18" fill="#FFF7ED" fill-opacity="0.88" />
+      <rect x="394" y="344" width="76" height="10" rx="5" fill="#FB7185" fill-opacity="0.44" />
+    `,
+  },
+  "valentine-day": {
+    value: "valentine-day",
+    label: "Valentine Day",
+    ageRange: "Ages: 12+",
+    ageRangeShort: "12+",
+    description: "Hearts, love, affection, and heartfelt celebration.",
+    storyTheme: "celebration",
+    illustrationTheme: "tribute",
+    titleTemplate: (childName) => `${childName}'s Valentine Celebration`,
+    cardGradient: "linear-gradient(180deg, #EC4899 0%, #F472B6 100%)",
+    anchorPoint: "M534 244 C502 280, 466 320, 426 362",
+    sceneMarkup: `
+      <circle cx="500" cy="84" r="68" fill="#FFF7ED" fill-opacity="0.28" />
+      <path d="M0 386 C138 314, 280 326, 410 392 S558 452, 640 426 L640 540 L0 540 Z" fill="#FBCFE8" fill-opacity="0.48" />
+      <path d="M0 426 C154 354, 304 362, 444 426 S572 482, 640 454 L640 540 L0 540 Z" fill="#F472B6" fill-opacity="0.42" />
+      <path d="M128 116 C148 82, 204 82, 224 118 C234 146, 222 168, 196 186 C170 168, 120 146, 128 116 Z" fill="#FB7185" fill-opacity="0.88" />
+      <path d="M166 118 C182 94, 220 94, 236 118 C244 138, 236 154, 214 168 C192 154, 158 138, 166 118 Z" fill="#FBCFE8" fill-opacity="0.94" />
+      <path d="M284 110 C298 88, 328 88, 342 108 C350 128, 340 146, 320 160 C300 146, 270 128, 284 110 Z" fill="#FB7185" fill-opacity="0.76" />
+      <circle cx="212" cy="318" r="28" fill="#F8D3B0" />
+      <rect x="184" y="346" width="64" height="108" rx="24" fill="#DB2777" />
+      <path d="M176 372 L136 414" stroke="#DB2777" stroke-width="18" stroke-linecap="round" />
+      <path d="M256 372 L302 336" stroke="#DB2777" stroke-width="18" stroke-linecap="round" />
+      <path d="M204 448 L184 516" stroke="#DB2777" stroke-width="18" stroke-linecap="round" />
+      <path d="M228 448 L260 514" stroke="#DB2777" stroke-width="18" stroke-linecap="round" />
+      <circle cx="404" cy="270" r="22" fill="#FB7185" />
+      <circle cx="456" cy="280" r="22" fill="#F472B6" />
+      <rect x="380" y="326" width="104" height="54" rx="18" fill="#FFF7ED" fill-opacity="0.92" />
+      <rect x="394" y="344" width="76" height="10" rx="5" fill="#FB7185" fill-opacity="0.48" />
+    `,
+  },
+  promotion: {
+    value: "promotion",
+    label: "Promotion",
+    ageRange: "Ages: 12+",
+    ageRangeShort: "12+",
+    description: "Achievement, success, celebration, and milestone moments.",
+    storyTheme: "celebration",
+    illustrationTheme: "gala",
+    titleTemplate: (childName) => `${childName}'s Achievement Celebration`,
+    cardGradient: "linear-gradient(180deg, #2563EB 0%, #F59E0B 100%)",
+    anchorPoint: "M536 246 C504 284, 468 324, 426 364",
+    sceneMarkup: `
+      <circle cx="132" cy="96" r="84" fill="#FFFFFF" fill-opacity="0.12" />
+      <path d="M0 390 C142 314, 278 326, 402 390 S550 452, 640 424 L640 540 L0 540 Z" fill="#DBEAFE" fill-opacity="0.44" />
+      <path d="M0 430 C154 356, 308 366, 444 432 S570 484, 640 454 L640 540 L0 540 Z" fill="#FCD34D" fill-opacity="0.42" />
+      <path d="M70 148 L566 148" stroke="#FFFFFF" stroke-width="8" stroke-linecap="round" stroke-dasharray="10 14" opacity="0.82" />
+      <path d="M110 148 L136 180 L162 148 L188 180 L214 148 L240 180 L266 148 L292 180 L318 148" fill="none" stroke="#2563EB" stroke-width="8" stroke-linecap="round" />
+      <path d="M352 148 L378 180 L404 148 L430 180 L456 148 L482 180 L508 148" fill="none" stroke="#F59E0B" stroke-width="8" stroke-linecap="round" />
+      <circle cx="250" cy="316" r="28" fill="#F8D3B0" />
+      <rect x="222" y="344" width="64" height="108" rx="24" fill="#1E40AF" />
+      <path d="M214 370 L170 408" stroke="#1E40AF" stroke-width="18" stroke-linecap="round" />
+      <path d="M294 368 L338 334" stroke="#1E40AF" stroke-width="18" stroke-linecap="round" />
+      <path d="M238 448 L214 514" stroke="#1E40AF" stroke-width="18" stroke-linecap="round" />
+      <path d="M264 448 L296 514" stroke="#1E40AF" stroke-width="18" stroke-linecap="round" />
+      <circle cx="414" cy="258" r="22" fill="#FCD34D" />
+      <circle cx="470" cy="276" r="22" fill="#FBBF24" />
+      <circle cx="526" cy="258" r="22" fill="#93C5FD" />
+      <path d="M410 260 L450 260" stroke="#F59E0B" stroke-width="3" stroke-linecap="round" />
+      <path d="M430 240 L430 280" stroke="#F59E0B" stroke-width="3" stroke-linecap="round" />
+    `,
+  },
+  siblings: {
+    value: "siblings",
+    label: "Siblings",
+    ageRange: "Ages: 12+",
+    ageRangeShort: "12+",
+    description: "Brother and sister bonding, family love, and togetherness.",
+    storyTheme: "celebration",
+    illustrationTheme: "celebration",
+    titleTemplate: (childName) => `${childName} and the Sibling Bond`,
+    cardGradient: "linear-gradient(180deg, #8B5CF6 0%, #10B981 100%)",
+    anchorPoint: "M534 244 C502 280, 466 320, 426 362",
+    sceneMarkup: `
+      <circle cx="136" cy="98" r="84" fill="#FFFFFF" fill-opacity="0.14" />
+      <path d="M0 390 C136 308, 274 322, 404 392 S558 456, 640 430 L640 540 L0 540 Z" fill="#D8B4FE" fill-opacity="0.42" />
+      <path d="M0 428 C150 358, 286 368, 436 430 S566 484, 640 456 L640 540 L0 540 Z" fill="#A7F3D0" fill-opacity="0.38" />
+      <circle cx="212" cy="314" r="26" fill="#F8D3B0" />
+      <rect x="186" y="340" width="60" height="104" rx="22" fill="#8B5CF6" />
+      <path d="M180 362 L144 396" stroke="#8B5CF6" stroke-width="16" stroke-linecap="round" />
+      <path d="M258 362 L298 332" stroke="#8B5CF6" stroke-width="16" stroke-linecap="round" />
+      <path d="M206 440 L190 504" stroke="#8B5CF6" stroke-width="16" stroke-linecap="round" />
+      <path d="M228 440 L254 502" stroke="#8B5CF6" stroke-width="16" stroke-linecap="round" />
+      <circle cx="380" cy="318" r="24" fill="#F8D3B0" />
+      <rect x="356" y="342" width="56" height="100" rx="20" fill="#10B981" />
+      <path d="M350 362 L320 390" stroke="#10B981" stroke-width="16" stroke-linecap="round" />
+      <path d="M408 362 L442 338" stroke="#10B981" stroke-width="16" stroke-linecap="round" />
+      <path d="M374 438 L356 500" stroke="#10B981" stroke-width="16" stroke-linecap="round" />
+      <path d="M392 438 L418 498" stroke="#10B981" stroke-width="16" stroke-linecap="round" />
+      <path d="M274 260 L328 260" stroke="#FFFFFF" stroke-width="4" stroke-linecap="round" stroke-dasharray="6 4" opacity="0.72" />
+      <circle cx="270" cy="260" r="6" fill="#FBBF24" />
+      <circle cx="332" cy="260" r="6" fill="#FBBF24" />
+    `,
+  },
   customizable: {
     value: "customizable",
     label: "Custom Magic",
@@ -557,6 +744,12 @@ const ADULT_BOOK_THEME_VALUES = new Set([
   "birthday-bash",
   "festive-gathering",
   "heartfelt-tribute",
+  "baby-shower",
+  "gender-reveal",
+  "anniversary",
+  "valentine-day",
+  "promotion",
+  "siblings",
 ]);
 
 const LEGACY_BOOK_THEME_ALIASES = {
@@ -571,6 +764,9 @@ const LEGACY_BOOK_THEME_ALIASES = {
   congregation: "festive-gathering",
   celebration: "family-celebration",
   tribute: "heartfelt-tribute",
+  babyshower: "baby-shower",
+  genderreveal: "gender-reveal",
+  valentines: "valentine-day",
 };
 
 export function getBookTheme(themeValue) {
