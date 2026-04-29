@@ -839,3 +839,306 @@ export const getThemeStyles = (theme) => ({
     color: theme.accentColor,
   },
 });
+
+// ============================================================================
+// CATEGORIZED THEMES BY AGE GROUP
+// ============================================================================
+
+export const THEMED_CATEGORIES = {
+  // Infants & Toddlers (0-2 years)
+  infants: {
+    ageGroup: "0-2 Years",
+    ageRange: "Infants & Toddlers",
+    icon: "👶",
+    description: "Simple, colorful, and sensory-friendly themes",
+    categories: {
+      learning: {
+        name: "Learning Basics",
+        icon: "📚",
+        description: "Alphabets, Numbers, and Basic Concepts",
+        themes: [
+          "animal-adventure", // Simple animals
+        ],
+      },
+      sensory: {
+        name: "Sensory & Colors",
+        icon: "🎨",
+        description: "Bright colors, shapes, and patterns",
+        themes: [
+          "goodnight-garage", // Warm, simple, comforting
+        ],
+      },
+      bedtime: {
+        name: "Bedtime Stories",
+        icon: "🌙",
+        description: "Calm, soothing, and cozy themes",
+        themes: [
+          "goodnight-garage",
+        ],
+      },
+    },
+  },
+
+  // Young Children (2-5 years)
+  toddlers: {
+    ageGroup: "2-5 Years",
+    ageRange: "Toddlers & Preschool",
+    icon: "🧒",
+    description: "Imaginative, colorful, and educational themes",
+    categories: {
+      adventure: {
+        name: "Adventures",
+        icon: "🗺️",
+        description: "Exciting journeys and discoveries",
+        themes: [
+          "animal-adventure",
+          "dino-quest",
+          "goodnight-garage",
+        ],
+      },
+      fantasy: {
+        name: "Fairytales & Magic",
+        icon: "✨",
+        description: "Magical worlds, princes, and enchantment",
+        themes: [
+          "unicorn-magic",
+        ],
+      },
+      educational: {
+        name: "Learning Stories",
+        icon: "🎓",
+        description: "Letters, numbers, and life lessons",
+        themes: [
+          "animal-adventure",
+          "dino-quest",
+        ],
+      },
+      bedtime: {
+        name: "Sleepy Time",
+        icon: "😴",
+        description: "Cozy and calming bedtime themes",
+        themes: [
+          "goodnight-garage",
+        ],
+      },
+      emotions: {
+        name: "Feelings & Growth",
+        icon: "❤️",
+        description: "Emotional learning and confidence",
+        themes: [
+          "animal-adventure",
+        ],
+      },
+    },
+  },
+
+  // Children (6-11 years)
+  children: {
+    ageGroup: "6-11 Years",
+    ageRange: "Elementary School",
+    icon: "👧",
+    description: "Action-packed and inspiring themes with deeper stories",
+    categories: {
+      adventure: {
+        name: "Action & Adventure",
+        icon: "⚔️",
+        description: "Quest, heroes, and exciting journeys",
+        themes: [
+          "dino-quest",
+          "animal-adventure",
+        ],
+      },
+      fantasy: {
+        name: "Fantasy & Magic",
+        icon: "🧙",
+        description: "Wizards, spells, and magical realms",
+        themes: [
+          "unicorn-magic",
+        ],
+      },
+      exploration: {
+        name: "Exploration",
+        icon: "🚀",
+        description: "Space, ocean, and new worlds",
+        themes: [
+          "dino-quest",
+        ],
+      },
+      heroes: {
+        name: "Heroes & Powers",
+        icon: "🦸",
+        description: "Superheroes and special abilities",
+        themes: [
+          "animal-adventure",
+        ],
+      },
+      mystery: {
+        name: "Mystery & Puzzle",
+        icon: "🔍",
+        description: "Solve puzzles and unlock secrets",
+        themes: [
+          "dino-quest",
+        ],
+      },
+      humor: {
+        name: "Funny Stories",
+        icon: "😄",
+        description: "Comedy and entertaining adventures",
+        themes: [
+          "dino-quest",
+          "goodnight-garage",
+        ],
+      },
+    },
+  },
+
+  // Teens & Adults (12+ years)
+  teens: {
+    ageGroup: "12+ Years",
+    ageRange: "Teens & Adults",
+    icon: "👨",
+    description: "Sophisticated themes for mature storytelling",
+    categories: {
+      adventure: {
+        name: "Epic Adventures",
+        icon: "⚔️",
+        description: "Grand quests and legendary journeys",
+        themes: [
+          "animal-adventure",
+          "dino-quest",
+        ],
+      },
+      fantasy: {
+        name: "Fantasy Realms",
+        icon: "🏰",
+        description: "Magical kingdoms and epic fantasy",
+        themes: [
+          "unicorn-magic",
+        ],
+      },
+      scifi: {
+        name: "Sci-Fi & Future",
+        icon: "🚀",
+        description: "Space exploration and futuristic worlds",
+        themes: [
+          "dino-quest",
+        ],
+      },
+      mystery: {
+        name: "Mystery & Thriller",
+        icon: "🔎",
+        description: "Intriguing puzzles and suspense",
+        themes: [
+          "dino-quest",
+        ],
+      },
+      celebration: {
+        name: "Celebrations",
+        icon: "🎉",
+        description: "Special occasions and memorable moments",
+        themes: [
+          "family-celebration",
+          "birthday-bash",
+          "festive-gathering",
+        ],
+      },
+      milestone: {
+        name: "Milestone Stories",
+        icon: "🎓",
+        description: "Achievement and personal growth",
+        themes: [
+          "family-celebration",
+        ],
+      },
+      tribute: {
+        name: "Heartfelt Tributes",
+        icon: "💝",
+        description: "Love, family, and cherished memories",
+        themes: [
+          "heartfelt-tribute",
+          "family-celebration",
+        ],
+      },
+      special: {
+        name: "Special Events",
+        icon: "⭐",
+        description: "Weddings, graduations, and special moments",
+        themes: [
+          "birthday-bash",
+          "festive-gathering",
+          "baby-shower",
+        ],
+      },
+    },
+  },
+};
+
+/**
+ * Get all categories for an age group
+ * @param {string} ageGroup - Age group key (infants, toddlers, children, teens)
+ * @returns {object} Categories with themes for that age group
+ */
+export function getCategoriesByAgeGroup(ageGroup) {
+  const ageGroupData = THEMED_CATEGORIES[ageGroup];
+  return ageGroupData ? ageGroupData.categories : {};
+}
+
+/**
+ * Get all themes for a specific category and age group
+ * @param {string} ageGroup - Age group key
+ * @param {string} categoryKey - Category key
+ * @returns {object[]} Array of theme objects
+ */
+export function getThemesByCategory(ageGroup, categoryKey) {
+  const categoryData = THEMED_CATEGORIES[ageGroup]?.categories?.[categoryKey];
+  if (!categoryData) return [];
+
+  return categoryData.themes
+    .map((themeId) => BOOK_THEME_MAP[themeId])
+    .filter(Boolean);
+}
+
+/**
+ * Get all age groups with their metadata
+ * @returns {object} Age groups organized by group
+ */
+export function getAllAgeGroups() {
+  return Object.entries(THEMED_CATEGORIES).map(([key, data]) => ({
+    key,
+    ageGroup: data.ageGroup,
+    ageRange: data.ageRange,
+    icon: data.icon,
+    description: data.description,
+    categoryCount: Object.keys(data.categories).length,
+  }));
+}
+
+/**
+ * Get recommended themes for an age group
+ * @param {string} ageGroup - Age group key
+ * @returns {object[]} Array of popular themes
+ */
+export function getRecommendedThemesForAgeGroup(ageGroup) {
+  const categories = THEMED_CATEGORIES[ageGroup]?.categories || {};
+  const themeSet = new Set();
+
+  // Get first few themes from each category
+  Object.values(categories).forEach((category) => {
+    category.themes.slice(0, 2).forEach((theme) => themeSet.add(theme));
+  });
+
+  return Array.from(themeSet)
+    .map((themeId) => BOOK_THEME_MAP[themeId])
+    .filter(Boolean)
+    .slice(0, 6);
+}
+
+/**
+ * Get category info for a specific category
+ * @param {string} ageGroup - Age group key
+ * @param {string} categoryKey - Category key
+ * @returns {object} Category information
+ */
+export function getCategoryInfo(ageGroup, categoryKey) {
+  return THEMED_CATEGORIES[ageGroup]?.categories?.[categoryKey] || null;
+}
