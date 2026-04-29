@@ -5,6 +5,7 @@
  */
 
 import { NextResponse } from 'next/server';
+import { getBookTheme } from '@/utils/themes';
 const jwt = require('jsonwebtoken');
 
 export const runtime = 'nodejs';
@@ -52,6 +53,12 @@ export async function POST(request) {
       photoIds = [],
       pageCount,
       characters,
+      milestoneTitle,
+      milestonePromptHint,
+      milestoneCoverBadge,
+      isSeries,
+      chapterNumber,
+      originalTheme,
     } = body;
 
     // Validate input
@@ -78,6 +85,12 @@ export async function POST(request) {
       theme,
       tone,
       characters: characters || generateCharactersFromTheme(theme),
+      milestoneTitle,
+      milestonePromptHint,
+      milestoneCoverBadge,
+      isSeries,
+      chapterNumber,
+      originalTheme,
     });
 
     const storyId = `story_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
@@ -95,7 +108,7 @@ export async function POST(request) {
           theme,
           tone: tone || 'adventurous',
           createdAt: new Date().toISOString(),
-          createdBy: decoded.id || decoded.email,
+          createdBy: decoded ? (decoded.id || decoded.email) : 'internal-system',
         },
         content: storyContent,
         pages: storyContent.pages,
@@ -190,7 +203,20 @@ export async function GET(request) {
  * Generate story content from template
  * In production, this could call OpenAI, Anthropic, or other AI services
  */
-function generateStoryFromTemplate({ childName, childAge, theme, tone, characters }) {
+function generateStoryFromTemplate({
+  childName,
+  childAge,
+  theme,
+  tone,
+  characters,
+  milestoneTitle,
+  milestonePromptHint,
+  milestoneCoverBadge,
+  isSeries,
+  chapterNumber,
+  originalTheme,
+}) {
+  const selectedBookTheme = getBookTheme(theme);
   const templates = {
     adventure: {
       title: `${childName}'s Amazing Adventure`,
@@ -262,18 +288,188 @@ function generateStoryFromTemplate({ childName, childAge, theme, tone, character
         },
       ],
     },
+    learning: {
+      title: `${childName}'s Learning Adventure`,
+      pages: [
+        {
+          number: 1,
+          title: 'A Bright New Discovery',
+          text: `${childName} stepped into a colorful learning world where letters, numbers, shapes, and colors were ready to play. Everything looked cheerful, welcoming, and full of wonder.`,
+          illustration: 'learning_world',
+        },
+        {
+          number: 2,
+          title: 'Friendly Learning Friends',
+          text: `Playful alphabet pals and happy number friends waved hello to ${childName}. They invited ${childName} to count, point, sing, and laugh along with every new discovery.`,
+          illustration: 'learning_friends',
+        },
+        {
+          number: 3,
+          title: 'Shapes and Colors Everywhere',
+          text: `${childName} spotted circles, squares, stars, and rainbows all around. Every shape and color became part of a magical game that made learning feel exciting and fun.`,
+          illustration: 'shapes_and_colors',
+        },
+        {
+          number: 4,
+          title: 'A Proud Little Moment',
+          text: `With each tiny success, ${childName} felt brighter and braver. By the end of the adventure, ${childName} knew that learning new things could feel like pure magic.`,
+          illustration: 'proud_learning_moment',
+        },
+      ],
+    },
+    celebration: {
+      title: `${childName}'s Special Celebration`,
+      pages: [
+        {
+          number: 1,
+          title: 'A Day to Remember',
+          text: `${childName} woke up to decorations, smiling faces, and the feeling that something very special was about to happen. Today was a moment worth celebrating.`,
+          illustration: 'celebration_beginning',
+        },
+        {
+          number: 2,
+          title: 'Love All Around',
+          text: `Family and friends gathered to cheer for ${childName}. Warm hugs, kind words, and joyful surprises made the whole day sparkle with love.`,
+          illustration: 'love_all_around',
+        },
+        {
+          number: 3,
+          title: 'The Big Happy Moment',
+          text: `${childName} stood proudly in the center of the celebration, shining with confidence. It felt wonderful to be seen, supported, and celebrated.`,
+          illustration: 'big_happy_moment',
+        },
+        {
+          number: 4,
+          title: 'Memories to Keep Forever',
+          text: `As the celebration came to a close, ${childName} held onto the happiest part of all: the feeling of being deeply loved on such a meaningful day.`,
+          illustration: 'keepsake_memory',
+        },
+      ],
+    },
+    milestone: {
+      title: `${childName}'s Precious Milestone`,
+      pages: [
+        {
+          number: 1,
+          title: 'A Special Little First',
+          text: `${childName} woke up to a gentle, happy day where everyone could feel that a precious little first was about to happen. The room felt warm, calm, and full of love.`,
+          illustration: 'special_little_first',
+        },
+        {
+          number: 2,
+          title: 'Growing Every Day',
+          text: `With encouraging smiles all around, ${childName} explored, reached, tried, and discovered something new. Every tiny effort made the moment feel even more magical.`,
+          illustration: 'growing_every_day',
+        },
+        {
+          number: 3,
+          title: 'Cheers and Happy Hearts',
+          text: `Then the big little milestone arrived, and everyone cheered for ${childName} with joy. It was a proud moment filled with claps, cuddles, and shining eyes.`,
+          illustration: 'happy_milestone_cheer',
+        },
+        {
+          number: 4,
+          title: 'A Memory to Keep',
+          text: `By the end of the day, ${childName} had a beautiful new memory. What seemed like a small first had become a treasured story the whole family would remember forever.`,
+          illustration: 'memory_to_keep',
+        },
+      ],
+    },
+    confidence: {
+      title: `${childName}'s Brave Little Hero Story`,
+      pages: [
+        {
+          number: 1,
+          title: 'A Small Brave Step',
+          text: `${childName} felt a tiny flutter of nerves, but also a spark of courage. Today was the perfect day to try something new and believe in that brave little heart.`,
+          illustration: 'small_brave_step',
+        },
+        {
+          number: 2,
+          title: 'Kindness Is a Superpower',
+          text: `When someone needed help, ${childName} stepped forward with kindness. That simple caring moment made ${childName} feel stronger than ever before.`,
+          illustration: 'kindness_superpower',
+        },
+        {
+          number: 3,
+          title: 'Trying Again',
+          text: `Not everything happened perfectly the first time, but ${childName} kept going. Every new try turned worry into confidence and effort into pride.`,
+          illustration: 'trying_again',
+        },
+        {
+          number: 4,
+          title: 'A Heroic Heart',
+          text: `By the end of the day, ${childName} discovered that real heroes are brave, kind, and willing to keep growing. That made ${childName} a true little hero.`,
+          illustration: 'heroic_heart',
+        },
+      ],
+    },
   };
 
-  const template = templates[theme] || templates.adventure;
+  const resolvedTemplateKey = (() => {
+    const storyTheme = selectedBookTheme.storyTheme || theme;
+
+    if (storyTheme === 'learning') {
+      return 'learning';
+    }
+
+    if (
+      storyTheme === 'milestone'
+    ) {
+      return 'milestone';
+    }
+
+    if (
+      storyTheme === 'celebration' ||
+      storyTheme === 'birthday' ||
+      storyTheme === 'gathering' ||
+      storyTheme === 'tribute'
+    ) {
+      return 'celebration';
+    }
+
+    if (storyTheme === 'confidence') {
+      return 'confidence';
+    }
+
+    if (storyTheme === 'fantasy') {
+      return 'fantasy';
+    }
+
+    return 'adventure';
+  })();
+
+  const template = templates[resolvedTemplateKey] || templates.adventure;
+  const chapterPrefix =
+    isSeries && Number(chapterNumber) > 1 ? `Chapter ${chapterNumber}: ` : '';
+  const milestoneIntro = milestonePromptHint
+    ? `This story celebrates ${milestonePromptHint}. `
+    : '';
+  const sequelIntro =
+    isSeries && Number(chapterNumber) > 1
+      ? `${childName} is returning for another adventure after their previous ${
+          originalTheme || theme
+        } story. `
+      : '';
+  const baseTitle =
+    typeof selectedBookTheme.titleTemplate === 'function'
+      ? selectedBookTheme.titleTemplate(childName)
+      : template.title;
+  const fullTitle = `${chapterPrefix}${baseTitle}${
+    milestoneTitle ? ` - ${milestoneTitle}` : ''
+  }`;
   
   return {
-    title: template.title,
+    title: milestoneCoverBadge ? `${fullTitle} - ${milestoneCoverBadge}` : fullTitle,
     theme,
     tone,
     characters: characters || ['Ollie the Owl', 'The Queen of Stars', childName],
     pages: template.pages.map(page => ({
       ...page,
-      text: page.text, // Already personalized with childName
+      text:
+        page.number === 1
+          ? `${milestoneIntro}${sequelIntro}${page.text}`.trim()
+          : page.text,
     })),
   };
 }
@@ -282,15 +478,20 @@ function generateStoryFromTemplate({ childName, childAge, theme, tone, character
  * Generate characters based on theme
  */
 function generateCharactersFromTheme(theme) {
+  const resolvedTheme = getBookTheme(theme).storyTheme || theme;
   const characters = {
     adventure: ['Brave Explorer', 'Wise Guide', 'Magical Companion'],
     fantasy: ['Fairy Queen', 'Enchanted Dragon', 'Wise Wizard'],
     educational: ['Professor Owl', 'Science Explorer', 'Adventure Buddy'],
+    learning: ['Alphabet Friend', 'Counting Buddy', 'Rainbow Guide'],
+    milestone: ['Loving Family Cheer', 'Keepsake Star', 'Gentle Little Guide'],
+    celebration: ['Joyful Helper', 'Family Friend', 'Keepsake Star'],
+    confidence: ['Kind Helper', 'Brave Buddy', 'Cheerful Coach'],
     mystery: ['Detective Friend', 'Clue Finder', 'Mysterious Guide'],
     space: ['Alien Friend', 'Space Captain', 'Robot Helper'],
     jungle: ['Safari Guide', 'Jungle Monkey', 'Parrot Friend'],
     underwater: ['Friendly Dolphin', 'Wise Turtle', 'Mermaid Friend'],
   };
 
-  return characters[theme] || characters.adventure;
+  return characters[resolvedTheme] || characters.adventure;
 }

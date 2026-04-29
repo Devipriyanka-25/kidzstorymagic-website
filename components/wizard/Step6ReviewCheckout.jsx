@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import PDFPreviewModal from './PDFPreviewModal';
+import GiftStory from './GiftStory';
 import CharacterConsistentStoryPage from '@/components/story/CharacterConsistentStoryPage';
 import { useLanguage } from '@/hooks/useLanguage';
 import { storyAPI, paymentAPI, emailAPI } from '@/utils/api';
@@ -28,6 +29,7 @@ const isIllustratedStoryPage = (page) => page?.pageType === 'story';
 const PREVIEW_SUPPORT_EMAIL = 'support@kidzstorymagic.com';
 const PREVIEW_POLL_INTERVAL_MS = 3000;
 const PREVIEW_FIRST_PAGE_TIMEOUT_MS = 45000;
+const FREE_PREVIEW_PAGE_LIMIT = 3;
 const PREVIEW_QUOTES = [
   {
     quote:
@@ -444,6 +446,14 @@ export default function Step6ReviewCheckout() {
   const [previewEmailFeedback, setPreviewEmailFeedback] = useState('');
   const [previewEmailSentTo, setPreviewEmailSentTo] = useState('');
   const [quoteIndex, setQuoteIndex] = useState(0);
+  const [giftData, setGiftData] = useState({
+    isGift: false,
+    recipientName: '',
+    recipientEmail: '',
+    giftMessage: '',
+    isValidEmail: false,
+    isComplete: true,
+  });
 
   const [selectedFaceImage, setSelectedFaceImage] = useState(null);
   const [selectedFaceReferenceImage, setSelectedFaceReferenceImage] = useState(null);
@@ -538,6 +548,10 @@ export default function Step6ReviewCheckout() {
       return false;
     }
 
+    if (targetPageIndex >= FREE_PREVIEW_PAGE_LIMIT) {
+      return false;
+    }
+
     for (let pageIndex = 0; pageIndex <= targetPageIndex; pageIndex += 1) {
       if (!isPageIllustrationReady(storyPreview[pageIndex], pageIndex)) {
         return false;
@@ -577,6 +591,10 @@ export default function Step6ReviewCheckout() {
     shouldShowStoryPreview &&
     currentPage < storyPreview.length - 1 &&
     canAccessPage(currentPage + 1);
+  const lockedPreviewPageCount = Array.isArray(storyPreview)
+    ? Math.max(storyPreview.length - FREE_PREVIEW_PAGE_LIMIT, 0)
+    : 0;
+  const isFreePreviewLocked = lockedPreviewPageCount > 0;
   const allIllustratedPagesReady = Array.isArray(storyPreview)
     ? storyPreview.every((page, pageIndex) =>
         isPageIllustrationReady(page, pageIndex)
@@ -819,13 +837,20 @@ export default function Step6ReviewCheckout() {
           ? formData.customIllustrationPrompt
           : null;
 
-        const storyData = {
-          childName: formData.childName || 'Child',
-          childGender: formData.childGender || 'child',
-          ageGroup: formData.ageGroup || '5-8',
-          theme: formData.theme || 'animal-adventure',
-          pageCount: formData.pageCount || 20,
-        };
+      const storyData = {
+        childName: formData.childName || 'Child',
+        childGender: formData.childGender || 'child',
+        ageGroup: formData.ageGroup || '5-8',
+        theme: formData.theme || 'animal-adventure',
+        pageCount: formData.pageCount || 20,
+        milestoneTitle: formData.milestoneTitle || '',
+        milestonePromptHint: formData.milestonePromptHint || '',
+        milestoneCoverBadge: formData.milestoneCoverBadge || '',
+        isSeries: Boolean(formData.isSeries),
+        chapterNumber: Number(formData.seriesChapterNumber) || 1,
+        originalTheme: formData.seriesOriginalTheme || formData.theme || '',
+        bundleSelected: Boolean(formData.seriesBundleSelected),
+      };
 
       // Get child photo URL from uploaded images or photo
       const childPhotoUrl =
@@ -855,21 +880,40 @@ export default function Step6ReviewCheckout() {
             enableFaceSwap: true,
             pageCount: formData.pageCount || 20,
             userId: authUser?.id,
+            milestoneTitle: storyData.milestoneTitle,
+            milestonePromptHint: storyData.milestonePromptHint,
+            milestoneCoverBadge: storyData.milestoneCoverBadge,
+            isSeries: storyData.isSeries,
+            chapterNumber: storyData.chapterNumber,
+            originalTheme: storyData.originalTheme,
           }),
         });
 
         if (!faceSwapResponse.ok) {
-          const errorData = await faceSwapResponse.json();
-          throw new Error(errorData.error || 'Failed to generate story with face swap');
+          const errorText = await faceSwapResponse.text();
+          let errorMessage = 'Failed to generate story with face swap';
+          try {
+            const errorData = JSON.parse(errorText);
+            errorMessage = errorData.error || errorMessage;
+          } catch {
+            // If response is not JSON, use a generic error message
+            errorMessage = `API Error (${faceSwapResponse.status}): ${errorText.substring(0, 100)}`;
+          }
+          throw new Error(errorMessage);
         }
 
-        const storyResponse = await faceSwapResponse.json();
-        const pages = storyResponse.story?.pages || storyResponse.pages || [];
-        const nextPages = pages.length > 0 ? pages : [{}];
-        setStoryPreview(nextPages);
-        setPageGenerationStates(
-          buildInitialPageGenerationStates(nextPages, shouldGateIllustrations)
-        );
+        try {
+          const storyResponse = await faceSwapResponse.json();
+          const pages = storyResponse.story?.pages || storyResponse.pages || [];
+          const nextPages = pages.length > 0 ? pages : [{}];
+          setStoryPreview(nextPages);
+          setPageGenerationStates(
+            buildInitialPageGenerationStates(nextPages, shouldGateIllustrations)
+          );
+        } catch (parseError) {
+          const responseText = await faceSwapResponse.text();
+          throw new Error(`Invalid JSON response from story generation: ${parseError.message}. Response: ${responseText.substring(0, 100)}`);
+        }
       } else {
         // Fallback to original story generation if no photo
         const storyResponse = await storyAPI.generateStory(
@@ -1194,11 +1238,34 @@ export default function Step6ReviewCheckout() {
         return;
       }
 
+      if (giftData.isGift && !giftData.isComplete) {
+        setError(
+          'Please complete the gift recipient name and a valid email before checkout.'
+        );
+        setLoading(false);
+        return;
+      }
+
       const response = await paymentAPI.createCheckout({
         projectId: formData.projectId,
         currency,
         country: selectedCountryOption.country,
         pageCount: formData.pageCount,
+        buyerName:
+          authUser?.name ||
+          authUser?.email ||
+          formData.parentEmail ||
+          formData.childName,
+        childName: formData.childName,
+        theme: formData.theme,
+        isGift: Boolean(giftData.isGift),
+        giftData: giftData.isGift
+          ? {
+              recipientName: giftData.recipientName,
+              recipientEmail: giftData.recipientEmail,
+              giftMessage: giftData.giftMessage,
+            }
+          : null,
       });
 
       if (response.data.checkoutUrl) {
@@ -1208,7 +1275,7 @@ export default function Step6ReviewCheckout() {
           alert(
             'Stripe is not configured in development mode. This is a test environment.'
           );
-          window.location.href = `/success?session_id=${response.data.sessionId}`;
+          window.location.href = `/success?session_id=${response.data.sessionId}&project_id=${formData.projectId}`;
         } else {
           window.location.href = `https://checkout.stripe.com/pay/${response.data.sessionId}`;
         }
@@ -1793,6 +1860,25 @@ export default function Step6ReviewCheckout() {
                     </div>
                   </div>
 
+                  {(formData.milestoneTitle || formData.isSeries) && (
+                    <div className="mb-4 flex flex-wrap gap-2">
+                      {formData.milestoneTitle ? (
+                        <div className="rounded-full border border-amber-200 bg-amber-50 px-4 py-2 text-sm font-bold text-amber-900">
+                          Milestone: {formData.milestoneTitle}
+                        </div>
+                      ) : null}
+                      {formData.isSeries ? (
+                        <div className="rounded-full border border-sky-200 bg-sky-50 px-4 py-2 text-sm font-bold text-sky-900">
+                          Chapter {formData.seriesChapterNumber || 2} sequel
+                        </div>
+                      ) : null}
+                    </div>
+                  )}
+
+                  <div className="mb-6">
+                    <GiftStory value={giftData} onChange={setGiftData} />
+                  </div>
+
                   {formData.uploadedImages && formData.uploadedImages.length > 0 && (
                     <div
                       className="mb-6 rounded-2xl border-2 bg-gradient-to-r from-purple-50 to-pink-50 p-6"
@@ -1859,6 +1945,20 @@ export default function Step6ReviewCheckout() {
                     </div>
                   )}
 
+                  {isFreePreviewLocked && (
+                    <div className="mb-6 rounded-2xl border border-amber-300 bg-amber-50 px-5 py-5 text-center text-amber-950">
+                      <p className="text-lg font-black">
+                        Free preview is limited to the first {FREE_PREVIEW_PAGE_LIMIT} pages
+                      </p>
+                      <p className="mt-2 text-sm leading-7 text-amber-900">
+                        {lockedPreviewPageCount} more page
+                        {lockedPreviewPageCount === 1 ? '' : 's'} are waiting
+                        behind checkout. Families can sample the story first,
+                        then unlock the full book and PDF.
+                      </p>
+                    </div>
+                  )}
+
                   <div className="flex flex-wrap justify-center gap-3">
                     <button
                       onClick={prevStep}
@@ -1869,18 +1969,20 @@ export default function Step6ReviewCheckout() {
 
                     <button
                       onClick={() => {
-                        if (allIllustratedPagesReady) {
+                        if (!isFreePreviewLocked && allIllustratedPagesReady) {
                           setShowPDFPreview(true);
                         }
                       }}
-                      disabled={!allIllustratedPagesReady}
+                      disabled={!allIllustratedPagesReady || isFreePreviewLocked}
                       className="rounded-full border-2 px-6 py-3 font-bold transition-all duration-300 hover:bg-green-50"
                       style={{
                         borderColor: '#10B981',
                         color: '#059669',
                       }}
                     >
-                      View PDF Preview
+                      {isFreePreviewLocked
+                        ? 'Unlock PDF After Checkout'
+                        : 'View PDF Preview'}
                     </button>
 
                     <button
@@ -1915,7 +2017,7 @@ export default function Step6ReviewCheckout() {
 
                   {!allIllustratedPagesReady && (
                     <p className="mt-3 text-center text-sm text-gray-600">
-                      Finish generating each story page illustration in order to unlock PDF preview and checkout.
+                      Finish generating each story page illustration in order to unlock checkout.
                       {illustrationsRemainingCount > 0
                         ? ` ${illustrationsRemainingCount} illustrated page${illustrationsRemainingCount === 1 ? '' : 's'} remaining.`
                         : ''}

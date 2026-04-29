@@ -17,6 +17,12 @@ export interface StoryGenerationRequest {
   childPhotoUrl?: string; // URL of uploaded child photo
   enableFaceSwap: boolean;
   pageCount: number;
+  milestoneTitle?: string;
+  milestonePromptHint?: string;
+  milestoneCoverBadge?: string;
+  isSeries?: boolean;
+  chapterNumber?: number;
+  originalTheme?: string;
 }
 
 export interface StoryPage {
@@ -37,6 +43,17 @@ export interface GeneratedStory {
   pages: StoryPage[];
   status: 'draft' | 'ready' | 'failed';
   createdAt: string;
+}
+
+function getAppBaseUrl(): string {
+  return (process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000').replace(
+    /\/$/,
+    ''
+  );
+}
+
+function buildApiUrl(path: string): string {
+  return `${getAppBaseUrl()}${path.startsWith('/') ? path : `/${path}`}`;
 }
 
 /**
@@ -96,7 +113,7 @@ async function generateStoryStructure(
   request: StoryGenerationRequest
 ): Promise<GeneratedStory> {
   // Call your existing story generation endpoint with internal call header
-  const response = await fetch('/api/story/generate', {
+  const response = await fetch(buildApiUrl('/api/story/generate'), {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -108,14 +125,35 @@ async function generateStoryStructure(
       childAge: request.childAge,
       theme: request.theme,
       pageCount: request.pageCount,
+      milestoneTitle: request.milestoneTitle,
+      milestonePromptHint: request.milestonePromptHint,
+      milestoneCoverBadge: request.milestoneCoverBadge,
+      isSeries: request.isSeries,
+      chapterNumber: request.chapterNumber,
+      originalTheme: request.originalTheme,
     }),
   });
 
   if (!response.ok) {
-    throw new Error(`Failed to generate story structure: ${response.statusText}`);
+    const errorText = await response.text();
+    console.error('[PIPELINE] Story generation failed:', {
+      status: response.status,
+      statusText: response.statusText,
+      errorResponse: errorText.substring(0, 200),
+    });
+    throw new Error(`Failed to generate story structure: ${response.statusText} - ${errorText.substring(0, 100)}`);
   }
 
-  return response.json();
+  try {
+    return await response.json();
+  } catch (parseError) {
+    const text = await response.text();
+    console.error('[PIPELINE] Failed to parse story response:', {
+      error: parseError,
+      responseText: text.substring(0, 200),
+    });
+    throw new Error(`Invalid JSON response from story generation: ${parseError.message}`);
+  }
 }
 
 /**
@@ -135,7 +173,7 @@ async function generateIllustrations(
 
         console.log(`[PIPELINE] Generating illustration for page ${page.pageNumber}...`);
 
-        const response = await fetch('/api/generate-story-page', {
+        const response = await fetch(buildApiUrl('/api/generate-story-page'), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -149,15 +187,20 @@ async function generateIllustrations(
         });
 
         if (!response.ok) {
-          console.warn(`[PIPELINE] Failed to generate illustration for page ${page.pageNumber}`);
+          console.warn(`[PIPELINE] Failed to generate illustration for page ${page.pageNumber}: ${response.statusText}`);
           return page;
         }
 
-        const result = await response.json();
-        return {
-          ...page,
-          illustrationUrl: result.imageUrl || result.result?.imageUrl,
-        };
+        try {
+          const result = await response.json();
+          return {
+            ...page,
+            illustrationUrl: result.imageUrl || result.result?.imageUrl,
+          };
+        } catch (parseError) {
+          console.error(`[PIPELINE] Failed to parse illustration response for page ${page.pageNumber}:`, parseError);
+          return page;
+        }
       } catch (error) {
         console.error(`[PIPELINE] Error generating page ${page.pageNumber}:`, error);
         return page;
@@ -187,7 +230,7 @@ async function applyFaceSwapToPages(
 
         console.log(`[PIPELINE] Applying face swap to page ${page.pageNumber}...`);
 
-        const response = await fetch('/api/photos/face-swap', {
+        const response = await fetch(buildApiUrl('/api/photos/face-swap'), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -252,7 +295,7 @@ export async function generateMultipleStoriesWithFaceSwap(
 export async function getStoryGenerationStatus(
   projectId: string
 ): Promise<{ status: string; progress: number; message?: string }> {
-  const response = await fetch(`/api/story/${projectId}/status`);
+  const response = await fetch(buildApiUrl(`/api/story/${projectId}/status`));
   if (!response.ok) {
     throw new Error('Failed to get story status');
   }
@@ -263,7 +306,7 @@ export async function getStoryGenerationStatus(
  * Cancel story generation
  */
 export async function cancelStoryGeneration(projectId: string): Promise<void> {
-  const response = await fetch(`/api/story/${projectId}/cancel`, {
+  const response = await fetch(buildApiUrl(`/api/story/${projectId}/cancel`), {
     method: 'POST',
   });
   if (!response.ok) {
