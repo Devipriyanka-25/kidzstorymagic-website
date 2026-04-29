@@ -13,8 +13,43 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
 
+function normalizeBaseUrl(baseUrl = '') {
+  return String(baseUrl || '').trim().replace(/\/$/, '');
+}
+
+function resolveAppBaseUrl(request) {
+  const requestOrigin = normalizeBaseUrl(request.nextUrl?.origin);
+  if (requestOrigin) {
+    return requestOrigin;
+  }
+
+  const originHeader = normalizeBaseUrl(request.headers.get('origin'));
+  if (originHeader) {
+    return originHeader;
+  }
+
+  const forwardedProto = request.headers.get('x-forwarded-proto');
+  const forwardedHost = request.headers.get('x-forwarded-host');
+  if (forwardedProto && forwardedHost) {
+    return `${forwardedProto}://${forwardedHost}`;
+  }
+
+  const configuredUrl = normalizeBaseUrl(process.env.NEXT_PUBLIC_APP_URL);
+  if (configuredUrl) {
+    return configuredUrl;
+  }
+
+  const vercelUrl = normalizeBaseUrl(process.env.VERCEL_URL);
+  if (vercelUrl) {
+    return vercelUrl.startsWith('http') ? vercelUrl : `https://${vercelUrl}`;
+  }
+
+  return 'http://localhost:3001';
+}
+
 export async function POST(request) {
   try {
+    const appBaseUrl = resolveAppBaseUrl(request);
     // Verify authentication
     const authHeader = request.headers.get('authorization');
     console.log('[CHECKOUT] Auth header:', authHeader ? 'Present' : 'Missing');
@@ -157,8 +192,8 @@ export async function POST(request) {
           },
         ],
         mode: 'payment',
-        success_url: `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3001'}/success?session_id={CHECKOUT_SESSION_ID}&project_id=${encodeURIComponent(projectId)}`,
-        cancel_url: `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3001'}/wizard?step=6`,
+        success_url: `${appBaseUrl}/success?session_id={CHECKOUT_SESSION_ID}&project_id=${encodeURIComponent(projectId)}`,
+        cancel_url: `${appBaseUrl}/wizard?step=6`,
         metadata: {
           projectId: projectId,
           userId: String(authUser.id),
