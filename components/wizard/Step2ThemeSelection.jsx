@@ -2,10 +2,14 @@
 
 import React, { useEffect, useMemo, useState } from 'react';
 import { useWizardStore } from '@/utils/store';
+import MilestoneSelector from './MilestoneSelector';
+import { getMilestoneById, getMilestoneFormData } from '@/utils/milestones';
 import {
   getBookThemePreviewArt,
+  getCategoriesByAgeGroup,
   getStoryThemesForAgeGroup,
   getTheme,
+  getThemesByCategory,
 } from '@/utils/themes';
 
 export default function Step2ThemeSelection() {
@@ -13,6 +17,7 @@ export default function Step2ThemeSelection() {
   const [customPrompt, setCustomPrompt] = useState(
     formData.customIllustrationPrompt || ''
   );
+  const [selectedCategory, setSelectedCategory] = useState(null);
 
   const referenceImage = useMemo(
     () =>
@@ -26,10 +31,33 @@ export default function Step2ThemeSelection() {
     () => getStoryThemesForAgeGroup(formData.ageGroup),
     [formData.ageGroup]
   );
+  const themeCategories = useMemo(
+    () => getCategoriesByAgeGroup(formData.ageGroup),
+    [formData.ageGroup]
+  );
+  const categoryEntries = useMemo(
+    () => Object.entries(themeCategories),
+    [themeCategories]
+  );
+  const themesInSelectedCategory = useMemo(
+    () =>
+      selectedCategory
+        ? getThemesByCategory(formData.ageGroup, selectedCategory)
+        : availableThemes,
+    [availableThemes, formData.ageGroup, selectedCategory]
+  );
+  const activeCategory = useMemo(
+    () => (selectedCategory ? themeCategories[selectedCategory] || null : null),
+    [selectedCategory, themeCategories]
+  );
 
   const selectedTheme = useMemo(
     () => availableThemes.find((theme) => theme.value === formData.theme) || null,
     [availableThemes, formData.theme]
+  );
+  const selectedMilestone = useMemo(
+    () => getMilestoneById(formData.selectedMilestoneId),
+    [formData.selectedMilestoneId]
   );
 
   const isAdultAudience = formData.ageGroup === '12+';
@@ -58,6 +86,29 @@ export default function Step2ThemeSelection() {
     updateFormData,
   ]);
 
+  useEffect(() => {
+    if (!categoryEntries.length) {
+      setSelectedCategory(null);
+      return;
+    }
+
+    const categoryWithSelectedTheme = categoryEntries.find(([, category]) =>
+      category.themes.includes(formData.theme)
+    );
+
+    setSelectedCategory((currentCategory) => {
+      if (categoryWithSelectedTheme) {
+        return categoryWithSelectedTheme[0];
+      }
+
+      if (currentCategory && themeCategories[currentCategory]) {
+        return currentCategory;
+      }
+
+      return categoryEntries[0][0];
+    });
+  }, [categoryEntries, formData.theme, themeCategories]);
+
   const handleSelect = (theme) => {
     updateFormData('theme', theme.value);
     updateFormData('illustrationStyle', theme.illustrationTheme);
@@ -72,6 +123,14 @@ export default function Step2ThemeSelection() {
     const value = event.target.value;
     setCustomPrompt(value);
     updateFormData('customIllustrationPrompt', value);
+  };
+
+  const handleMilestoneSelect = (milestone) => {
+    Object.entries(getMilestoneFormData(milestone)).forEach(
+      ([field, value]) => {
+        updateFormData(field, value);
+      }
+    );
   };
 
   const isValid =
@@ -94,8 +153,102 @@ export default function Step2ThemeSelection() {
         </p>
       </div>
 
+      {formData.isSeries ? (
+        <div className="mt-8 rounded-[28px] border border-sky-200 bg-[linear-gradient(135deg,#eff6ff_0%,#ffffff_100%)] p-6 shadow-[0_18px_40px_rgba(15,23,42,0.08)]">
+          <p className="text-sm font-bold uppercase tracking-[0.3em] text-sky-600">
+            Chapter {formData.seriesChapterNumber || 2}
+          </p>
+          <h3 className="mt-2 text-2xl font-black text-slate-900">
+            Sequel flow is pre-filled
+          </h3>
+          <p className="mt-3 text-sm leading-7 text-slate-600 sm:text-base">
+            We carried forward the child details from the previous purchase so
+            families can start the next adventure faster.
+          </p>
+        </div>
+      ) : null}
+
+      <div className="mt-10">
+        <MilestoneSelector
+          ageGroup={formData.ageGroup}
+          selectedId={formData.selectedMilestoneId}
+          onSelect={handleMilestoneSelect}
+        />
+      </div>
+
+      {selectedMilestone ? (
+        <div className="mt-6 rounded-[24px] border border-amber-200 bg-amber-50 px-6 py-5 text-sm leading-7 text-amber-900">
+          <span className="font-black">{selectedMilestone.title} selected.</span>{' '}
+          We will carry that moment into the story prompt and cover treatment
+          later in the flow.
+        </div>
+      ) : null}
+
+      {categoryEntries.length ? (
+        <section className="mt-12 rounded-[28px] border border-sky-200 bg-white/90 p-6 shadow-[0_18px_40px_rgba(15,23,42,0.08)] sm:p-8">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+            <div>
+              <p className="text-sm font-bold uppercase tracking-[0.28em] text-sky-600">
+                Theme Categories
+              </p>
+              <h3 className="mt-2 text-3xl font-black text-slate-900">
+                Browse by what this age group loves most
+              </h3>
+              <p className="mt-3 max-w-3xl text-sm leading-7 text-slate-600 sm:text-base">
+                We grouped the books into categories so parents can quickly find
+                the right direction, like fairytales, milestone stories,
+                confidence-building stories, or animal adventures.
+              </p>
+            </div>
+            <div className="rounded-full bg-sky-100 px-4 py-2 text-sm font-bold text-sky-800">
+              {categoryEntries.length} categories
+            </div>
+          </div>
+
+          <div className="mt-8 flex flex-wrap gap-3">
+            {categoryEntries.map(([categoryKey, category]) => {
+              const isActive = categoryKey === selectedCategory;
+
+              return (
+                <button
+                  key={categoryKey}
+                  type="button"
+                  onClick={() => setSelectedCategory(categoryKey)}
+                  className={`rounded-full border px-4 py-3 text-left transition-all duration-300 ${
+                    isActive
+                      ? 'border-sky-400 bg-sky-600 text-white shadow-[0_18px_32px_rgba(37,99,235,0.24)]'
+                      : 'border-slate-200 bg-slate-50 text-slate-700 hover:border-sky-300 hover:bg-white'
+                  }`}
+                >
+                  <span className="text-sm font-bold">
+                    {category.icon} {category.name}
+                  </span>
+                  <span
+                    className={`ml-2 text-xs font-semibold ${
+                      isActive ? 'text-sky-100' : 'text-slate-500'
+                    }`}
+                  >
+                    {category.themes.length} theme
+                    {category.themes.length === 1 ? '' : 's'}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+
+          {activeCategory ? (
+            <div className="mt-6 rounded-[22px] border border-sky-100 bg-[linear-gradient(135deg,#eff6ff_0%,#ffffff_100%)] px-5 py-4 text-sm leading-7 text-slate-700">
+              <span className="font-black text-slate-900">
+                {activeCategory.icon} {activeCategory.name}:
+              </span>{' '}
+              {activeCategory.description}
+            </div>
+          ) : null}
+        </section>
+      ) : null}
+
       <div className="mt-12 grid gap-8 md:grid-cols-2 xl:grid-cols-3">
-        {availableThemes.map((theme) => {
+        {themesInSelectedCategory.map((theme) => {
           const isSelected = formData.theme === theme.value;
           const themeColors = getTheme(theme.value);
 

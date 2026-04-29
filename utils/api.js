@@ -208,8 +208,10 @@ export const paymentAPI = {
       1000
     ),
   
-  verifyPayment: (sessionId) => 
-    createAPIClient().get(`/payment/verify/${sessionId}`),
+  verifyPayment: (sessionId, projectId = null) => 
+    createAPIClient().get(`/payment/verify/${sessionId}`, {
+      params: projectId ? { projectId } : undefined,
+    }),
   
   getOrder: (orderId) => 
     createAPIClient().get(`/payment/order/${orderId}`),

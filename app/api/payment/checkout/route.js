@@ -6,6 +6,7 @@
 
 import { NextResponse } from 'next/server';
 import { getConvertedStoryPrice, normalizeStoryPageCount } from '@/utils/pricing';
+import { resolveAuthenticatedStoryUser } from '../../shared/storyProjects.js';
 const jwt = require('jsonwebtoken');
 
 export const runtime = 'nodejs';
@@ -41,12 +42,25 @@ export async function POST(request) {
       );
     }
 
+    const authUser = await resolveAuthenticatedStoryUser(decoded);
+    if (!authUser?.id) {
+      return NextResponse.json(
+        { error: 'Authenticated user could not be resolved.' },
+        { status: 401 }
+      );
+    }
+
     const body = await request.json();
     const {
       projectId,
       currency = 'USD',
       country = 'United States',
       pageCount = 10,
+      buyerName = '',
+      childName = '',
+      theme = '',
+      isGift = false,
+      giftData = null,
     } = body;
     const normalizedPageCount = normalizeStoryPageCount(pageCount);
 
@@ -67,6 +81,15 @@ export async function POST(request) {
         { error: 'Missing required field: projectId' },
         { status: 400 }
       );
+    }
+
+    if (isGift) {
+      if (!giftData?.recipientName || !giftData?.recipientEmail) {
+        return NextResponse.json(
+          { error: 'Gift recipient name and email are required.' },
+          { status: 400 }
+        );
+      }
     }
 
     const {
@@ -99,6 +122,7 @@ export async function POST(request) {
           currency: normalizedCurrency,
           country,
           pageCount: normalizedPageCount,
+          isGift,
           isTestMode: true,
         },
         { status: 200 }
@@ -119,7 +143,7 @@ export async function POST(request) {
         line_items: [
           {
             price_data: {
-              currency: currency.toLowerCase(),
+              currency: normalizedCurrency.toLowerCase(),
               product_data: {
                 name: `Kidz Story Magic - Story Book`,
                 description: `${normalizedPageCount}-page personalized story book for project ${projectId}`,
@@ -133,17 +157,23 @@ export async function POST(request) {
           },
         ],
         mode: 'payment',
-        success_url: `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3001'}/success?session_id={CHECKOUT_SESSION_ID}`,
+        success_url: `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3001'}/success?session_id={CHECKOUT_SESSION_ID}&project_id=${encodeURIComponent(projectId)}`,
         cancel_url: `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3001'}/wizard?step=6`,
         metadata: {
-          storyId: projectId,  // Use storyId for webhook processing
           projectId: projectId,
-          userId: decoded.id || decoded.email,
-          userEmail: decoded.email,
+          userId: String(authUser.id),
+          userEmail: authUser.email || decoded.email || '',
+          buyerName: buyerName || authUser.name || authUser.email || '',
+          childName: childName || '',
+          theme: theme || '',
           currency: normalizedCurrency,
           country,
           pageCount: String(normalizedPageCount),
           basePriceUSD: basePriceUSD.toFixed(2),
+          isGift: isGift ? 'true' : 'false',
+          giftRecipientName: giftData?.recipientName || '',
+          giftRecipientEmail: giftData?.recipientEmail || '',
+          giftMessage: String(giftData?.giftMessage || '').slice(0, 250),
         },
       });
 
@@ -179,6 +209,7 @@ export async function POST(request) {
           currency: normalizedCurrency,
           country,
           pageCount: normalizedPageCount,
+          isGift,
           isTestMode: true,
           warning: 'Stripe is configured but unavailable, using test mode',
         },

@@ -19,6 +19,14 @@ export const maxDuration = 300; // 5 minutes - face swap takes time
 export async function POST(request) {
   try {
     console.log('[FACESWAP_ENDPOINT] Received story generation request...');
+    const forwardedProto = request.headers.get('x-forwarded-proto');
+    const forwardedHost = request.headers.get('x-forwarded-host');
+    const requestOrigin =
+      request.nextUrl?.origin ||
+      request.headers.get('origin') ||
+      (forwardedProto && forwardedHost
+        ? `${forwardedProto}://${forwardedHost}`
+        : undefined);
 
     const body = await request.json();
     const {
@@ -30,6 +38,12 @@ export async function POST(request) {
       enableFaceSwap = true,
       pageCount = 12,
       userId,
+      milestoneTitle,
+      milestonePromptHint,
+      milestoneCoverBadge,
+      isSeries,
+      chapterNumber,
+      originalTheme,
     } = body;
 
     // Validate required fields
@@ -61,6 +75,7 @@ export async function POST(request) {
 
     // Call integrated pipeline
     const story = await generateStoryWithFaceSwap({
+      baseUrl: requestOrigin,
       projectId,
       childName,
       childAge,
@@ -68,6 +83,12 @@ export async function POST(request) {
       childPhotoUrl,
       enableFaceSwap: enableFaceSwap && !!childPhotoUrl, // Only if photo provided
       pageCount,
+      milestoneTitle,
+      milestonePromptHint,
+      milestoneCoverBadge,
+      isSeries,
+      chapterNumber,
+      originalTheme,
     });
 
     console.log('[FACESWAP_ENDPOINT] ✅ Story generation complete');

@@ -11,11 +11,10 @@ export default function LoginPage() {
   const router = useRouter();
   const { login } = useAuthStore();
   
-  // Form state with role selection
+  // Form state
   const [formData, setFormData] = useState({
     email: '',
     password: '',
-    role: 'customer', // Default role
     rememberMe: false,
   });
   const [errors, setErrors] = useState({});
@@ -38,7 +37,7 @@ export default function LoginPage() {
     }
   };
 
-  // Validate form data including role
+  // Validate form data
   const validate = () => {
     const newErrors = {};
 
@@ -48,10 +47,6 @@ export default function LoginPage() {
 
     if (!formData.password) {
       newErrors.password = 'Password is required';
-    }
-
-    if (!formData.role) {
-      newErrors.role = 'Please select a role';
     }
 
     setErrors(newErrors);
@@ -69,16 +64,14 @@ export default function LoginPage() {
 
     setLoading(true);
     try {
-      // Login with email, password, and role
+      // Login with email and password
       await login({ 
         email: formData.email, 
         password: formData.password,
-        role: formData.role,
       });
       
-      // Redirect based on role
-      const redirectPath = formData.role === 'admin' ? '/admin-dashboard' : '/dashboard';
-      router.push(redirectPath);
+      // Redirect to dashboard
+      router.push('/dashboard');
     } catch (error) {
       setGeneralError(error.message || 'Login failed');
     } finally {
@@ -182,61 +175,7 @@ export default function LoginPage() {
                 )}
               </div>
 
-              {/* Role Selection Section - NEW FEATURE */}
-              <div className="pt-4 border-t border-gray-200">
-                <label className="block text-sm font-semibold text-gray-700 mb-3">
-                  👥 Select Your Role
-                </label>
-                
-                {/* Role Options - Radio Buttons */}
-                <div className="space-y-2">
-                  {/* Customer Role Option */}
-                  <label className="flex items-center p-3 border border-gray-300 rounded-lg cursor-pointer hover:bg-blue-50 transition-colors"
-                    style={{
-                      borderColor: formData.role === 'customer' ? '#3B82F6' : '#D1D5DB',
-                      backgroundColor: formData.role === 'customer' ? '#EFF6FF' : 'transparent',
-                    }}>
-                    <input
-                      type="radio"
-                      name="role"
-                      value="customer"
-                      checked={formData.role === 'customer'}
-                      onChange={handleChange}
-                      disabled={loading}
-                      className="w-4 h-4 text-blue-600 cursor-pointer"
-                    />
-                    <div className="ml-3">
-                      <p className="font-semibold text-gray-900">👶 Customer</p>
-                      <p className="text-xs text-gray-500">Create and manage stories for kids</p>
-                    </div>
-                  </label>
 
-                  {/* Admin Role Option */}
-                  <label className="flex items-center p-3 border border-gray-300 rounded-lg cursor-pointer hover:bg-purple-50 transition-colors"
-                    style={{
-                      borderColor: formData.role === 'admin' ? '#A855F7' : '#D1D5DB',
-                      backgroundColor: formData.role === 'admin' ? '#FAF5FF' : 'transparent',
-                    }}>
-                    <input
-                      type="radio"
-                      name="role"
-                      value="admin"
-                      checked={formData.role === 'admin'}
-                      onChange={handleChange}
-                      disabled={loading}
-                      className="w-4 h-4 text-purple-600 cursor-pointer"
-                    />
-                    <div className="ml-3">
-                      <p className="font-semibold text-gray-900">⚙️ Admin</p>
-                      <p className="text-xs text-gray-500">Manage platform and analytics</p>
-                    </div>
-                  </label>
-                </div>
-
-                {errors.role && (
-                  <p className="text-red-600 text-xs mt-2">{errors.role}</p>
-                )}
-              </div>
 
               {/* Remember Me & Forgot Password */}
               <div className="flex items-center justify-between pt-2">

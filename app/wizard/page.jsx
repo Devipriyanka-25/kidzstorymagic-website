@@ -1,6 +1,7 @@
 'use client';
 
 import dynamic from 'next/dynamic';
+import { useSearchParams } from 'next/navigation';
 import { useWizardStore } from '@/utils/store';
 import { useEffect, useState } from 'react';
 import LanguageSelector from '@/components/i18n/LanguageSelector';
@@ -28,6 +29,20 @@ const Step6ReviewCheckout = dynamic(() =>
   import('@/components/wizard/Step6ReviewCheckout')
 );
 
+function deriveAgeGroupFromAge(value) {
+  const age = Number(value);
+
+  if (!Number.isFinite(age)) {
+    return '';
+  }
+
+  if (age <= 2) return '0-2';
+  if (age <= 5) return '3-5';
+  if (age <= 8) return '5-8';
+  if (age <= 12) return '8-12';
+  return '12+';
+}
+
 const steps = [
   { id: 1, title: 'Age Selection', component: Step1AgeSelection },
   { id: 2, title: 'Theme Selection', component: Step2ThemeSelection },
@@ -38,6 +53,7 @@ const steps = [
 ];
 
 export default function WizardPage() {
+  const searchParams = useSearchParams();
   const { step: currentStep, loadDraft, clearDraft, resetWizard, formData, updateFormData } = useWizardStore();
   const [showDraftPrompt, setShowDraftPrompt] = useState(false);
   const [showAgeGateModal, setShowAgeGateModal] = useState(false);
@@ -47,6 +63,49 @@ export default function WizardPage() {
   const [error, setError] = useState(null);
   const [languageChanged, setLanguageChanged] = useState(false);
   const [selectedAge, setSelectedAge] = useState(null);
+
+  const applyQueryPrefill = () => {
+    const childName = searchParams.get('childName')?.trim() || '';
+    const childAge = searchParams.get('childAge')?.trim() || '';
+    const ageGroup =
+      searchParams.get('ageGroup')?.trim() || deriveAgeGroupFromAge(childAge);
+    const theme = searchParams.get('theme')?.trim() || '';
+    const originalTheme = searchParams.get('originalTheme')?.trim() || '';
+    const chapterNumber = Number(searchParams.get('chapterNumber'));
+    const isSeries = searchParams.get('isSeries') === 'true';
+    const hasBundleFlag = searchParams.has('bundle');
+
+    const hasPrefillData =
+      childName ||
+      childAge ||
+      ageGroup ||
+      theme ||
+      originalTheme ||
+      isSeries ||
+      hasBundleFlag;
+
+    if (!hasPrefillData) {
+      return;
+    }
+
+    useWizardStore.setState((state) => ({
+      formData: {
+        ...state.formData,
+        ...(childName ? { childName } : {}),
+        ...(childAge ? { childAge } : {}),
+        ...(ageGroup ? { ageGroup } : {}),
+        ...(theme ? { theme } : {}),
+        ...(isSeries ? { isSeries: true } : {}),
+        ...(originalTheme ? { seriesOriginalTheme: originalTheme } : {}),
+        ...(Number.isFinite(chapterNumber) && chapterNumber > 1
+          ? { seriesChapterNumber: chapterNumber }
+          : {}),
+        ...(hasBundleFlag
+          ? { seriesBundleSelected: searchParams.get('bundle') === 'true' }
+          : {}),
+      },
+    }));
+  };
 
   useEffect(() => {
     // Check for existing draft on mount
@@ -60,15 +119,17 @@ export default function WizardPage() {
         } else {
           // No draft, reset wizard and show age gate modal
           resetWizard();
+          applyQueryPrefill();
           setShowAgeGateModal(true);
         }
       } catch (err) {
         console.error('[WIZARD] Error checking draft:', err);
         resetWizard();
+        applyQueryPrefill();
         setShowAgeGateModal(true);
       }
     }
-  }, [resetWizard]);
+  }, [resetWizard, searchParams]);
 
   const handleResumeDraft = () => {
     loadDraft();
@@ -101,6 +162,7 @@ export default function WizardPage() {
   const handleStartNew = () => {
     clearDraft();
     resetWizard();
+    applyQueryPrefill();
     setShowDraftPrompt(false);
     setShowAgeGateModal(true);
   };
@@ -153,9 +215,13 @@ export default function WizardPage() {
     updateFormData('parentConsent', true);  // Adults don't need parental consent
     updateFormData('parentEmail', 'N/A');  // Placeholder for adults
     
-    // Route to Step 1 (Age Selection) to let them pick age group
+    // Auto-select age group for adults - based on age (12+ = "12+" group)
+    // Skip Step 1 entirely for adults since they've already provided age
+    updateFormData('ageGroup', '12+');
+    
+    // Route to Step 2 (Theme Selection) - skip Step 1
     const { setStep } = useWizardStore.getState();
-    setStep(1);
+    setStep(2);
     setShowAdultFormModal(false);
   };
 

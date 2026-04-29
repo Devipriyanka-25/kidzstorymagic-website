@@ -9,7 +9,8 @@
     "start": "next start",
     "lint": "next lint",
     "test": "jest",
-    "test:watch": "jest --watch"
+    "test:watch": "jest --watch",
+    "test:e2e:infant": "node scripts/run-e2e-infant-milestones.mjs"
   },
   "dependencies": {
     "@stripe/react-stripe-js": "^2.4.0",

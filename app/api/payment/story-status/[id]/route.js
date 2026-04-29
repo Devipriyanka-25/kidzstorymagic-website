@@ -1,110 +1,88 @@
 /**
  * Payment Status API
  * GET /api/payment/story-status/[id]
- * Verifies if a story has been paid for by checking database orders
  */
 
 import { NextResponse } from 'next/server';
 import jwt from 'jsonwebtoken';
 import { supabaseClient } from '../../../shared/supabaseClient.js';
+import {
+  getStoryProjectById,
+  resolveAuthenticatedStoryUser,
+} from '../../../shared/storyProjects.js';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
+function getJwtSecret() {
+  return (
+    process.env.JWT_SECRET ||
+    'kidz-story-magic-jwt-secret-key-2024-production-secure-random-12345'
+  );
+}
+
 export async function GET(request, { params }) {
   try {
-    const { id } = params;
-    
-    // Verify authentication
     const authHeader = request.headers.get('authorization');
     const token = authHeader?.substring(7);
-    
+
     if (!token) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const jwtSecret = process.env.JWT_SECRET || 'kidz-story-magic-jwt-secret-key-2024-production-secure-random-12345';
     let decoded;
-    
     try {
-      decoded = jwt.verify(token, jwtSecret);
-    } catch (err) {
-      return NextResponse.json(
-        { error: 'Invalid token' },
-        { status: 401 }
-      );
+      decoded = jwt.verify(token, getJwtSecret());
+    } catch (error) {
+      return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
     }
 
-    console.log('[PAYMENT_STATUS] Checking payment for story:', id, 'user:', decoded.id || decoded.email);
+    const authUser = await resolveAuthenticatedStoryUser(decoded);
+    if (!authUser?.id) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
 
-    // Query database for completed payment
-    let isPaid = false;
-    let orderData = null;
+    const projectId = params?.id;
+    const story = await getStoryProjectById(authUser.id, projectId);
 
-    try {
-      if (!supabaseClient) {
-        throw new Error('Supabase client not configured');
-      }
+    let isPaid = story?.status === 'published';
 
-      const { data: orders, error } = await supabaseClient
+    if (!isPaid && supabaseClient) {
+      const { data: paidOrder } = await supabaseClient
         .from('orders')
-        .select('*')
-        .eq('story_id', id)
-        .eq('user_id', decoded.id || decoded.email)
-        .eq('payment_status', 'completed')
-        .limit(1);
+        .select('id')
+        .eq('project_id', Number(projectId))
+        .eq('user_id', Number(authUser.id))
+        .eq('status', 'completed')
+        .limit(1)
+        .maybeSingle();
 
-      if (error) {
-        console.warn('[PAYMENT_STATUS] Database query error:', error.message);
-        // Fall back to mock data if database fails
-      } else if (orders && orders.length > 0) {
-        isPaid = true;
-        orderData = orders[0];
-        console.log('[PAYMENT_STATUS] ✓ Payment found in database');
-      }
-    } catch (dbErr) {
-      console.warn('[PAYMENT_STATUS] Database connection error, using mock data:', dbErr.message);
+      isPaid = Boolean(paidOrder);
     }
 
-    // Fallback to mock data for demo/testing
-    if (!isPaid) {
-      const mockPaidStories = [
-        'mock_paid_story_1',
-        'mock_paid_story_2'
-      ];
-      isPaid = mockPaidStories.includes(id) || 
-               id.startsWith('paid_') ||
-               id.includes('_purchased_');
-
-      if (isPaid) {
-        console.log('[PAYMENT_STATUS] Using mock payment data');
-      }
-    }
-
-    return NextResponse.json({
-      success: true,
-      storyId: id,
-      userId: decoded.id || decoded.email,
-      paymentStatus: isPaid ? 'paid' : 'unpaid',
-      isUnlocked: isPaid,
-      canDownload: isPaid,
-      message: isPaid 
-        ? 'Story is unlocked and ready for download' 
-        : 'Story preview protected - payment required for full access'
-    }, { status: 200 });
-
+    return NextResponse.json(
+      {
+        success: true,
+        storyId: projectId,
+        userId: authUser.id,
+        paymentStatus: isPaid ? 'paid' : 'unpaid',
+        isUnlocked: isPaid,
+        canDownload: isPaid,
+        message: isPaid
+          ? 'Story is unlocked and ready for download.'
+          : 'Story preview protected - payment required for full access.',
+      },
+      { status: 200 }
+    );
   } catch (error) {
-    console.error('[PAYMENT_STATUS_ERROR]:', error);
+    console.error('[PAYMENT_STATUS] Error:', error);
     return NextResponse.json(
       {
         success: false,
-        error: error.message || 'Failed to check payment status',
+        error: error?.message || 'Failed to check payment status.',
         paymentStatus: 'unknown',
         isUnlocked: false,
-        canDownload: false
+        canDownload: false,
       },
       { status: 500 }
     );

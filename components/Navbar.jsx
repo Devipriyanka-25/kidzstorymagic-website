@@ -41,6 +41,14 @@ export default function Navbar() {
         <nav className="hidden md:flex items-center gap-8">
           {user ? (
             <>
+              {/* Admin Link - Only show for admin users */}
+              {user.role === 'admin' && (
+                <motion.div whileHover={{ scale: 1.05 }}>
+                  <Link href="/admin-dashboard" className="text-purple-600 hover:text-purple-700 font-semibold transition-colors flex items-center gap-1">
+                    ⚙️ Admin
+                  </Link>
+                </motion.div>
+              )}
               <motion.div whileHover={{ scale: 1.05 }}>
                 <Link href="/wizard" className="text-gray-700 hover:text-blue-600 font-semibold transition-colors">
                   Create Story
@@ -103,6 +111,12 @@ export default function Navbar() {
           <nav className="max-w-6xl mx-auto px-6 py-4 flex flex-col gap-4">
             {user ? (
               <>
+                {/* Admin Link - Only show for admin users */}
+                {user.role === 'admin' && (
+                  <Link href="/admin-dashboard" className="text-purple-600 hover:text-purple-700 font-semibold py-2 flex items-center gap-1">
+                    ⚙️ Admin
+                  </Link>
+                )}
                 <Link href="/wizard" className="text-gray-700 hover:text-blue-600 font-semibold py-2">
                   Create Story
                 </Link>

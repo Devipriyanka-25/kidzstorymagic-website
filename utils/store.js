@@ -190,7 +190,15 @@ export const useWizardStore = create((set, get) => ({
     projectId: null,
     uploadedPhoto: null,
     customIllustrationPrompt: '',
-    uploadedImages: []
+    uploadedImages: [],
+    selectedMilestoneId: '',
+    milestoneTitle: '',
+    milestonePromptHint: '',
+    milestoneCoverBadge: '',
+    isSeries: false,
+    seriesChapterNumber: 1,
+    seriesOriginalTheme: '',
+    seriesBundleSelected: false,
   },
 
   setStep: (step) => {
@@ -286,7 +294,15 @@ export const useWizardStore = create((set, get) => ({
       projectId: null,
       uploadedPhoto: null,
       customIllustrationPrompt: '',
-      uploadedImages: []
+      uploadedImages: [],
+      selectedMilestoneId: '',
+      milestoneTitle: '',
+      milestonePromptHint: '',
+      milestoneCoverBadge: '',
+      isSeries: false,
+      seriesChapterNumber: 1,
+      seriesOriginalTheme: '',
+      seriesBundleSelected: false,
     }
   })
 }));

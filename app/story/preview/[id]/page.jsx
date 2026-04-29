@@ -1,10 +1,11 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { useRouter, useParams } from 'next/navigation';
+import { useRouter, useParams, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import WatermarkOverlay from '@/components/preview/WatermarkOverlay';
 import BlurLockOverlay from '@/components/preview/BlurLockOverlay';
+import FreePreview from '@/components/preview/FreePreview';
 
 /**
  * BookPreviewPage - Professional book preview with payment protection
@@ -14,7 +15,9 @@ import BlurLockOverlay from '@/components/preview/BlurLockOverlay';
 export default function BookPreviewPage() {
   const router = useRouter();
   const params = useParams();
+  const searchParams = useSearchParams();
   const storyId = params?.id;
+  const giftToken = searchParams.get('gift_token');
 
   const [story, setStory] = useState(null);
   const [currentPage, setCurrentPage] = useState(0);
@@ -31,8 +34,16 @@ export default function BookPreviewPage() {
       try {
         setLoading(true);
         const token = typeof window !== 'undefined' ? localStorage.getItem('authToken') : null;
-        
-        const response = await fetch(`/api/story/preview-with-payment/${storyId}`, {
+        const previewUrl = new URL(
+          `/api/story/preview-with-payment/${storyId}`,
+          window.location.origin
+        );
+
+        if (giftToken) {
+          previewUrl.searchParams.set('gift_token', giftToken);
+        }
+
+        const response = await fetch(previewUrl.toString(), {
           headers: token ? { 'Authorization': `Bearer ${token}` } : {}
         });
 
@@ -55,7 +66,7 @@ export default function BookPreviewPage() {
     };
 
     fetchStoryPreview();
-  }, [storyId]);
+  }, [giftToken, storyId]);
 
   const handleNextPage = () => {
     if (currentPage < story.totalPages - 1) {
@@ -82,8 +93,16 @@ export default function BookPreviewPage() {
     try {
       setDownloadProgress(25);
       const token = typeof window !== 'undefined' ? localStorage.getItem('authToken') : null;
-      
-      const response = await fetch(`/api/payment/pdf/${storyId}`, {
+      const downloadUrl = new URL(
+        `/api/payment/pdf/${storyId}`,
+        window.location.origin
+      );
+
+      if (giftToken) {
+        downloadUrl.searchParams.set('gift_token', giftToken);
+      }
+
+      const response = await fetch(downloadUrl.toString(), {
         headers: token ? { 'Authorization': `Bearer ${token}` } : {}
       });
 
@@ -169,6 +188,22 @@ export default function BookPreviewPage() {
 
   if (!story) {
     return null;
+  }
+
+  if (!isUnlocked) {
+    return (
+      <div className="min-h-screen bg-[linear-gradient(180deg,#eef2ff_0%,#fff7ed_100%)] px-4 py-10">
+        <div className="mx-auto max-w-6xl">
+          <FreePreview
+            pages={story.pages}
+            totalPages={story.totalPages}
+            childName={story.childName}
+            priceLabel="Unlock the full story"
+            onUnlock={handleGoToCheckout}
+          />
+        </div>
+      </div>
+    );
   }
 
   const currentPageData = story.pages[currentPage];

@@ -73,6 +73,21 @@ export const ILLUSTRATION_THEMES = {
     shadowColor: "rgba(194, 65, 12, 0.28)",
     accentColor: "#FDE68A",
   },
+  learning: {
+    value: "learning",
+    label: "Learning",
+    description:
+      "Rainbow classroom color, playful shapes, and bright early-learning energy.",
+    primary: "#2563EB",
+    secondary: "#BFDBFE",
+    light: "#F0F9FF",
+    dark: "#1E3A8A",
+    gradient:
+      "linear-gradient(135deg, #38BDF8 0%, #2563EB 35%, #F59E0B 68%, #F472B6 100%)",
+    borderColor: "#2563EB",
+    shadowColor: "rgba(37, 99, 235, 0.26)",
+    accentColor: "#F59E0B",
+  },
   fairytale: {
     value: "fairytale",
     label: "Fairytale",
@@ -342,6 +357,272 @@ const BOOK_THEME_MAP = {
       <path d="M446 352 L414 392" stroke="#FFFFFF" stroke-width="16" stroke-linecap="round" />
       <path d="M498 352 L538 334" stroke="#FFFFFF" stroke-width="16" stroke-linecap="round" />
       <path d="M388 226 C422 206, 452 208, 482 228 C448 240, 420 248, 388 226 Z" stroke="#F472B6" stroke-width="8" fill="none" stroke-linecap="round" />
+    `,
+  },
+  "alphabet-parade": {
+    value: "alphabet-parade",
+    label: "Alphabet Parade",
+    ageRange: "Ages: 0 to 3",
+    ageRangeShort: "0 to 3",
+    description: "Cheerful letter friends, bright blocks, and a joyful ABC world.",
+    storyTheme: "learning",
+    illustrationTheme: "learning",
+    titleTemplate: (childName) => `${childName}'s Alphabet Parade`,
+    cardGradient: "linear-gradient(180deg, #7DD3FC 0%, #FDE68A 100%)",
+    anchorPoint: "M528 244 C492 274, 454 316, 414 360",
+    sceneMarkup: `
+      <circle cx="502" cy="86" r="64" fill="#FFF7ED" fill-opacity="0.44" />
+      <path d="M0 392 C128 314, 248 320, 388 394 S556 456, 640 428 L640 540 L0 540 Z" fill="#BFDBFE" fill-opacity="0.48" />
+      <path d="M0 430 C148 360, 294 366, 444 432 S570 486, 640 456 L640 540 L0 540 Z" fill="#FDE68A" fill-opacity="0.44" />
+      <rect x="84" y="250" width="96" height="96" rx="24" fill="#F472B6" />
+      <rect x="198" y="220" width="96" height="96" rx="24" fill="#38BDF8" />
+      <rect x="312" y="252" width="96" height="96" rx="24" fill="#34D399" />
+      <text x="132" y="312" text-anchor="middle" font-size="54" font-weight="700" fill="#ffffff">A</text>
+      <text x="246" y="282" text-anchor="middle" font-size="54" font-weight="700" fill="#ffffff">B</text>
+      <text x="360" y="314" text-anchor="middle" font-size="54" font-weight="700" fill="#ffffff">C</text>
+      <circle cx="474" cy="306" r="28" fill="#F8D3B0" />
+      <rect x="446" y="336" width="64" height="108" rx="24" fill="#2563EB" />
+      <path d="M438 360 L396 324" stroke="#2563EB" stroke-width="18" stroke-linecap="round" />
+      <path d="M516 360 L552 326" stroke="#2563EB" stroke-width="18" stroke-linecap="round" />
+      <path d="M462 442 L438 510" stroke="#2563EB" stroke-width="18" stroke-linecap="round" />
+      <path d="M494 442 L526 508" stroke="#2563EB" stroke-width="18" stroke-linecap="round" />
+    `,
+  },
+  "number-train": {
+    value: "number-train",
+    label: "Number Train",
+    ageRange: "Ages: 0 to 3",
+    ageRangeShort: "0 to 3",
+    description: "Count along with a happy little train through a colorful world.",
+    storyTheme: "learning",
+    illustrationTheme: "learning",
+    titleTemplate: (childName) => `${childName}'s Number Train`,
+    cardGradient: "linear-gradient(180deg, #86EFAC 0%, #93C5FD 100%)",
+    anchorPoint: "M530 246 C496 278, 458 320, 420 362",
+    sceneMarkup: `
+      <circle cx="126" cy="90" r="72" fill="#FFF7ED" fill-opacity="0.34" />
+      <path d="M0 398 C134 326, 274 334, 410 400 S558 456, 640 430 L640 540 L0 540 Z" fill="#DBEAFE" fill-opacity="0.42" />
+      <path d="M0 434 C154 366, 304 372, 446 434 S572 486, 640 458 L640 540 L0 540 Z" fill="#BBF7D0" fill-opacity="0.44" />
+      <rect x="102" y="294" width="110" height="58" rx="18" fill="#F97316" />
+      <rect x="220" y="294" width="110" height="58" rx="18" fill="#38BDF8" />
+      <rect x="338" y="294" width="110" height="58" rx="18" fill="#A78BFA" />
+      <circle cx="138" cy="360" r="18" fill="#374151" />
+      <circle cx="188" cy="360" r="18" fill="#374151" />
+      <circle cx="256" cy="360" r="18" fill="#374151" />
+      <circle cx="306" cy="360" r="18" fill="#374151" />
+      <circle cx="374" cy="360" r="18" fill="#374151" />
+      <circle cx="424" cy="360" r="18" fill="#374151" />
+      <text x="157" y="333" text-anchor="middle" font-size="34" font-weight="700" fill="#ffffff">1</text>
+      <text x="275" y="333" text-anchor="middle" font-size="34" font-weight="700" fill="#ffffff">2</text>
+      <text x="393" y="333" text-anchor="middle" font-size="34" font-weight="700" fill="#ffffff">3</text>
+      <circle cx="518" cy="292" r="26" fill="#F8D3B0" />
+      <rect x="492" y="320" width="58" height="98" rx="22" fill="#16A34A" />
+      <path d="M486 344 L446 328" stroke="#16A34A" stroke-width="16" stroke-linecap="round" />
+      <path d="M556 344 L586 320" stroke="#16A34A" stroke-width="16" stroke-linecap="round" />
+      <path d="M506 414 L486 478" stroke="#16A34A" stroke-width="16" stroke-linecap="round" />
+      <path d="M534 414 L562 476" stroke="#16A34A" stroke-width="16" stroke-linecap="round" />
+    `,
+  },
+  "shape-garden": {
+    value: "shape-garden",
+    label: "Shape Garden",
+    ageRange: "Ages: 0 to 3",
+    ageRangeShort: "0 to 3",
+    description: "Circles, stars, hearts, and triangles bloom in a friendly garden.",
+    storyTheme: "learning",
+    illustrationTheme: "learning",
+    titleTemplate: (childName) => `${childName}'s Shape Garden`,
+    cardGradient: "linear-gradient(180deg, #C4B5FD 0%, #86EFAC 100%)",
+    anchorPoint: "M532 246 C500 280, 462 320, 424 362",
+    sceneMarkup: `
+      <circle cx="486" cy="88" r="64" fill="#FFF7ED" fill-opacity="0.38" />
+      <path d="M0 394 C124 318, 260 326, 398 396 S556 458, 640 430 L640 540 L0 540 Z" fill="#DDD6FE" fill-opacity="0.44" />
+      <path d="M0 432 C152 364, 298 370, 438 432 S568 486, 640 456 L640 540 L0 540 Z" fill="#86EFAC" fill-opacity="0.40" />
+      <circle cx="144" cy="258" r="42" fill="#38BDF8" />
+      <polygon points="282,214 320,286 244,286" fill="#F59E0B" />
+      <rect x="370" y="218" width="86" height="86" rx="20" fill="#F472B6" />
+      <path d="M206 168 L220 200 L254 202 L228 224 L236 258 L206 240 L176 258 L184 224 L158 202 L192 200 Z" fill="#FDE68A" />
+      <circle cx="506" cy="306" r="28" fill="#F8D3B0" />
+      <rect x="478" y="336" width="64" height="108" rx="24" fill="#7C3AED" />
+      <path d="M472 360 L428 332" stroke="#7C3AED" stroke-width="18" stroke-linecap="round" />
+      <path d="M550 360 L586 326" stroke="#7C3AED" stroke-width="18" stroke-linecap="round" />
+      <path d="M492 442 L470 510" stroke="#7C3AED" stroke-width="18" stroke-linecap="round" />
+      <path d="M524 442 L554 506" stroke="#7C3AED" stroke-width="18" stroke-linecap="round" />
+    `,
+  },
+  "color-rainbow": {
+    value: "color-rainbow",
+    label: "Color Rainbow",
+    ageRange: "Ages: 0 to 3",
+    ageRangeShort: "0 to 3",
+    description: "A bright rainbow journey through paint, balloons, and happy color play.",
+    storyTheme: "learning",
+    illustrationTheme: "learning",
+    titleTemplate: (childName) => `${childName}'s Color Rainbow`,
+    cardGradient: "linear-gradient(180deg, #FDE68A 0%, #F472B6 100%)",
+    anchorPoint: "M532 246 C498 280, 462 320, 420 364",
+    sceneMarkup: `
+      <circle cx="132" cy="94" r="76" fill="#FFF7ED" fill-opacity="0.34" />
+      <path d="M0 396 C132 322, 278 332, 412 398 S558 458, 640 430 L640 540 L0 540 Z" fill="#FDE68A" fill-opacity="0.38" />
+      <path d="M0 434 C156 366, 304 372, 446 436 S572 488, 640 458 L640 540 L0 540 Z" fill="#BFDBFE" fill-opacity="0.44" />
+      <path d="M110 250 C176 170, 252 170, 318 250" fill="none" stroke="#F97316" stroke-width="18" stroke-linecap="round" />
+      <path d="M132 250 C190 188, 252 188, 310 250" fill="none" stroke="#FACC15" stroke-width="18" stroke-linecap="round" />
+      <path d="M154 250 C206 204, 252 204, 300 250" fill="none" stroke="#34D399" stroke-width="18" stroke-linecap="round" />
+      <path d="M176 250 C220 220, 252 220, 286 250" fill="none" stroke="#38BDF8" stroke-width="18" stroke-linecap="round" />
+      <path d="M198 250 C232 234, 252 234, 274 250" fill="none" stroke="#A78BFA" stroke-width="18" stroke-linecap="round" />
+      <circle cx="436" cy="210" r="24" fill="#F472B6" />
+      <circle cx="486" cy="176" r="24" fill="#38BDF8" />
+      <circle cx="534" cy="214" r="24" fill="#34D399" />
+      <circle cx="490" cy="308" r="28" fill="#F8D3B0" />
+      <rect x="462" y="338" width="64" height="108" rx="24" fill="#DB2777" />
+      <path d="M456 362 L416 334" stroke="#DB2777" stroke-width="18" stroke-linecap="round" />
+      <path d="M534 362 L572 330" stroke="#DB2777" stroke-width="18" stroke-linecap="round" />
+      <path d="M476 444 L452 510" stroke="#DB2777" stroke-width="18" stroke-linecap="round" />
+      <path d="M510 444 L538 508" stroke="#DB2777" stroke-width="18" stroke-linecap="round" />
+    `,
+  },
+  "first-tooth-tale": {
+    value: "first-tooth-tale",
+    label: "First Tooth Tale",
+    ageRange: "Ages: 0 to 3",
+    ageRangeShort: "0 to 3",
+    description: "A tiny tooth, a big smile, and a magical keepsake for a proud first.",
+    storyTheme: "milestone",
+    illustrationTheme: "celebration",
+    titleTemplate: (childName) => `${childName}'s First Tooth Tale`,
+    cardGradient: "linear-gradient(180deg, #BFDBFE 0%, #FBCFE8 100%)",
+    anchorPoint: "M536 246 C502 282, 466 322, 426 364",
+    sceneMarkup: `
+      <circle cx="500" cy="88" r="64" fill="#FFF7ED" fill-opacity="0.34" />
+      <path d="M0 390 C134 316, 280 328, 410 394 S558 456, 640 428 L640 540 L0 540 Z" fill="#DBEAFE" fill-opacity="0.44" />
+      <path d="M0 428 C154 360, 304 368, 446 432 S570 486, 640 456 L640 540 L0 540 Z" fill="#FBCFE8" fill-opacity="0.38" />
+      <circle cx="172" cy="200" r="48" fill="#FFFFFF" fill-opacity="0.94" />
+      <path d="M148 188 C148 158, 196 158, 196 188 L196 214 C196 246, 180 270, 172 282 C164 270, 148 246, 148 214 Z" fill="#FFFFFF" />
+      <circle cx="244" cy="178" r="18" fill="#FDE68A" />
+      <circle cx="286" cy="206" r="14" fill="#38BDF8" />
+      <circle cx="322" cy="176" r="16" fill="#F472B6" />
+      <circle cx="492" cy="304" r="28" fill="#F8D3B0" />
+      <rect x="464" y="334" width="64" height="108" rx="24" fill="#2563EB" />
+      <path d="M456 360 L414 338" stroke="#2563EB" stroke-width="18" stroke-linecap="round" />
+      <path d="M536 360 L572 330" stroke="#2563EB" stroke-width="18" stroke-linecap="round" />
+      <path d="M478 442 L454 510" stroke="#2563EB" stroke-width="18" stroke-linecap="round" />
+      <path d="M512 442 L542 508" stroke="#2563EB" stroke-width="18" stroke-linecap="round" />
+    `,
+  },
+  "first-steps-cheer": {
+    value: "first-steps-cheer",
+    label: "First Steps Cheer",
+    ageRange: "Ages: 0 to 3",
+    ageRangeShort: "0 to 3",
+    description: "Celebrate sitting up, standing tall, and those unforgettable first little steps.",
+    storyTheme: "milestone",
+    illustrationTheme: "celebration",
+    titleTemplate: (childName) => `${childName}'s First Steps Cheer`,
+    cardGradient: "linear-gradient(180deg, #FDE68A 0%, #86EFAC 100%)",
+    anchorPoint: "M536 246 C502 280, 466 322, 424 364",
+    sceneMarkup: `
+      <circle cx="132" cy="92" r="74" fill="#FFF7ED" fill-opacity="0.32" />
+      <path d="M0 394 C136 320, 278 330, 412 396 S558 458, 640 430 L640 540 L0 540 Z" fill="#FDE68A" fill-opacity="0.38" />
+      <path d="M0 432 C156 364, 304 370, 446 434 S572 486, 640 458 L640 540 L0 540 Z" fill="#BBF7D0" fill-opacity="0.40" />
+      <path d="M114 312 C156 294, 184 292, 218 304" stroke="#F59E0B" stroke-width="10" stroke-linecap="round" stroke-dasharray="10 14" />
+      <path d="M226 308 C262 288, 294 286, 334 302" stroke="#38BDF8" stroke-width="10" stroke-linecap="round" stroke-dasharray="10 14" />
+      <path d="M342 304 C380 286, 414 286, 454 300" stroke="#F472B6" stroke-width="10" stroke-linecap="round" stroke-dasharray="10 14" />
+      <circle cx="490" cy="298" r="30" fill="#F8D3B0" />
+      <rect x="460" y="330" width="68" height="110" rx="26" fill="#16A34A" />
+      <path d="M454 356 L408 372" stroke="#16A34A" stroke-width="18" stroke-linecap="round" />
+      <path d="M534 356 L570 332" stroke="#16A34A" stroke-width="18" stroke-linecap="round" />
+      <path d="M476 438 L446 514" stroke="#16A34A" stroke-width="18" stroke-linecap="round" />
+      <path d="M514 438 L548 510" stroke="#16A34A" stroke-width="18" stroke-linecap="round" />
+      <circle cx="214" cy="246" r="16" fill="#F59E0B" />
+      <circle cx="256" cy="218" r="14" fill="#38BDF8" />
+      <circle cx="296" cy="246" r="16" fill="#F472B6" />
+    `,
+  },
+  "first-words-wonder": {
+    value: "first-words-wonder",
+    label: "First Words Wonder",
+    ageRange: "Ages: 0 to 3",
+    ageRangeShort: "0 to 3",
+    description: "A sweet keepsake for first sounds, first words, and joyful little voices.",
+    storyTheme: "milestone",
+    illustrationTheme: "learning",
+    titleTemplate: (childName) => `${childName}'s First Words Wonder`,
+    cardGradient: "linear-gradient(180deg, #C4B5FD 0%, #FBCFE8 100%)",
+    anchorPoint: "M536 246 C502 280, 466 322, 424 364",
+    sceneMarkup: `
+      <circle cx="500" cy="90" r="66" fill="#FFF7ED" fill-opacity="0.34" />
+      <path d="M0 392 C132 318, 278 330, 410 394 S556 456, 640 428 L640 540 L0 540 Z" fill="#DDD6FE" fill-opacity="0.44" />
+      <path d="M0 430 C154 362, 304 370, 446 434 S572 486, 640 458 L640 540 L0 540 Z" fill="#FBCFE8" fill-opacity="0.38" />
+      <path d="M168 180 C168 156, 204 156, 204 180 C204 194, 194 202, 186 212 C178 202, 168 194, 168 180 Z" fill="#FFFFFF" />
+      <path d="M238 146 C238 122, 278 122, 278 146 C278 160, 268 170, 258 182 C248 170, 238 160, 238 146 Z" fill="#FFFFFF" />
+      <path d="M310 182 C310 158, 350 158, 350 182 C350 196, 340 206, 330 218 C320 206, 310 196, 310 182 Z" fill="#FFFFFF" />
+      <text x="186" y="192" text-anchor="middle" font-size="22" font-weight="700" fill="#2563EB">Hi</text>
+      <text x="258" y="158" text-anchor="middle" font-size="20" font-weight="700" fill="#DB2777">Ma</text>
+      <text x="330" y="194" text-anchor="middle" font-size="20" font-weight="700" fill="#16A34A">Da</text>
+      <circle cx="490" cy="304" r="28" fill="#F8D3B0" />
+      <rect x="462" y="334" width="64" height="108" rx="24" fill="#7C3AED" />
+      <path d="M454 360 L414 334" stroke="#7C3AED" stroke-width="18" stroke-linecap="round" />
+      <path d="M534 360 L570 332" stroke="#7C3AED" stroke-width="18" stroke-linecap="round" />
+      <path d="M476 442 L452 510" stroke="#7C3AED" stroke-width="18" stroke-linecap="round" />
+      <path d="M510 442 L540 508" stroke="#7C3AED" stroke-width="18" stroke-linecap="round" />
+    `,
+  },
+  "milestone-magic": {
+    value: "milestone-magic",
+    label: "Milestone Magic",
+    ageRange: "Ages: 3 to 6",
+    ageRangeShort: "3 to 6",
+    description: "A keepsake-style story for proud firsts, big feelings, and family milestones.",
+    storyTheme: "celebration",
+    illustrationTheme: "celebration",
+    titleTemplate: (childName) => `${childName}'s Milestone Magic`,
+    cardGradient: "linear-gradient(180deg, #FBCFE8 0%, #FDE68A 100%)",
+    anchorPoint: "M536 246 C504 282, 468 322, 426 364",
+    sceneMarkup: `
+      <circle cx="500" cy="88" r="66" fill="#FFF7ED" fill-opacity="0.34" />
+      <path d="M0 388 C136 314, 278 328, 408 392 S556 454, 640 428 L640 540 L0 540 Z" fill="#FBCFE8" fill-opacity="0.42" />
+      <path d="M0 426 C154 356, 304 366, 444 430 S570 484, 640 454 L640 540 L0 540 Z" fill="#FDE68A" fill-opacity="0.40" />
+      <path d="M96 142 L544 142" stroke="#FFFFFF" stroke-width="8" stroke-linecap="round" stroke-dasharray="12 12" opacity="0.82" />
+      <circle cx="176" cy="188" r="18" fill="#38BDF8" />
+      <circle cx="228" cy="168" r="18" fill="#F472B6" />
+      <circle cx="280" cy="188" r="18" fill="#F59E0B" />
+      <circle cx="332" cy="168" r="18" fill="#34D399" />
+      <circle cx="246" cy="316" r="28" fill="#F8D3B0" />
+      <rect x="218" y="344" width="64" height="108" rx="24" fill="#DB2777" />
+      <path d="M210 370 L168 410" stroke="#DB2777" stroke-width="18" stroke-linecap="round" />
+      <path d="M290 370 L334 338" stroke="#DB2777" stroke-width="18" stroke-linecap="round" />
+      <path d="M236 446 L214 514" stroke="#DB2777" stroke-width="18" stroke-linecap="round" />
+      <path d="M262 446 L294 512" stroke="#DB2777" stroke-width="18" stroke-linecap="round" />
+      <rect x="378" y="304" width="112" height="88" rx="22" fill="#FFF7ED" fill-opacity="0.92" />
+      <path d="M434 292 L454 324 L486 330 L462 350 L468 384 L434 368 L400 384 L406 350 L382 330 L414 324 Z" fill="#F59E0B" />
+    `,
+  },
+  "brave-little-hero": {
+    value: "brave-little-hero",
+    label: "Brave Little Hero",
+    ageRange: "Ages: 3 to 6",
+    ageRangeShort: "3 to 6",
+    description: "A confidence-building story about kindness, courage, and proud everyday wins.",
+    storyTheme: "confidence",
+    illustrationTheme: "superhero",
+    titleTemplate: (childName) => `${childName}'s Brave Little Hero`,
+    cardGradient: "linear-gradient(180deg, #60A5FA 0%, #FBBF24 100%)",
+    anchorPoint: "M536 246 C502 280, 466 322, 424 364",
+    sceneMarkup: `
+      <circle cx="486" cy="86" r="64" fill="#FFF7ED" fill-opacity="0.32" />
+      <path d="M0 392 C138 316, 280 330, 410 394 S556 456, 640 430 L640 540 L0 540 Z" fill="#BFDBFE" fill-opacity="0.42" />
+      <path d="M0 430 C156 362, 304 370, 446 434 S572 486, 640 458 L640 540 L0 540 Z" fill="#FDE68A" fill-opacity="0.36" />
+      <rect x="88" y="258" width="96" height="126" rx="18" fill="#93C5FD" fill-opacity="0.72" />
+      <rect x="200" y="228" width="96" height="156" rx="18" fill="#60A5FA" fill-opacity="0.74" />
+      <rect x="312" y="244" width="96" height="140" rx="18" fill="#3B82F6" fill-opacity="0.76" />
+      <circle cx="486" cy="292" r="30" fill="#F8D3B0" />
+      <rect x="456" y="324" width="68" height="112" rx="26" fill="#DC2626" />
+      <path d="M452 352 L406 374" stroke="#DC2626" stroke-width="18" stroke-linecap="round" />
+      <path d="M528 352 L564 330" stroke="#DC2626" stroke-width="18" stroke-linecap="round" />
+      <path d="M474 434 L448 510" stroke="#DC2626" stroke-width="18" stroke-linecap="round" />
+      <path d="M510 434 L544 506" stroke="#DC2626" stroke-width="18" stroke-linecap="round" />
+      <path d="M524 338 L564 394 L540 402 L510 360 Z" fill="#FBBF24" />
+      <path d="M474 324 L494 324" stroke="#ffffff" stroke-width="6" stroke-linecap="round" />
     `,
   },
   "family-celebration": {
@@ -757,6 +1038,28 @@ const LEGACY_BOOK_THEME_ALIASES = {
   friends: "animal-adventure",
   motivational: "dino-quest",
   behavioural: "goodnight-garage",
+  behavior: "brave-little-hero",
+  behaviour: "brave-little-hero",
+  confidence: "brave-little-hero",
+  alphabet: "alphabet-parade",
+  alphabets: "alphabet-parade",
+  numbers: "number-train",
+  number: "number-train",
+  shapes: "shape-garden",
+  shape: "shape-garden",
+  colors: "color-rainbow",
+  colours: "color-rainbow",
+  color: "color-rainbow",
+  colour: "color-rainbow",
+  milestone: "milestone-magic",
+  tooth: "first-tooth-tale",
+  "first-tooth": "first-tooth-tale",
+  steps: "first-steps-cheer",
+  walk: "first-steps-cheer",
+  "first-walk": "first-steps-cheer",
+  speech: "first-words-wonder",
+  words: "first-words-wonder",
+  "first-speech": "first-words-wonder",
   fairytale: "unicorn-magic",
   fantasy: "unicorn-magic",
   adventure: "animal-adventure",
@@ -778,19 +1081,22 @@ export function getBookTheme(themeValue) {
 }
 
 export function getStoryThemesForAgeGroup(ageGroup) {
-  const isAdultAudience = String(ageGroup || "").trim() === "12+";
+  const normalizedAgeGroup = normalizeThemeCategoryAgeGroup(ageGroup);
+  const configuredThemeIds = getConfiguredThemeIdsForAgeGroup(normalizedAgeGroup);
 
-  return STORY_THEMES.filter((theme) => {
-    if (theme.value === "customizable") {
-      return true;
-    }
+  if (configuredThemeIds.length > 0) {
+    return configuredThemeIds
+      .map((themeId) => BOOK_THEME_MAP[themeId])
+      .filter(Boolean);
+  }
 
-    if (isAdultAudience) {
-      return ADULT_BOOK_THEME_VALUES.has(theme.value);
-    }
+  const isAdultAudience = normalizedAgeGroup === "12+";
 
-    return !ADULT_BOOK_THEME_VALUES.has(theme.value);
-  });
+  return STORY_THEMES.filter((theme) =>
+    isAdultAudience
+      ? ADULT_BOOK_THEME_VALUES.has(theme.value) || theme.value === "customizable"
+      : !ADULT_BOOK_THEME_VALUES.has(theme.value)
+  );
 }
 
 export function getBookThemeLabel(themeValue) {
@@ -1073,13 +1379,286 @@ export const THEMED_CATEGORIES = {
   },
 };
 
+const AGE_GROUP_THEME_CATEGORIES = {
+  "0-2": {
+    ageGroup: "0-2 Years",
+    ageRange: "Infants",
+    icon: "👶",
+    description:
+      "Simple visual worlds for first words, colors, and soothing repetition.",
+    categories: {
+      colors_shapes: {
+        name: "Colors & Shapes",
+        icon: "🎨",
+        description:
+          "Bright, simple visual scenes that feel easy for infants to follow.",
+        themes: ["shape-garden", "color-rainbow"],
+      },
+      letters_numbers: {
+        name: "Alphabets & Numbers",
+        icon: "🔠",
+        description:
+          "Early-learning themes built around letter play, counting, and cheerful repetition.",
+        themes: ["alphabet-parade", "number-train"],
+      },
+      first_animals: {
+        name: "First Animals",
+        icon: "🐻",
+        description:
+          "Gentle animal-led books that work well for early recognition and naming.",
+        themes: ["animal-adventure"],
+      },
+      milestones: {
+        name: "Infant Milestones",
+        icon: "🍼",
+        description:
+          "Keepsake themes for proud firsts like a first tooth, first walk, sitting up, and first speech.",
+        themes: [
+          "first-tooth-tale",
+          "first-steps-cheer",
+          "first-words-wonder",
+        ],
+      },
+      calm_bedtime: {
+        name: "Calm & Bedtime",
+        icon: "🌙",
+        description:
+          "Warm, cozy story worlds for soothing routines and bedtime reading.",
+        themes: ["goodnight-garage"],
+      },
+      custom: {
+        name: "Build Your Own",
+        icon: "✨",
+        description:
+          "Write your own simple direction if you want something more specific.",
+        themes: ["customizable"],
+      },
+    },
+  },
+  "3-5": {
+    ageGroup: "3-5 Years",
+    ageRange: "Toddlers & Preschool",
+    icon: "🧒",
+    description:
+      "Playful categories for fairytales, milestones, confidence, and animal fun.",
+    categories: {
+      fairytale_magic: {
+        name: "Fairytale & Magic",
+        icon: "🦄",
+        description:
+          "Sparkly, imaginative worlds that feel dreamy and magical.",
+        themes: ["unicorn-magic"],
+      },
+      milestone_stories: {
+        name: "Milestone Stories",
+        icon: "🎉",
+        description:
+          "Pair these books with the milestone selector above for birthdays, first school days, and sibling moments.",
+        themes: ["milestone-magic"],
+      },
+      confidence_behaviour: {
+        name: "Confidence & Behaviour",
+        icon: "💛",
+        description:
+          "Gentle stories that support bravery, listening, growth, and positive behaviour.",
+        themes: ["brave-little-hero"],
+      },
+      animals_dinos: {
+        name: "Animals & Dinos",
+        icon: "🦖",
+        description:
+          "Friendly creature adventures with motion, excitement, and discovery.",
+        themes: ["animal-adventure", "dino-quest"],
+      },
+      custom: {
+        name: "Build Your Own",
+        icon: "✨",
+        description:
+          "Describe a custom world if you want something outside the preset groups.",
+        themes: ["customizable"],
+      },
+    },
+  },
+  "5-8": {
+    ageGroup: "5-8 Years",
+    ageRange: "Early Readers",
+    icon: "🧭",
+    description:
+      "Adventure-led categories for kids who love action, humor, and magical quests.",
+    categories: {
+      adventure_quests: {
+        name: "Adventure & Quests",
+        icon: "🗺️",
+        description:
+          "Big journeys, discoveries, and brave little hero moments.",
+        themes: ["animal-adventure", "dino-quest"],
+      },
+      fantasy_magic: {
+        name: "Fantasy & Magic",
+        icon: "🔮",
+        description:
+          "Whimsical stories with imagination, wonder, and enchanted settings.",
+        themes: ["unicorn-magic"],
+      },
+      growth_confidence: {
+        name: "Growth & Confidence",
+        icon: "🌟",
+        description:
+          "Storylines that support courage, routines, and building self-belief.",
+        themes: ["animal-adventure", "goodnight-garage"],
+      },
+      playful_fun: {
+        name: "Playful & Funny",
+        icon: "😄",
+        description:
+          "Lighter stories with humor, movement, and playful energy.",
+        themes: ["dino-quest", "goodnight-garage"],
+      },
+      custom: {
+        name: "Build Your Own",
+        icon: "✨",
+        description:
+          "Open-ended worldbuilding for families who want a custom theme.",
+        themes: ["customizable"],
+      },
+    },
+  },
+  "8-12": {
+    ageGroup: "8-12 Years",
+    ageRange: "Older Kids",
+    icon: "🚀",
+    description:
+      "More aspirational categories for epic adventures, courage, and imagination.",
+    categories: {
+      epic_adventure: {
+        name: "Epic Adventure",
+        icon: "⚔️",
+        description:
+          "Bigger quests, stronger stakes, and action-forward storytelling.",
+        themes: ["dino-quest", "animal-adventure"],
+      },
+      fantasy_worlds: {
+        name: "Fantasy Worlds",
+        icon: "🏰",
+        description:
+          "Magical lands, wonder, and imaginative journeys with heart.",
+        themes: ["unicorn-magic"],
+      },
+      courage_growth: {
+        name: "Courage & Growth",
+        icon: "🔥",
+        description:
+          "Themes built around resilience, confidence, and personal growth.",
+        themes: ["animal-adventure"],
+      },
+      discovery_mystery: {
+        name: "Discovery & Mystery",
+        icon: "🔍",
+        description:
+          "Curious, discovery-led stories that feel exploratory and adventurous.",
+        themes: ["dino-quest"],
+      },
+      custom: {
+        name: "Build Your Own",
+        icon: "✨",
+        description:
+          "Use a custom concept if the child wants a very specific world.",
+        themes: ["customizable"],
+      },
+    },
+  },
+  "12+": {
+    ageGroup: "12+ Years",
+    ageRange: "Teens & Adults",
+    icon: "🎁",
+    description:
+      "Keepsake-quality categories for celebrations, milestones, and heartfelt gifts.",
+    categories: {
+      celebrations_gifts: {
+        name: "Celebrations & Gifts",
+        icon: "🎊",
+        description:
+          "Birthday, family, and gathering themes designed for polished gift books.",
+        themes: ["family-celebration", "birthday-bash", "festive-gathering"],
+      },
+      milestones_achievements: {
+        name: "Milestones & Achievements",
+        icon: "🏆",
+        description:
+          "Achievement-led books for promotions, major events, and proud life moments.",
+        themes: ["promotion", "baby-shower", "gender-reveal"],
+      },
+      love_tribute: {
+        name: "Love & Tribute",
+        icon: "💖",
+        description:
+          "Premium tribute stories for gratitude, romance, and meaningful relationships.",
+        themes: ["heartfelt-tribute", "anniversary", "valentine-day"],
+      },
+      family_bonds: {
+        name: "Family Bonds",
+        icon: "🤝",
+        description:
+          "Warm family-centered books for siblings, togetherness, and shared memories.",
+        themes: ["siblings", "family-celebration"],
+      },
+      custom: {
+        name: "Build Your Own",
+        icon: "✨",
+        description:
+          "Create a custom premium story direction when you want full control.",
+        themes: ["customizable"],
+      },
+    },
+  },
+};
+
+const LEGACY_THEME_CATEGORY_AGE_GROUP_MAP = {
+  infants: "0-2",
+  toddlers: "3-5",
+  children: "5-8",
+  preteens: "8-12",
+  teens: "12+",
+  adults: "12+",
+  "2-5": "3-5",
+  "6-11": "5-8",
+};
+
+export function normalizeThemeCategoryAgeGroup(ageGroup) {
+  const normalizedAgeGroup = String(ageGroup || "").trim();
+
+  if (AGE_GROUP_THEME_CATEGORIES[normalizedAgeGroup]) {
+    return normalizedAgeGroup;
+  }
+
+  return LEGACY_THEME_CATEGORY_AGE_GROUP_MAP[normalizedAgeGroup] || "3-5";
+}
+
+function getConfiguredThemeIdsForAgeGroup(ageGroup) {
+  const normalizedAgeGroup = normalizeThemeCategoryAgeGroup(ageGroup);
+  const categories =
+    AGE_GROUP_THEME_CATEGORIES[normalizedAgeGroup]?.categories || {};
+  const orderedThemeIds = [];
+
+  Object.values(categories).forEach((category) => {
+    category.themes.forEach((themeId) => {
+      if (!orderedThemeIds.includes(themeId)) {
+        orderedThemeIds.push(themeId);
+      }
+    });
+  });
+
+  return orderedThemeIds;
+}
+
 /**
  * Get all categories for an age group
- * @param {string} ageGroup - Age group key (infants, toddlers, children, teens)
+ * @param {string} ageGroup - Age group key such as 0-2, 3-5, 5-8, 8-12, or 12+
  * @returns {object} Categories with themes for that age group
  */
 export function getCategoriesByAgeGroup(ageGroup) {
-  const ageGroupData = THEMED_CATEGORIES[ageGroup];
+  const normalizedAgeGroup = normalizeThemeCategoryAgeGroup(ageGroup);
+  const ageGroupData = AGE_GROUP_THEME_CATEGORIES[normalizedAgeGroup];
   return ageGroupData ? ageGroupData.categories : {};
 }
 
@@ -1090,7 +1669,7 @@ export function getCategoriesByAgeGroup(ageGroup) {
  * @returns {object[]} Array of theme objects
  */
 export function getThemesByCategory(ageGroup, categoryKey) {
-  const categoryData = THEMED_CATEGORIES[ageGroup]?.categories?.[categoryKey];
+  const categoryData = getCategoriesByAgeGroup(ageGroup)?.[categoryKey];
   if (!categoryData) return [];
 
   return categoryData.themes
@@ -1103,7 +1682,7 @@ export function getThemesByCategory(ageGroup, categoryKey) {
  * @returns {object} Age groups organized by group
  */
 export function getAllAgeGroups() {
-  return Object.entries(THEMED_CATEGORIES).map(([key, data]) => ({
+  return Object.entries(AGE_GROUP_THEME_CATEGORIES).map(([key, data]) => ({
     key,
     ageGroup: data.ageGroup,
     ageRange: data.ageRange,
@@ -1119,7 +1698,7 @@ export function getAllAgeGroups() {
  * @returns {object[]} Array of popular themes
  */
 export function getRecommendedThemesForAgeGroup(ageGroup) {
-  const categories = THEMED_CATEGORIES[ageGroup]?.categories || {};
+  const categories = getCategoriesByAgeGroup(ageGroup);
   const themeSet = new Set();
 
   // Get first few themes from each category
@@ -1140,5 +1719,5 @@ export function getRecommendedThemesForAgeGroup(ageGroup) {
  * @returns {object} Category information
  */
 export function getCategoryInfo(ageGroup, categoryKey) {
-  return THEMED_CATEGORIES[ageGroup]?.categories?.[categoryKey] || null;
+  return getCategoriesByAgeGroup(ageGroup)?.[categoryKey] || null;
 }

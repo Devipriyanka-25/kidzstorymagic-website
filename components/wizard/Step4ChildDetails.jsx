@@ -52,6 +52,19 @@ export default function Step4ChildDetails() {
 
     try {
       const selectedThemeLabel = getBookThemeLabel(formData.theme);
+      const projectTitleParts = [];
+
+      if (formData.isSeries && Number(formData.seriesChapterNumber) > 1) {
+        projectTitleParts.push(`Chapter ${formData.seriesChapterNumber}`);
+      }
+
+      projectTitleParts.push(`${formData.childName}'s ${selectedThemeLabel}`);
+
+      if (formData.milestoneTitle) {
+        projectTitleParts.push(formData.milestoneTitle);
+      }
+
+      const projectTitle = projectTitleParts.join(' • ');
 
       console.log('[STEP4] Creating project with details:', {
         // camelCase for middleware validation
@@ -67,6 +80,8 @@ export default function Step4ChildDetails() {
         child_gender: formData.childGender,
         child_interests: formData.childInterests,
         child_notes: formData.childNotes,
+        milestone_title: formData.milestoneTitle,
+        is_series: formData.isSeries,
       });
 
       // Create the project now, before moving to Step 5
@@ -85,7 +100,7 @@ export default function Step4ChildDetails() {
         child_gender: formData.childGender,
         child_interests: formData.childInterests,
         child_notes: formData.childNotes,
-        title: `${formData.childName}'s ${selectedThemeLabel}`
+        title: projectTitle
       });
 
       const projectId = createResponse.data.project.id;
@@ -138,6 +153,20 @@ export default function Step4ChildDetails() {
             {formData.childAge < 13 && ` - Parental consent received from ${formData.parentEmail}`}
           </p>
         </div>
+
+        {(formData.milestoneTitle || formData.isSeries) && (
+          <div className="bg-amber-50 border-2 border-amber-300 rounded-xl p-6">
+            <h3 className="font-bold text-amber-900 mb-2">Story Setup</h3>
+            <p className="text-amber-900">
+              {formData.isSeries
+                ? `This order is being prepared as Chapter ${formData.seriesChapterNumber || 2} in a returning story series. `
+                : ''}
+              {formData.milestoneTitle
+                ? `${formData.milestoneTitle} is selected as the milestone story angle.`
+                : ''}
+            </p>
+          </div>
+        )}
 
         <form className="space-y-8 py-8">
           {/* Child Gender */}

@@ -139,6 +139,14 @@ const PREMIUM_SCENE_GUIDES = {
     palette:
       'honey gold, warm amber, soft brown, and midnight blue highlights',
   },
+  learning: {
+    setting:
+      'a bright playful learning world with alphabet blocks, counting toys, giant friendly shapes, rainbow paths, soft clouds, and cheerful classroom-storybook wonder',
+    interaction:
+      'pointing to letters, counting joyful objects, exploring giant colorful shapes, or celebrating a proud little learning moment as the clear hero',
+    palette:
+      'rainbow brights, sky blue, sunshine yellow, mint green, and candy pink',
+  },
   pirate: {
     setting:
       'a cinematic treasure-island world with a storybook ship, sparkling ocean, treasure maps, and golden sand',
@@ -316,6 +324,11 @@ function buildIllustrationPrompt({
   ageHint,
   pageTitle,
   pageContent,
+  milestonePromptHint,
+  milestoneCoverBadge,
+  isSeries,
+  chapterNumber,
+  originalTheme,
 }) {
   const sceneGuide = resolveSceneGuide(theme, illustrationStyle);
   const storyMoment = sanitizeIllustrationText(pageContent, 320);
@@ -332,6 +345,20 @@ function buildIllustrationPrompt({
   const notesInstruction = noteDetail
     ? `Important child notes for character consistency: ${noteDetail}.`
     : '';
+  const milestoneInstruction = milestonePromptHint
+    ? `Celebrate this milestone naturally in the scene: ${cleanPromptDetail(milestonePromptHint, 160)}.`
+    : '';
+  const milestoneCoverInstruction = milestoneCoverBadge
+    ? `If this page works as a hero image, weave in a subtle celebratory badge concept inspired by "${cleanPromptDetail(
+        milestoneCoverBadge,
+        80
+      )}".`
+    : '';
+  const seriesInstruction = isSeries
+    ? `This illustration belongs to chapter ${chapterNumber || 2} of a continuing story series following a previous ${
+        originalTheme || theme
+      } adventure, so it should feel fresh while keeping the same hero identity.`
+    : '';
 
   return [
     `Create a full-scene premium personalized storybook illustration for ${childName}.`,
@@ -344,6 +371,9 @@ function buildIllustrationPrompt({
     `Story moment to illustrate: ${storyMoment}.`,
     `Color direction: ${sceneGuide.palette}. Push toward extra vibrant, saturated, joyful storybook color with luminous highlights and playful contrast.`,
     `Mood: ${ageHint}.`,
+    milestoneInstruction,
+    milestoneCoverInstruction,
+    seriesInstruction,
     customSceneInstruction,
     interestInstruction,
     notesInstruction,
@@ -406,6 +436,12 @@ export async function POST(request, { params }) {
       theme,
       pageCount,
       storyLanguage = 'en',
+      milestoneTitle,
+      milestonePromptHint = '',
+      milestoneCoverBadge = '',
+      isSeries = false,
+      chapterNumber,
+      originalTheme,
     } = body;
 
     const existingProject = await getStoryProjectById(authUser.id, projectId);
@@ -454,10 +490,15 @@ export async function POST(request, { params }) {
     const mappedTheme =
       themeMap[theme] || selectedBookTheme.storyTheme || 'adventure';
     const translatedStory = getTranslatedStory(storyLanguage, mappedTheme, childName);
-    const storyTitle =
+    const baseStoryTitle =
       typeof selectedBookTheme.titleTemplate === 'function'
         ? selectedBookTheme.titleTemplate(childName)
         : translatedStory.title;
+    const chapterPrefix =
+      isSeries && Number(chapterNumber) > 1
+        ? `Chapter ${chapterNumber}: `
+        : '';
+    const storyTitle = `${chapterPrefix}${baseStoryTitle}`;
     const pageThemeTitle = selectedBookTheme.label || translatedStory.title;
 
     const selectedTheme = {
@@ -493,12 +534,27 @@ export async function POST(request, { params }) {
     ];
 
     const arcsPerPage = Math.max(Math.ceil(storyArcs.length / storyPages), 1);
+    const milestoneIntro = milestonePromptHint
+      ? `This special story celebrates ${milestonePromptHint}.`
+      : '';
+    const seriesIntro =
+      isSeries && Number(chapterNumber) > 1
+        ? `${childName} is beginning chapter ${chapterNumber} of a continuing adventure after their previous ${
+            originalTheme || pageThemeTitle
+          } story.`
+        : '';
 
     for (let i = 0; i < storyPages; i++) {
       const arcStart = i * arcsPerPage;
       const arcEnd = Math.min((i + 1) * arcsPerPage, storyArcs.length);
       const pageArcs = storyArcs.slice(arcStart, arcEnd);
-      const pageContent = pageArcs.join(' ') || `${childName}'s story continues...`;
+      const pageContent = [
+        i === 0 ? milestoneIntro : '',
+        i === 0 ? seriesIntro : '',
+        pageArcs.join(' ') || `${childName}'s story continues...`,
+      ]
+        .filter(Boolean)
+        .join(' ');
       const pageTitle = `${pageThemeTitle} - Page ${i + 1}`;
 
       pagesArray.push({
@@ -520,6 +576,11 @@ export async function POST(request, { params }) {
           ageHint,
           pageTitle,
           pageContent,
+          milestonePromptHint,
+          milestoneCoverBadge,
+          isSeries,
+          chapterNumber,
+          originalTheme,
         }),
         illustrationUrl: null,
         image: null,
@@ -540,8 +601,12 @@ export async function POST(request, { params }) {
       pageNumber: totalPages,
       pageType: 'end',
       title: 'The End',
-      content: `${childName} closes the book with a happy heart and a mind full of magical memories.`,
-      text: `${childName} closes the book with a happy heart and a mind full of magical memories.`,
+      content: `${childName} closes the book with a happy heart and a mind full of magical memories.${
+        milestoneTitle ? ` This keepsake honors ${milestoneTitle.toLowerCase()}.` : ''
+      }`,
+      text: `${childName} closes the book with a happy heart and a mind full of magical memories.${
+        milestoneTitle ? ` This keepsake honors ${milestoneTitle.toLowerCase()}.` : ''
+      }`,
       illustrationPrompt: null,
       illustrationUrl: null,
       image: null,

@@ -1,21 +1,22 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { paymentAPI } from '@/utils/api';
+import StorySeries from '@/components/story/StorySeries';
 
 export default function SuccessPage() {
-  const router = useRouter();
   const searchParams = useSearchParams();
   const sessionId = searchParams.get('session_id');
+  const projectId = searchParams.get('project_id');
   const [order, setOrder] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
   useEffect(() => {
     if (!sessionId) {
-      setError('No session ID provided');
+      setError('No checkout session was provided.');
       setLoading(false);
       return;
     }
@@ -23,33 +24,33 @@ export default function SuccessPage() {
     const verifyPayment = async () => {
       try {
         setLoading(true);
-        console.log('[SUCCESS PAGE] Verifying payment for session:', sessionId);
-        
-        const response = await paymentAPI.verifyPayment(sessionId);
-        console.log('[SUCCESS PAGE] Payment verified:', response);
-        
+        const response = await paymentAPI.verifyPayment(sessionId, projectId);
         setOrder(response.data?.data || response.data);
         setError('');
       } catch (err) {
         console.error('[SUCCESS PAGE] Verification error:', err);
-        setError(err.message || 'Failed to verify payment');
+        setError(err.response?.data?.error || err.message || 'Failed to verify payment.');
       } finally {
         setLoading(false);
       }
     };
 
     verifyPayment();
-  }, [sessionId]);
+  }, [projectId, sessionId]);
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-b from-green-50 to-blue-50 flex items-center justify-center">
+      <div className="flex min-h-screen items-center justify-center bg-[linear-gradient(180deg,#ecfdf5_0%,#eff6ff_100%)] px-4">
         <div className="text-center">
-          <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-            <span className="text-3xl">✓</span>
+          <div className="mx-auto mb-5 flex h-20 w-20 items-center justify-center rounded-full bg-green-100 text-4xl">
+            ✓
           </div>
-          <h1 className="text-2xl font-bold text-gray-900 mb-2">Processing your order...</h1>
-          <p className="text-gray-600">Please wait while we confirm your payment</p>
+          <h1 className="text-3xl font-black text-slate-900">
+            Confirming your purchase
+          </h1>
+          <p className="mt-3 text-slate-600">
+            We are loading the story details and post-purchase perks now.
+          </p>
         </div>
       </div>
     );
@@ -57,23 +58,25 @@ export default function SuccessPage() {
 
   if (error) {
     return (
-      <div className="min-h-screen bg-gradient-to-b from-red-50 to-orange-50 flex items-center justify-center p-4">
-        <div className="max-w-md w-full bg-white rounded-lg shadow-lg p-8 text-center">
-          <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
-            <span className="text-3xl">⚠️</span>
+      <div className="flex min-h-screen items-center justify-center bg-[linear-gradient(180deg,#fef2f2_0%,#fff7ed_100%)] px-4">
+        <div className="w-full max-w-xl rounded-[28px] bg-white p-8 text-center shadow-[0_24px_70px_rgba(15,23,42,0.12)]">
+          <div className="mx-auto mb-5 flex h-20 w-20 items-center justify-center rounded-full bg-red-100 text-4xl">
+            !
           </div>
-          <h1 className="text-2xl font-bold text-gray-900 mb-2">Payment Verification Failed</h1>
-          <p className="text-gray-600 mb-6">{error}</p>
-          <div className="space-y-3">
+          <h1 className="text-3xl font-black text-slate-900">
+            Payment verification failed
+          </h1>
+          <p className="mt-3 text-slate-600">{error}</p>
+          <div className="mt-8 grid gap-3 md:grid-cols-2">
             <Link
               href="/wizard"
-              className="block px-6 py-3 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition"
+              className="rounded-2xl bg-blue-600 px-6 py-4 text-center font-bold text-white transition hover:bg-blue-700"
             >
               Return to Wizard
             </Link>
             <Link
               href="/dashboard"
-              className="block px-6 py-3 bg-gray-200 text-gray-900 font-semibold rounded-lg hover:bg-gray-300 transition"
+              className="rounded-2xl bg-slate-200 px-6 py-4 text-center font-bold text-slate-900 transition hover:bg-slate-300"
             >
               Go to Dashboard
             </Link>
@@ -84,132 +87,96 @@ export default function SuccessPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-green-50 to-blue-50">
-      <div className="max-w-2xl mx-auto px-4 py-12">
-        {/* Success Header */}
-        <div className="text-center mb-12">
-          <div className="w-24 h-24 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6 animate-bounce">
-            <span className="text-5xl">✓</span>
+    <div className="min-h-screen bg-[linear-gradient(180deg,#f0fdf4_0%,#eff6ff_30%,#ffffff_100%)] px-4 py-12">
+      <div className="mx-auto max-w-5xl">
+        <div className="mb-10 text-center">
+          <div className="mx-auto mb-6 flex h-24 w-24 items-center justify-center rounded-full bg-green-100 text-5xl shadow-lg">
+            ✓
           </div>
-          <h1 className="text-4xl font-bold text-gray-900 mb-3">
-            Thank You for Your Purchase!
+          <h1 className="text-4xl font-black text-slate-900 sm:text-5xl">
+            Purchase confirmed
           </h1>
-          <p className="text-xl text-gray-600">
-            Your personalized storybook order has been confirmed
+          <p className="mt-4 text-lg text-slate-600">
+            The storybook order is complete and ready for the next step.
           </p>
         </div>
 
-        {/* Order Details */}
-        <div className="bg-white rounded-xl shadow-lg p-8 mb-8">
-          <h2 className="text-2xl font-bold text-gray-900 mb-6">📚 Order Details</h2>
-          
-          <div className="space-y-4 mb-6">
-            <div className="flex justify-between items-center pb-4 border-b border-gray-200">
-              <span className="text-gray-600">Order ID:</span>
-              <span className="font-semibold text-gray-900">{order?.id}</span>
+        <div className="rounded-[32px] bg-white p-8 shadow-[0_24px_70px_rgba(15,23,42,0.10)]">
+          <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-4">
+            <div className="rounded-2xl bg-slate-50 p-5">
+              <p className="text-xs font-black uppercase tracking-[0.24em] text-slate-500">
+                Order
+              </p>
+              <p className="mt-3 text-lg font-black text-slate-900">
+                {order?.id}
+              </p>
             </div>
-            
-            {order?.child_name && (
-              <div className="flex justify-between items-center pb-4 border-b border-gray-200">
-                <span className="text-gray-600">Child's Name:</span>
-                <span className="font-semibold text-gray-900">{order.child_name}</span>
-              </div>
-            )}
-            
-            {order?.theme && (
-              <div className="flex justify-between items-center pb-4 border-b border-gray-200">
-                <span className="text-gray-600">Story Theme:</span>
-                <span className="font-semibold text-gray-900 capitalize">{order.theme}</span>
-              </div>
-            )}
-            
-            {order?.amount && (
-              <div className="flex justify-between items-center pb-4 border-b border-gray-200">
-                <span className="text-gray-600">Amount Paid:</span>
-                <span className="font-semibold text-gray-900">
-                  {order.currency} {Number(order.amount).toFixed(2)}
-                </span>
-              </div>
-            )}
-            
-            <div className="flex justify-between items-center">
-              <span className="text-gray-600">Payment Status:</span>
-              <span className="inline-block px-4 py-2 bg-green-100 text-green-800 font-semibold rounded-lg">
-                ✓ Completed
-              </span>
+            <div className="rounded-2xl bg-slate-50 p-5">
+              <p className="text-xs font-black uppercase tracking-[0.24em] text-slate-500">
+                Child
+              </p>
+              <p className="mt-3 text-lg font-black text-slate-900">
+                {order?.child_name || 'Story Child'}
+              </p>
+            </div>
+            <div className="rounded-2xl bg-slate-50 p-5">
+              <p className="text-xs font-black uppercase tracking-[0.24em] text-slate-500">
+                Theme
+              </p>
+              <p className="mt-3 text-lg font-black capitalize text-slate-900">
+                {order?.theme || 'Story Theme'}
+              </p>
+            </div>
+            <div className="rounded-2xl bg-slate-50 p-5">
+              <p className="text-xs font-black uppercase tracking-[0.24em] text-slate-500">
+                Amount
+              </p>
+              <p className="mt-3 text-lg font-black text-slate-900">
+                {order?.currency} {Number(order?.amount || 0).toFixed(2)}
+              </p>
             </div>
           </div>
 
-          {/* Security & Privacy Confirmation */}
-          <div className="bg-green-50 border-2 border-green-400 rounded-lg p-6 mb-8">
-            <h3 className="text-lg font-semibold text-green-900 mb-4 flex items-center gap-2">
-              🔒 Your Privacy Is Protected
-            </h3>
-            <ul className="space-y-3 text-green-900 text-sm font-medium">
-              <li className="flex items-start gap-3">
-                <span className="text-green-600 text-xl flex-shrink-0">✓</span>
-                <span><strong>Photos deleted</strong> - All uploaded photos have been permanently removed from our servers</span>
-              </li>
-              <li className="flex items-start gap-3">
-                <span className="text-green-600 text-xl flex-shrink-0">✓</span>
-                <span><strong>Child data deleted</strong> - Personal information will be removed after processing</span>
-              </li>
-              <li className="flex items-start gap-3">
-                <span className="text-green-600 text-xl flex-shrink-0">✓</span>
-                <span><strong>COPPA compliant</strong> - Full parental consent verification and safety measures</span>
-              </li>
-              <li className="flex items-start gap-3">
-                <span className="text-green-600 text-xl flex-shrink-0">✓</span>
-                <span><strong>No data sharing</strong> - We never share or sell your child's data</span>
-              </li>
-            </ul>
+          <div className="mt-8 rounded-[28px] border border-green-200 bg-green-50 p-6">
+            <h2 className="text-2xl font-black text-green-950">
+              Privacy and delivery summary
+            </h2>
+            <div className="mt-5 grid gap-4 md:grid-cols-2">
+              <div className="rounded-2xl bg-white px-5 py-4 text-sm leading-7 text-slate-700">
+                Uploaded child photos stay protected in the purchase flow and
+                are not shared or sold.
+              </div>
+              <div className="rounded-2xl bg-white px-5 py-4 text-sm leading-7 text-slate-700">
+                Your story can now move into the post-purchase reading and
+                fulfillment experience.
+              </div>
+            </div>
           </div>
 
-          {/* Security & Privacy Confirmation */}
-          <div className="bg-green-50 border-2 border-green-400 rounded-lg p-6 mb-8">
-            <h3 className="text-lg font-semibold text-green-900 mb-4 flex items-center gap-2">
-              🔒 Your Privacy Is Protected
-            </h3>
-            <ul className="space-y-3 text-green-900 text-sm font-medium">
-              <li className="flex items-start gap-3">
-                <span className="text-green-600 text-xl flex-shrink-0">✓</span>
-                <span><strong>Photos deleted</strong> - All uploaded photos have been permanently removed from our servers</span>
-              </li>
-              <li className="flex items-start gap-3">
-                <span className="text-green-600 text-xl flex-shrink-0">✓</span>
-                <span><strong>Child data deleted</strong> - Personal information will be removed after processing</span>
-              </li>
-              <li className="flex items-start gap-3">
-                <span className="text-green-600 text-xl flex-shrink-0">✓</span>
-                <span><strong>COPPA compliant</strong> - Full parental consent verification and safety measures</span>
-              </li>
-              <li className="flex items-start gap-3">
-                <span className="text-green-600 text-xl flex-shrink-0">✓</span>
-                <span><strong>No data sharing</strong> - We never share or sell your child's data</span>
-              </li>
-            </ul>
+          <div className="mt-8 grid gap-3 md:grid-cols-2">
+            <Link
+              href="/dashboard"
+              className="rounded-2xl bg-blue-600 px-6 py-4 text-center font-bold text-white transition hover:bg-blue-700"
+            >
+              View Dashboard
+            </Link>
+            <Link
+              href="/"
+              className="rounded-2xl bg-slate-200 px-6 py-4 text-center font-bold text-slate-900 transition hover:bg-slate-300"
+            >
+              Return Home
+            </Link>
           </div>
         </div>
 
-        {/* Action Buttons */}
-        <div className="grid md:grid-cols-2 gap-4 mb-8">
-          <Link
-            href="/dashboard"
-            className="px-6 py-4 bg-blue-600 text-white font-bold rounded-lg hover:bg-blue-700 transition text-center"
-          >
-            📊 View Dashboard
-          </Link>
-          <Link
-            href="/"
-            className="px-6 py-4 bg-gray-200 text-gray-900 font-bold rounded-lg hover:bg-gray-300 transition text-center"
-          >
-            🏠 Return Home
-          </Link>
-        </div>
-
-        {/* Help Text */}
-        <div className="text-center text-gray-600">
-          <p>Questions? Check your email or <Link href="/docs" className="text-blue-600 hover:underline">visit our help center</Link></p>
+        <div className="mt-8">
+          <StorySeries
+            childName={order?.child_name}
+            childAge={order?.child_age}
+            ageGroup={order?.age_group}
+            originalTheme={order?.theme}
+            storyNumber={order?.storyNumber || 1}
+          />
         </div>
       </div>
     </div>
