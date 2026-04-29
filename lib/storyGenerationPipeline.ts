@@ -247,6 +247,14 @@ async function applyFaceSwapToPages(
   projectId: string,
   baseUrl?: string
 ): Promise<StoryPage[]> {
+  // Check if DeepAI is configured - skip face swap if not
+  const deepaiKey = process.env.DEEPAI_API_KEY;
+  if (!deepaiKey) {
+    console.warn('[PIPELINE] ⚠ DEEPAI_API_KEY not configured in environment, skipping face swap');
+    console.log('[PIPELINE] To enable face swap, add DEEPAI_API_KEY to your environment variables');
+    return pages;
+  }
+
   const faceSwappedPages = await Promise.all(
     pages.map(async (page) => {
       try {
