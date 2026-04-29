@@ -19,6 +19,21 @@ export async function POST(request) {
   try {
     console.log('[FACE_SWAP] Starting face swap with DeepAI API...');
 
+    // Check if DeepAI API token is configured upfront
+    const deepaiKey = process.env.DEEPAI_API_KEY;
+    if (!deepaiKey) {
+      console.error('[FACE_SWAP] ✗ DEEPAI_API_KEY not configured');
+      return NextResponse.json(
+        { 
+          error: 'Face swap service not configured',
+          message: 'DEEPAI_API_KEY environment variable is missing',
+          setup: 'Add DEEPAI_API_KEY to Vercel environment variables',
+          docs: 'https://deepai.org/account/profile'
+        },
+        { status: 503 }
+      );
+    }
+
     const body = await request.json();
     const {
       faceImageUrl,
@@ -45,22 +60,6 @@ export async function POST(request) {
     console.log(`[FACE_SWAP] Processing page ${pageNumber || 'N/A'} for ${childName}`);
     console.log(`[FACE_SWAP] Face image URL: ${faceImageUrl.substring(0, 80)}...`);
     console.log(`[FACE_SWAP] Illustration URL: ${illustrationImageUrl.substring(0, 80)}...`);
-
-    // Check if DeepAI API token is configured
-    const deepaiKey = process.env.DEEPAI_API_KEY;
-    if (!deepaiKey) {
-      console.error('[FACE_SWAP] ✗ DEEPAI_API_KEY not configured');
-      return NextResponse.json(
-        { 
-          error: 'Face swap service not configured',
-          message: 'DEEPAI_API_KEY environment variable is missing',
-          setup: 'Get your API token from https://deepai.org/account/profile',
-          note: 'Subscribed account with generous rate limits.'
-        },
-        { status: 503 }
-      );
-    }
-
     console.log('[FACE_SWAP] ✓ DeepAI API token configured');
 
     console.log('[FACE_SWAP] ✓ Configuration validated');

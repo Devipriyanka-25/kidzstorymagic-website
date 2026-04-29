@@ -10,6 +10,7 @@
  */
 
 export interface StoryGenerationRequest {
+  baseUrl?: string;
   projectId: string;
   childName: string;
   childAge: number;
@@ -45,15 +46,33 @@ export interface GeneratedStory {
   createdAt: string;
 }
 
-function getAppBaseUrl(): string {
-  return (process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000').replace(
-    /\/$/,
-    ''
-  );
+function normalizeBaseUrl(baseUrl?: string): string {
+  return String(baseUrl || '').trim().replace(/\/$/, '');
 }
 
-function buildApiUrl(path: string): string {
-  return `${getAppBaseUrl()}${path.startsWith('/') ? path : `/${path}`}`;
+function getAppBaseUrl(explicitBaseUrl?: string): string {
+  const requestBaseUrl = normalizeBaseUrl(explicitBaseUrl);
+  if (requestBaseUrl) {
+    return requestBaseUrl;
+  }
+
+  const configuredBaseUrl = normalizeBaseUrl(process.env.NEXT_PUBLIC_APP_URL);
+  if (configuredBaseUrl) {
+    return configuredBaseUrl;
+  }
+
+  const vercelUrl = normalizeBaseUrl(process.env.VERCEL_URL);
+  if (vercelUrl) {
+    return vercelUrl.startsWith('http') ? vercelUrl : `https://${vercelUrl}`;
+  }
+
+  return 'http://localhost:3000';
+}
+
+function buildApiUrl(path: string, explicitBaseUrl?: string): string {
+  return `${getAppBaseUrl(explicitBaseUrl)}${
+    path.startsWith('/') ? path : `/${path}`
+  }`;
 }
 
 /**
@@ -64,8 +83,11 @@ export async function generateStoryWithFaceSwap(
   request: StoryGenerationRequest
 ): Promise<GeneratedStory> {
   try {
+    const appBaseUrl = getAppBaseUrl(request.baseUrl);
+
     console.log('[PIPELINE] Starting story generation with face swap...');
     console.log('[PIPELINE] Config:', {
+      appBaseUrl,
       childName: request.childName,
       theme: request.theme,
       enableFaceSwap: request.enableFaceSwap,
@@ -85,7 +107,8 @@ export async function generateStoryWithFaceSwap(
       const faceSwappedPages = await applyFaceSwapToPages(
         illustratedPages,
         request.childPhotoUrl,
-        request.projectId
+        request.projectId,
+        request.baseUrl
       );
       story.pages = faceSwappedPages;
       console.log('[PIPELINE] ✓ Face swap applied to all pages');
@@ -113,7 +136,7 @@ async function generateStoryStructure(
   request: StoryGenerationRequest
 ): Promise<GeneratedStory> {
   // Call your existing story generation endpoint with internal call header
-  const response = await fetch(buildApiUrl('/api/story/generate'), {
+  const response = await fetch(buildApiUrl('/api/story/generate', request.baseUrl), {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -173,7 +196,9 @@ async function generateIllustrations(
 
         console.log(`[PIPELINE] Generating illustration for page ${page.pageNumber}...`);
 
-        const response = await fetch(buildApiUrl('/api/generate-story-page'), {
+        const response = await fetch(
+          buildApiUrl('/api/generate-story-page', request.baseUrl),
+          {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -184,7 +209,8 @@ async function generateIllustrations(
             projectId: request.projectId,
             subjectImage: request.childPhotoUrl, // Pass child photo as reference
           }),
-        });
+          }
+        );
 
         if (!response.ok) {
           console.warn(`[PIPELINE] Failed to generate illustration for page ${page.pageNumber}: ${response.statusText}`);
@@ -218,7 +244,8 @@ async function generateIllustrations(
 async function applyFaceSwapToPages(
   pages: StoryPage[],
   childPhotoUrl: string,
-  projectId: string
+  projectId: string,
+  baseUrl?: string
 ): Promise<StoryPage[]> {
   const faceSwappedPages = await Promise.all(
     pages.map(async (page) => {
@@ -230,7 +257,7 @@ async function applyFaceSwapToPages(
 
         console.log(`[PIPELINE] Applying face swap to page ${page.pageNumber}...`);
 
-        const response = await fetch(buildApiUrl('/api/photos/face-swap'), {
+        const response = await fetch(buildApiUrl('/api/photos/face-swap', baseUrl), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -240,7 +267,8 @@ async function applyFaceSwapToPages(
             pageNumber: page.pageNumber,
             storyId: projectId,
           }),
-        });
+          }
+        );
 
         if (!response.ok) {
           console.warn(`[PIPELINE] Face swap failed for page ${page.pageNumber}, using original`);
@@ -293,9 +321,12 @@ export async function generateMultipleStoriesWithFaceSwap(
  * Get status of ongoing story generation
  */
 export async function getStoryGenerationStatus(
-  projectId: string
+  projectId: string,
+  baseUrl?: string
 ): Promise<{ status: string; progress: number; message?: string }> {
-  const response = await fetch(buildApiUrl(`/api/story/${projectId}/status`));
+  const response = await fetch(
+    buildApiUrl(`/api/story/${projectId}/status`, baseUrl)
+  );
   if (!response.ok) {
     throw new Error('Failed to get story status');
   }
@@ -305,10 +336,16 @@ export async function getStoryGenerationStatus(
 /**
  * Cancel story generation
  */
-export async function cancelStoryGeneration(projectId: string): Promise<void> {
-  const response = await fetch(buildApiUrl(`/api/story/${projectId}/cancel`), {
-    method: 'POST',
-  });
+export async function cancelStoryGeneration(
+  projectId: string,
+  baseUrl?: string
+): Promise<void> {
+  const response = await fetch(
+    buildApiUrl(`/api/story/${projectId}/cancel`, baseUrl),
+    {
+      method: 'POST',
+    }
+  );
   if (!response.ok) {
     throw new Error('Failed to cancel story generation');
   }
