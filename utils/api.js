@@ -109,8 +109,8 @@ export const storyAPI = {
   listStories: (limit = 10, offset = 0) => 
     createAPIClient().get('/story', { params: { limit, offset } }),
   
-  getProject: (projectId) => 
-    createAPIClient().get(`/story/${projectId}`),
+  getProject: (projectId, config = {}) => 
+    createAPIClient().get(`/story/${projectId}`, config),
   
   updateProject: (projectId, data) => 
     createAPIClient().put(`/story/${projectId}`, data),

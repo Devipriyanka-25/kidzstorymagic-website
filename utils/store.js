@@ -10,6 +10,9 @@ function buildDraftSafeFormData(formData = {}) {
     uploadedPhoto,
     uploadedImages,
     storyPreview,
+    // step6EntryContext is a runtime navigation flag; it must not be persisted so
+    // each re-entry to Step 6 always picks up the freshly-set context value.
+    step6EntryContext,
     ...rest
   } = formData;
 
@@ -227,6 +230,7 @@ export const useWizardStore = create((set, get) => ({
     seriesChapterNumber: 1,
     seriesOriginalTheme: '',
     seriesBundleSelected: false,
+    step6EntryContext: '',
   },
 
   setStep: (step) => {
@@ -239,9 +243,13 @@ export const useWizardStore = create((set, get) => ({
   nextStep: () => {
     set((state) => {
       const newStep = state.step + 1;
+      const updatedFormData =
+        newStep === 6
+          ? { ...state.formData, step6EntryContext: 'initial' }
+          : state.formData;
       // Auto-save draft to localStorage when stepping
-      persistWizardDraft(newStep, state.formData);
-      return { step: newStep };
+      persistWizardDraft(newStep, updatedFormData);
+      return { step: newStep, formData: updatedFormData };
     });
   },
 
@@ -278,6 +286,7 @@ export const useWizardStore = create((set, get) => ({
               uploadedImages: Array.isArray(formData?.uploadedImages)
                 ? formData.uploadedImages
                 : [],
+              step6EntryContext: 'draft',
             },
           });
           console.log('[DRAFT] Loaded draft at step:', step);
@@ -333,6 +342,7 @@ export const useWizardStore = create((set, get) => ({
       seriesChapterNumber: 1,
       seriesOriginalTheme: '',
       seriesBundleSelected: false,
+      step6EntryContext: '',
     }
   })
 }));
