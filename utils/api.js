@@ -185,6 +185,9 @@ export const storyAPI = {
   sendPreviewEmail: (payload) =>
     createAPIClient().post('/story/send-email', payload),
 
+  sendGiftEmail: (payload) =>
+    createAPIClient().post('/story/send-gift-email', payload),
+
   getMagicPreview: (token) =>
     createAPIClient().get('/story/preview', { params: { token } }),
   

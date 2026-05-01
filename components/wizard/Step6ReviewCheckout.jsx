@@ -2042,14 +2042,8 @@ export default function Step6ReviewCheckout() {
         return;
       }
 
-      if (giftData.isGift && !giftData.isComplete) {
-        setError(
-          'Please complete the gift recipient name and a valid email before checkout.'
-        );
-        setLoading(false);
-        return;
-      }
-
+      // Gift functionality is now handled after payment completion
+      // on the success page, so we no longer require it before checkout
       const response = await paymentAPI.createCheckout({
         projectId: formData.projectId,
         currency,
@@ -2062,14 +2056,6 @@ export default function Step6ReviewCheckout() {
           formData.childName,
         childName: formData.childName,
         theme: formData.theme,
-        isGift: Boolean(giftData.isGift),
-        giftData: giftData.isGift
-          ? {
-              recipientName: giftData.recipientName,
-              recipientEmail: giftData.recipientEmail,
-              giftMessage: giftData.giftMessage,
-            }
-          : null,
       });
 
       if (response.data.checkoutUrl) {
@@ -2714,7 +2700,8 @@ export default function Step6ReviewCheckout() {
                   )}
 
                   <div className="mb-6">
-                    <GiftStory value={giftData} onChange={setGiftData} />
+                    {/* Gift story feature is now available after payment on the success page */}
+                    {/* <GiftStory value={giftData} onChange={setGiftData} /> */}
                   </div>
 
                   {formData.uploadedImages && formData.uploadedImages.length > 0 && (

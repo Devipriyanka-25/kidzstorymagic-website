@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import { paymentAPI } from '@/utils/api';
+import { paymentAPI, storyAPI } from '@/utils/api';
 import StorySeries from '@/components/story/StorySeries';
 import { formatOrderAddressLines } from '@/lib/orderData';
 
@@ -35,6 +35,15 @@ export default function SuccessPage() {
   const [order, setOrder] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [showGiftForm, setShowGiftForm] = useState(false);
+  const [giftFormData, setGiftFormData] = useState({
+    recipientName: '',
+    recipientEmail: '',
+    giftMessage: '',
+  });
+  const [sendingGift, setSendingGift] = useState(false);
+  const [giftError, setGiftError] = useState('');
+  const [giftSuccess, setGiftSuccess] = useState(false);
 
   useEffect(() => {
     if (!sessionId) {
@@ -59,6 +68,66 @@ export default function SuccessPage() {
 
     verifyPayment();
   }, [projectId, sessionId]);
+
+  const handleSendGift = async () => {
+    setGiftError('');
+    setGiftSuccess(false);
+
+    // Validate form
+    if (!giftFormData.recipientName.trim()) {
+      setGiftError('Please enter recipient name');
+      return;
+    }
+
+    if (!giftFormData.recipientEmail.trim()) {
+      setGiftError('Please enter recipient email');
+      return;
+    }
+
+    const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailPattern.test(giftFormData.recipientEmail)) {
+      setGiftError('Please enter a valid email address');
+      return;
+    }
+
+    setSendingGift(true);
+
+    try {
+      await storyAPI.sendGiftEmail({
+        projectId,
+        recipientName: giftFormData.recipientName,
+        recipientEmail: giftFormData.recipientEmail,
+        giftMessage: giftFormData.giftMessage,
+      });
+
+      setGiftSuccess(true);
+      setGiftFormData({
+        recipientName: '',
+        recipientEmail: '',
+        giftMessage: '',
+      });
+      setShowGiftForm(false);
+
+      setTimeout(() => setGiftSuccess(false), 5000);
+    } catch (err) {
+      console.error('[GIFT_SEND] Error:', err);
+      setGiftError(
+        err.response?.data?.error ||
+          err.message ||
+          'Failed to send gift email. Please try again.'
+      );
+    } finally {
+      setSendingGift(false);
+    }
+  };
+
+  const isGiftFormValid = () => {
+    const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return (
+      giftFormData.recipientName.trim() &&
+      emailPattern.test(giftFormData.recipientEmail)
+    );
+  };
 
   if (loading) {
     return (
@@ -215,6 +284,137 @@ export default function SuccessPage() {
               </div>
             </div>
           </div>
+
+          {giftSuccess && (
+            <div className="mt-8 rounded-[28px] border border-green-300 bg-green-50 p-6">
+              <div className="flex items-start gap-4">
+                <div className="flex h-12 w-12 items-center justify-center rounded-full bg-green-100 text-xl">
+                  ✓
+                </div>
+                <div>
+                  <h3 className="font-bold text-green-950">
+                    Gift email sent successfully!
+                  </h3>
+                  <p className="mt-1 text-sm text-green-900">
+                    The gift recipient will receive a branded email with a secure
+                    link to access the story.
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {!showGiftForm ? (
+            <div className="mt-8">
+              <button
+                onClick={() => setShowGiftForm(true)}
+                className="w-full rounded-[28px] border-2 border-rose-300 bg-white px-6 py-4 text-center font-bold text-rose-600 transition hover:bg-rose-50"
+              >
+                🎁 Send this story as a gift
+              </button>
+              <p className="mt-2 text-center text-sm text-slate-600">
+                Share this personalized story with family or friends
+              </p>
+            </div>
+          ) : (
+            <div className="mt-8 rounded-[28px] border-2 border-rose-300 bg-white p-6">
+              <div className="mb-4 flex items-center justify-between">
+                <h3 className="text-lg font-black text-slate-900">
+                  🎁 Send as a Gift
+                </h3>
+                <button
+                  onClick={() => {
+                    setShowGiftForm(false);
+                    setGiftError('');
+                  }}
+                  className="text-2xl text-slate-400 hover:text-slate-600"
+                >
+                  ×
+                </button>
+              </div>
+
+              {giftError && (
+                <div className="mb-4 rounded-xl bg-red-50 p-3 text-sm text-red-900">
+                  {giftError}
+                </div>
+              )}
+
+              <div className="grid gap-4 md:grid-cols-2">
+                <label className="block">
+                  <span className="mb-2 block text-sm font-bold text-slate-700">
+                    Recipient name
+                  </span>
+                  <input
+                    type="text"
+                    value={giftFormData.recipientName}
+                    onChange={(e) =>
+                      setGiftFormData({
+                        ...giftFormData,
+                        recipientName: e.target.value,
+                      })
+                    }
+                    placeholder="Grandma Lakshmi"
+                    className="w-full rounded-2xl border-2 border-slate-200 px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-rose-300 focus:ring-4 focus:ring-rose-100"
+                  />
+                </label>
+
+                <label className="block">
+                  <span className="mb-2 block text-sm font-bold text-slate-700">
+                    Recipient email
+                  </span>
+                  <input
+                    type="email"
+                    value={giftFormData.recipientEmail}
+                    onChange={(e) =>
+                      setGiftFormData({
+                        ...giftFormData,
+                        recipientEmail: e.target.value,
+                      })
+                    }
+                    placeholder="family@example.com"
+                    className="w-full rounded-2xl border-2 border-slate-200 px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-rose-300 focus:ring-4 focus:ring-rose-100"
+                  />
+                </label>
+
+                <label className="block md:col-span-2">
+                  <span className="mb-2 block text-sm font-bold text-slate-700">
+                    Personal message (optional)
+                  </span>
+                  <textarea
+                    rows={3}
+                    value={giftFormData.giftMessage}
+                    onChange={(e) =>
+                      setGiftFormData({
+                        ...giftFormData,
+                        giftMessage: e.target.value,
+                      })
+                    }
+                    placeholder="We thought this would make you smile. Hope you love this magical surprise."
+                    className="w-full rounded-2xl border-2 border-slate-200 px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-rose-300 focus:ring-4 focus:ring-rose-100"
+                  />
+                </label>
+              </div>
+
+              <div className="mt-4 flex gap-3">
+                <button
+                  onClick={() => {
+                    setShowGiftForm(false);
+                    setGiftError('');
+                  }}
+                  className="flex-1 rounded-2xl border-2 border-slate-300 px-4 py-3 font-bold text-slate-900 transition hover:bg-slate-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleSendGift}
+                  disabled={!isGiftFormValid() || sendingGift}
+                  className="flex-1 rounded-2xl bg-rose-500 px-4 py-3 font-bold text-white transition hover:bg-rose-600 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {sendingGift ? 'Sending...' : 'Send Gift Email'}
+                </button>
+              </div>
+            </div>
+          )}
 
           <div className="mt-8 grid gap-3 md:grid-cols-2">
             <Link
