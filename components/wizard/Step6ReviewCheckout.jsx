@@ -765,7 +765,7 @@ export default function Step6ReviewCheckout() {
     // Only restore from server when returning from a draft or payment page.
     // For initial generation (user progressing through wizard steps 1-5),
     // skip the restore so a fresh preview is generated instead.
-    const step6EntryContext = String(formData.step6EntryContext || '').trim();
+    const step6EntryContext = (formData.step6EntryContext || '').trim();
     if (step6EntryContext !== 'draft' && step6EntryContext !== 'payment') {
       return;
     }
@@ -1206,8 +1206,8 @@ export default function Step6ReviewCheckout() {
     : 0;
   const currentQuote = PREVIEW_QUOTES[quoteIndex % PREVIEW_QUOTES.length];
   const showPreviewPreparationScreen =
-    (((loading || isRestoringSavedPreview || restoreFailed) && !storyPreview) ||
-      isPreparingInitialPreview);
+    ((loading || isRestoringSavedPreview || restoreFailed) && !storyPreview) ||
+    isPreparingInitialPreview;
   const previewEmailRecipient = useMemo(() => {
     const candidate = formData.parentEmail || authUser?.email || '';
     return String(candidate || '').trim();

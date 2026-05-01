@@ -10,6 +10,8 @@ function buildDraftSafeFormData(formData = {}) {
     uploadedPhoto,
     uploadedImages,
     storyPreview,
+    // step6EntryContext is a runtime navigation flag; it must not be persisted so
+    // each re-entry to Step 6 always picks up the freshly-set context value.
     step6EntryContext,
     ...rest
   } = formData;
