@@ -800,7 +800,7 @@ export default function Step6ReviewCheckout() {
           }, RESTORE_TIMEOUT_MS);
         });
 
-        const fetchPromise = storyAPI.getProject(projectId);
+        const fetchPromise = storyAPI.getProject(projectId, { signal: abortController.signal });
         const response = await Promise.race([fetchPromise, timeoutPromise]);
 
         clearTimeout(timeoutHandle);
@@ -1199,7 +1199,7 @@ export default function Step6ReviewCheckout() {
     : 0;
   const currentQuote = PREVIEW_QUOTES[quoteIndex % PREVIEW_QUOTES.length];
   const showPreviewPreparationScreen =
-    ((loading || isRestoringSavedPreview || (restoreFailed && !storyPreview)) && !storyPreview) ||
+    (loading || isRestoringSavedPreview || restoreFailed) && !storyPreview ||
     isPreparingInitialPreview;
   const previewEmailRecipient = useMemo(() => {
     const candidate = formData.parentEmail || authUser?.email || '';
