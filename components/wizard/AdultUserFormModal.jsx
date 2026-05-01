@@ -90,8 +90,8 @@ export default function AdultUserFormModal({ isOpen, onComplete, onCancel }) {
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-3xl shadow-2xl max-w-md mx-auto p-8 space-y-8">
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 pointer-events-auto">
+      <div className="bg-white rounded-3xl shadow-2xl max-w-md mx-auto p-8 space-y-8 pointer-events-auto max-h-[90vh] overflow-y-auto">
         {/* Header */}
         <div className="text-center space-y-3">
           <div className="text-5xl">🎉</div>
@@ -125,7 +125,7 @@ export default function AdultUserFormModal({ isOpen, onComplete, onCancel }) {
               <p className="text-red-500 text-sm font-semibold">{errors.username}</p>
             )}
             <p className="text-xs text-gray-500">
-              We'll use this as the hero's name in your story
+              We will use this as the hero's name in your story
             </p>
           </div>
 
@@ -182,12 +182,12 @@ export default function AdultUserFormModal({ isOpen, onComplete, onCancel }) {
           {/* Privacy Notice */}
           <div className="bg-blue-50 border-2 border-blue-200 rounded-lg p-4 space-y-2">
             <p className="text-xs font-semibold text-blue-900">
-              🔒 Your Privacy Is Protected
+              Your Privacy Is Protected
             </p>
             <ul className="text-xs text-blue-800 space-y-1">
-              <li>✓ Your data is never shared or sold</li>
-              <li>✓ Secure payment powered by Stripe</li>
-              <li>✓ COPPA compliant and privacy-focused</li>
+              <li>Your data is never shared or sold</li>
+              <li>Secure payment powered by Stripe</li>
+              <li>COPPA compliant and privacy-focused</li>
             </ul>
           </div>
 
@@ -217,3 +217,4 @@ export default function AdultUserFormModal({ isOpen, onComplete, onCancel }) {
     </div>
   );
 }
+

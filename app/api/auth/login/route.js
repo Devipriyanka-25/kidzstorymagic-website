@@ -4,6 +4,7 @@ import {
   isPersistentAuthAvailable,
   normalizeEmail,
 } from '../../shared/authUsers.js';
+import { buildClientAuthUser } from '../../shared/authRoles.js';
 import { userStore } from '../../shared/userStore.js';
 
 const bcrypt = require('bcryptjs');
@@ -38,14 +39,19 @@ export async function POST(request) {
 
     console.log('[LOGIN] Login attempt for:', normalizedEmail);
 
-    if (normalizedEmail === DEMO_USER.email && password === DEMO_USER.password) {
-      userStore.addUser(DEMO_USER.email, {
+    if (
+      !isPersistentAuthAvailable() &&
+      normalizedEmail === DEMO_USER.email &&
+      password === DEMO_USER.password
+    ) {
+      const demoUser = buildClientAuthUser({
         id: DEMO_USER.id,
         name: DEMO_USER.name,
         email: DEMO_USER.email,
         preferredCurrency: 'USD',
         createdAt: new Date().toISOString(),
       });
+      userStore.addUser(DEMO_USER.email, demoUser);
 
       const token = jwt.sign(
         { id: DEMO_USER.id, email: DEMO_USER.email, name: DEMO_USER.name },
@@ -56,12 +62,7 @@ export async function POST(request) {
       return NextResponse.json(
         {
           message: 'Login successful',
-          user: {
-            id: DEMO_USER.id,
-            name: DEMO_USER.name,
-            email: DEMO_USER.email,
-            preferredCurrency: 'USD',
-          },
+          user: demoUser,
           token,
           source: 'demo',
         },
@@ -94,7 +95,7 @@ export async function POST(request) {
           { expiresIn: '7d' }
         );
 
-        userStore.addUser(normalizedEmail, {
+        const clientUser = buildClientAuthUser({
           id: user.id,
           name: user.name,
           email: user.email,
@@ -102,16 +103,12 @@ export async function POST(request) {
           preferredCurrency: user.preferred_currency,
           createdAt: user.created_at,
         });
+        userStore.addUser(normalizedEmail, clientUser);
 
         return NextResponse.json(
           {
             message: 'Login successful',
-            user: {
-              id: user.id,
-              name: user.name,
-              email: user.email,
-              preferredCurrency: user.preferred_currency,
-            },
+            user: clientUser,
             token,
             source: 'supabase',
           },
@@ -152,15 +149,12 @@ export async function POST(request) {
       { expiresIn: '7d' }
     );
 
+    const clientUser = buildClientAuthUser(storedUser);
+
     return NextResponse.json(
       {
         message: 'Login successful',
-        user: {
-          id: storedUser.id,
-          name: storedUser.name,
-          email: storedUser.email,
-          preferredCurrency: storedUser.preferredCurrency,
-        },
+        user: clientUser,
         token,
         source: 'store',
       },

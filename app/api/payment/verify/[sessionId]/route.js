@@ -4,8 +4,11 @@ import { supabaseClient } from '../../../shared/supabaseClient.js';
 import {
   getStoryProjectById,
   resolveAuthenticatedStoryUser,
-  updateStoryProjectRecord,
 } from '../../../shared/storyProjects.js';
+import {
+  buildOrderContactDetails,
+  readStoredOrderContactDetails,
+} from '@/lib/orderData';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -80,6 +83,13 @@ export async function GET(request, { params }) {
     let sessionMetadata = null;
     let sessionAmount = null;
     let sessionCurrency = null;
+    let sessionContact = {
+      customerName: null,
+      customerEmail: null,
+      customerPhone: null,
+      billingAddress: null,
+      shippingAddress: null,
+    };
 
     if (!isMockSession && stripe) {
       const session = await stripe.checkout.sessions.retrieve(sessionId);
@@ -88,6 +98,7 @@ export async function GET(request, { params }) {
         ? Number(session.amount_total) / 100
         : null;
       sessionCurrency = session.currency?.toUpperCase() || null;
+      sessionContact = buildOrderContactDetails(session);
       resolvedProjectId =
         resolvedProjectId ||
         session.metadata?.projectId ||
@@ -138,6 +149,20 @@ export async function GET(request, { params }) {
       storedOrder = data || null;
     }
 
+    const storedOrderContact = readStoredOrderContactDetails(storedOrder);
+    const resolvedContact = {
+      customerName:
+        storedOrderContact.customerName || sessionContact.customerName || null,
+      customerEmail:
+        storedOrderContact.customerEmail || sessionContact.customerEmail || null,
+      customerPhone:
+        storedOrderContact.customerPhone || sessionContact.customerPhone || null,
+      billingAddress:
+        storedOrderContact.billingAddress || sessionContact.billingAddress || null,
+      shippingAddress:
+        storedOrderContact.shippingAddress || sessionContact.shippingAddress || null,
+    };
+
     const storyNumber = await getChildStoryCount(authUser.id, story.child_name);
 
     return NextResponse.json(
@@ -164,6 +189,11 @@ export async function GET(request, { params }) {
           payment_status: 'completed',
           status: story.status || 'published',
           storyNumber,
+          customer_name: resolvedContact.customerName,
+          customer_email: resolvedContact.customerEmail,
+          customer_phone: resolvedContact.customerPhone,
+          billing_address: resolvedContact.billingAddress,
+          shipping_address: resolvedContact.shippingAddress,
         },
       },
       { status: 200 }

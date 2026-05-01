@@ -3,7 +3,11 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useWizardStore } from '@/utils/store';
 import MilestoneSelector from './MilestoneSelector';
-import { getMilestoneById, getMilestoneFormData } from '@/utils/milestones';
+import {
+  getMilestoneById,
+  getMilestoneFormData,
+  getPreferredThemeForMilestone,
+} from '@/utils/milestones';
 import {
   getBookThemePreviewArt,
   getCategoriesByAgeGroup,
@@ -18,6 +22,7 @@ export default function Step2ThemeSelection() {
     formData.customIllustrationPrompt || ''
   );
   const [selectedCategory, setSelectedCategory] = useState(null);
+  const [showAllThemes, setShowAllThemes] = useState(false);
 
   const referenceImage = useMemo(
     () =>
@@ -59,6 +64,34 @@ export default function Step2ThemeSelection() {
     () => getMilestoneById(formData.selectedMilestoneId),
     [formData.selectedMilestoneId]
   );
+  const milestoneThemes = useMemo(() => {
+    if (!selectedMilestone?.relatedThemeIds?.length) {
+      return [];
+    }
+
+    return selectedMilestone.relatedThemeIds
+      .map((themeId) => availableThemes.find((theme) => theme.value === themeId))
+      .filter(Boolean);
+  }, [availableThemes, selectedMilestone]);
+  const shouldShowMilestoneMatches =
+    Boolean(selectedMilestone) && milestoneThemes.length > 0 && !showAllThemes;
+  const displayedThemes = shouldShowMilestoneMatches
+    ? milestoneThemes
+    : themesInSelectedCategory;
+  const shouldShowCategoryBrowser =
+    categoryEntries.length > 0 &&
+    (!selectedMilestone || showAllThemes || milestoneThemes.length === 0);
+  const bookSectionEyebrow = shouldShowMilestoneMatches
+    ? 'Recommended Books'
+    : 'Book Themes';
+  const bookSectionTitle = shouldShowMilestoneMatches
+    ? `Best matches for ${selectedMilestone.title}`
+    : activeCategory
+      ? `${activeCategory.name} books`
+      : 'Choose the book you want to create';
+  const bookSectionDescription = shouldShowMilestoneMatches
+    ? 'Your milestone already narrowed this down. Pick the book that feels best and continue.'
+    : 'Only one final book choice is needed here. The card you select becomes the story direction for the rest of the wizard.';
 
   const isAdultAudience = formData.ageGroup === '12+';
 
@@ -109,6 +142,12 @@ export default function Step2ThemeSelection() {
     });
   }, [categoryEntries, formData.theme, themeCategories]);
 
+  useEffect(() => {
+    if (!selectedMilestone) {
+      setShowAllThemes(false);
+    }
+  }, [selectedMilestone]);
+
   const handleSelect = (theme) => {
     updateFormData('theme', theme.value);
     updateFormData('illustrationStyle', theme.illustrationTheme);
@@ -126,16 +165,58 @@ export default function Step2ThemeSelection() {
   };
 
   const handleMilestoneSelect = (milestone) => {
+    const preferredThemeId = getPreferredThemeForMilestone(milestone);
+    const preferredTheme = availableThemes.find(
+      (theme) => theme.value === preferredThemeId
+    );
+
     Object.entries(getMilestoneFormData(milestone)).forEach(
       ([field, value]) => {
         updateFormData(field, value);
       }
     );
+
+    setShowAllThemes(false);
+
+    if (preferredTheme) {
+      const currentThemeStillMatches = milestone.relatedThemeIds?.includes(
+        formData.theme
+      );
+
+      if (!currentThemeStillMatches) {
+        updateFormData('theme', preferredTheme.value);
+        updateFormData('illustrationStyle', preferredTheme.illustrationTheme);
+
+        if (preferredTheme.value !== 'customizable') {
+          updateFormData('customIllustrationPrompt', '');
+          setCustomPrompt('');
+        }
+      }
+
+      const preferredCategoryKey = categoryEntries.find(([, category]) =>
+        category.themes.includes(preferredTheme.value)
+      )?.[0];
+
+      if (preferredCategoryKey) {
+        setSelectedCategory(preferredCategoryKey);
+      }
+    }
   };
 
   const isValid =
     Boolean(selectedTheme) &&
     (formData.theme !== 'customizable' || customPrompt.trim().length > 0);
+
+  // Extract child name from the user's name if available (from Step 1)
+  useEffect(() => {
+    if (!formData.childName && typeof window !== 'undefined') {
+      // If we need to set childName from user input, collect it here or in Step2
+      const childNameFromStorage = localStorage.getItem('childName');
+      if (childNameFromStorage) {
+        updateFormData('childName', childNameFromStorage);
+      }
+    }
+  }, []);
 
   return (
     <div className="mx-auto w-full max-w-7xl rounded-[32px] bg-[linear-gradient(180deg,#f7fbff_0%,#eef4ff_100%)] px-4 py-10 shadow-[0_28px_80px_rgba(15,23,42,0.10)] sm:px-6 lg:px-8">
@@ -178,26 +259,44 @@ export default function Step2ThemeSelection() {
 
       {selectedMilestone ? (
         <div className="mt-6 rounded-[24px] border border-amber-200 bg-amber-50 px-6 py-5 text-sm leading-7 text-amber-900">
-          <span className="font-black">{selectedMilestone.title} selected.</span>{' '}
-          We will carry that moment into the story prompt and cover treatment
-          later in the flow.
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+            <p>
+              <span className="font-black">{selectedMilestone.title} selected.</span>{' '}
+              We matched this occasion to the best-fit book styles below so the
+              flow feels like one decision instead of milestone, category, and
+              book separately.
+            </p>
+            {milestoneThemes.length ? (
+              <button
+                type="button"
+                onClick={() => setShowAllThemes((current) => !current)}
+                className="rounded-full border border-amber-300 bg-white px-4 py-2 text-sm font-bold text-amber-900 transition hover:border-amber-400 hover:bg-amber-100"
+              >
+                {showAllThemes
+                  ? 'Show milestone matches'
+                  : 'Browse all categories'}
+              </button>
+            ) : null}
+          </div>
         </div>
       ) : null}
 
-      {categoryEntries.length ? (
+      {shouldShowCategoryBrowser ? (
         <section className="mt-12 rounded-[28px] border border-sky-200 bg-white/90 p-6 shadow-[0_18px_40px_rgba(15,23,42,0.08)] sm:p-8">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
             <div>
               <p className="text-sm font-bold uppercase tracking-[0.28em] text-sky-600">
-                Theme Categories
+                {selectedMilestone ? 'All Theme Categories' : 'Theme Categories'}
               </p>
               <h3 className="mt-2 text-3xl font-black text-slate-900">
-                Browse by what this age group loves most
+                {selectedMilestone
+                  ? 'Explore beyond the milestone shortcut'
+                  : 'Browse by what this age group loves most'}
               </h3>
               <p className="mt-3 max-w-3xl text-sm leading-7 text-slate-600 sm:text-base">
-                We grouped the books into categories so parents can quickly find
-                the right direction, like fairytales, milestone stories,
-                confidence-building stories, or animal adventures.
+                {selectedMilestone
+                  ? 'You are now browsing every category for this age group. If the milestone suggestions already feel right, you can switch back and keep the choice simpler.'
+                  : 'We grouped the books into categories so parents can quickly find the right direction, like fairytales, milestone stories, confidence-building stories, or animal adventures.'}
               </p>
             </div>
             <div className="rounded-full bg-sky-100 px-4 py-2 text-sm font-bold text-sky-800">
@@ -247,8 +346,27 @@ export default function Step2ThemeSelection() {
         </section>
       ) : null}
 
-      <div className="mt-12 grid gap-8 md:grid-cols-2 xl:grid-cols-3">
-        {themesInSelectedCategory.map((theme) => {
+      <section className="mt-12">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+          <div>
+            <p className="text-sm font-bold uppercase tracking-[0.28em] text-sky-600">
+              {bookSectionEyebrow}
+            </p>
+            <h3 className="mt-2 text-3xl font-black text-slate-900">
+              {bookSectionTitle}
+            </h3>
+            <p className="mt-3 max-w-3xl text-sm leading-7 text-slate-600 sm:text-base">
+              {bookSectionDescription}
+            </p>
+          </div>
+          <div className="rounded-full bg-white/80 px-4 py-2 text-sm font-bold text-slate-700 shadow-[0_10px_25px_rgba(15,23,42,0.08)]">
+            {displayedThemes.length} book
+            {displayedThemes.length === 1 ? '' : 's'}
+          </div>
+        </div>
+
+        <div className="mt-8 grid gap-8 md:grid-cols-2 xl:grid-cols-3">
+        {displayedThemes.map((theme) => {
           const isSelected = formData.theme === theme.value;
           const themeColors = getTheme(theme.value);
 
@@ -315,7 +433,8 @@ export default function Step2ThemeSelection() {
             </button>
           );
         })}
-      </div>
+        </div>
+      </section>
 
       {formData.theme === 'customizable' && (
         <div className="mt-10 rounded-[28px] border border-sky-200 bg-white/90 p-6 shadow-[0_18px_40px_rgba(15,23,42,0.08)] sm:p-8">

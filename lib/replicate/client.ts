@@ -1,6 +1,8 @@
 import Replicate from "replicate";
 
 const VERSION_CACHE_TTL_MS = 10 * 60 * 1000;
+const MAX_RETRIES = 5;
+const INITIAL_RETRY_DELAY_MS = 1000;
 
 type CachedVersion = {
   expiresAt: number;
@@ -9,6 +11,18 @@ type CachedVersion = {
 
 let replicateClient: Replicate | null = null;
 const versionCache = new Map<string, CachedVersion>();
+
+// Utility function to wait with exponential backoff
+export async function waitWithBackoff(
+  attempt: number,
+  baseDelayMs: number = INITIAL_RETRY_DELAY_MS
+): Promise<void> {
+  const delayMs = baseDelayMs * Math.pow(2, attempt);
+  // Add random jitter (±10%)
+  const jitter = delayMs * 0.1 * (Math.random() * 2 - 1);
+  const finalDelayMs = Math.max(delayMs + jitter, 100);
+  await new Promise((resolve) => setTimeout(resolve, finalDelayMs));
+}
 
 export function getReplicateClient(): Replicate {
   const token = process.env.REPLICATE_API_TOKEN;

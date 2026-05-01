@@ -64,19 +64,23 @@ export default function AgeGateModal({ isOpen, onComplete, onCancel }) {
       return;
     }
 
+    // Determine parental consent requirement (under 13)
+    const requiresParentalConsent = age < 13;
+
     // Proceed with the age
     onComplete({
       age,
       ageSource,
       ageGroup: selectedAgeGroup,
+      requiresParentalConsent,
     });
   };
 
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-3xl shadow-2xl max-w-md mx-auto p-8 space-y-8">
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 pointer-events-auto">
+      <div className="bg-white rounded-3xl shadow-2xl max-w-md mx-auto p-8 space-y-8 pointer-events-auto max-h-[90vh] overflow-y-auto">
         {/* Header */}
         <div className="text-center space-y-3">
           <div className="text-5xl">🎂</div>

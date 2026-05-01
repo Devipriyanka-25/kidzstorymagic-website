@@ -10,6 +10,7 @@ import { getBookThemePreviewArt, getTheme } from "@/utils/themes";
 
 type StoryPage = {
   character_quote?: string;
+  faceSwappedUrl?: string | null;
   illustrationPrompt?: string | null;
   illustrationUrl?: string | null;
   pageNumber?: number;
@@ -117,7 +118,7 @@ export default function CharacterConsistentStoryPage({
   referenceImages = null,
   subjectImage,
 }: CharacterConsistentStoryPageProps) {
-  const initialImage = page.illustrationUrl || null;
+  const initialImage = page.faceSwappedUrl || page.illustrationUrl || null;
   const [imageUrl, setImageUrl] = useState<string | null>(initialImage);
   const [isGenerating, setIsGenerating] = useState(!initialImage);
   const [error, setError] = useState<string | null>(null);
@@ -170,8 +171,8 @@ export default function CharacterConsistentStoryPage({
       return;
     }
 
-    if (page.illustrationUrl) {
-      setImageUrl(page.illustrationUrl);
+    if (page.faceSwappedUrl || page.illustrationUrl) {
+      setImageUrl(page.faceSwappedUrl || page.illustrationUrl || null);
       setIsGenerating(false);
       setError(null);
       setStatusMessage(null);
@@ -200,19 +201,28 @@ export default function CharacterConsistentStoryPage({
     setIsGenerating(false);
     setError(null);
     setStatusMessage(null);
-  }, [autoGenerateIllustration, generationState, page.illustrationUrl]);
+  }, [
+    autoGenerateIllustration,
+    generationState,
+    page.faceSwappedUrl,
+    page.illustrationUrl,
+  ]);
 
   useEffect(() => {
     if (!autoGenerateIllustration) {
       return;
     }
 
-    if (page.illustrationUrl) {
-      setImageUrl(page.illustrationUrl);
+    if (page.faceSwappedUrl || page.illustrationUrl) {
+      const resolvedPageImage =
+        page.faceSwappedUrl || page.illustrationUrl || null;
+      setImageUrl(resolvedPageImage);
       setIsGenerating(false);
       setError(null);
       setStatusMessage(null);
-      illustrationCache.set(cacheKey, page.illustrationUrl);
+      if (resolvedPageImage) {
+        illustrationCache.set(cacheKey, resolvedPageImage);
+      }
       onIllustrationStateChangeRef.current?.({ status: "ready" });
       return;
     }
@@ -346,6 +356,7 @@ export default function CharacterConsistentStoryPage({
   }, [
     autoGenerateIllustration,
     cacheKey,
+    page.faceSwappedUrl,
     page.illustrationUrl,
     prompt,
     referenceImages,

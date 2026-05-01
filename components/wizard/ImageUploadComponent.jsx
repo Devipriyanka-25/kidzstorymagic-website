@@ -364,6 +364,10 @@ export default function ImageUploadComponent({ onImagesSelected, maxImages = 10 
         <p className="text-gray-600">
           Upload <span className="font-semibold text-blue-600">{MIN_IMAGES}-{maxImages} images</span> to generate your story
         </p>
+        <p className="mt-2 text-sm text-gray-500">
+          For best results, upload a clear front-facing photo. We use this
+          only to preserve your child&apos;s face in the storybook illustration.
+        </p>
       </div>
 
       {/* Progress Indicator */}
@@ -518,6 +522,11 @@ export default function ImageUploadComponent({ onImagesSelected, maxImages = 10 
             </p>
           )}
         </div>
+      </div>
+
+      <div className="mb-6 rounded-lg border border-blue-100 bg-blue-50 px-4 py-3 text-sm text-blue-900">
+        For best results, upload a clear front-facing photo. We use this only
+        to preserve your child&apos;s face in the storybook illustration.
       </div>
 
       {/* Image Thumbnails Grid */}

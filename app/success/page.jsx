@@ -5,6 +5,28 @@ import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { paymentAPI } from '@/utils/api';
 import StorySeries from '@/components/story/StorySeries';
+import { formatOrderAddressLines } from '@/lib/orderData';
+
+function OrderAddressCard({ title, address }) {
+  const lines = formatOrderAddressLines(address);
+
+  if (lines.length === 0) {
+    return null;
+  }
+
+  return (
+    <div className="rounded-2xl bg-slate-50 p-5">
+      <p className="text-xs font-black uppercase tracking-[0.24em] text-slate-500">
+        {title}
+      </p>
+      <div className="mt-3 space-y-1 text-sm font-medium leading-6 text-slate-700">
+        {lines.map((line) => (
+          <p key={`${title}-${line}`}>{line}</p>
+        ))}
+      </div>
+    </div>
+  );
+}
 
 export default function SuccessPage() {
   const searchParams = useSearchParams();
@@ -136,6 +158,47 @@ export default function SuccessPage() {
               </p>
             </div>
           </div>
+
+          {(order?.customer_email ||
+            order?.customer_phone ||
+            order?.billing_address ||
+            order?.shipping_address) && (
+            <div className="mt-8 rounded-[28px] border border-blue-200 bg-blue-50 p-6">
+              <h2 className="text-2xl font-black text-slate-900">
+                Contact and fulfillment details
+              </h2>
+              <div className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+                {order?.customer_email ? (
+                  <div className="rounded-2xl bg-white p-5">
+                    <p className="text-xs font-black uppercase tracking-[0.24em] text-slate-500">
+                      Email
+                    </p>
+                    <p className="mt-3 break-all text-sm font-semibold text-slate-900">
+                      {order.customer_email}
+                    </p>
+                  </div>
+                ) : null}
+                {order?.customer_phone ? (
+                  <div className="rounded-2xl bg-white p-5">
+                    <p className="text-xs font-black uppercase tracking-[0.24em] text-slate-500">
+                      Mobile
+                    </p>
+                    <p className="mt-3 text-sm font-semibold text-slate-900">
+                      {order.customer_phone}
+                    </p>
+                  </div>
+                ) : null}
+                <OrderAddressCard
+                  title="Billing Address"
+                  address={order?.billing_address}
+                />
+                <OrderAddressCard
+                  title="Shipping Address"
+                  address={order?.shipping_address}
+                />
+              </div>
+            </div>
+          )}
 
           <div className="mt-8 rounded-[28px] border border-green-200 bg-green-50 p-6">
             <h2 className="text-2xl font-black text-green-950">

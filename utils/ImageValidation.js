@@ -365,9 +365,19 @@ export const validateImage = async (imageFile, existingImages = [], theme = '') 
       }
     }
     
+    const normalizedErrors = errors.map((error) =>
+      error.type === 'no_face' || error.type === 'low_clarity'
+        ? {
+            ...error,
+            message:
+              'Please upload a clearer front-facing photo of your child for better personalized illustrations.'
+          }
+        : error
+    );
+
     return {
-      isValid: errors.length === 0,
-      errors
+      isValid: normalizedErrors.length === 0,
+      errors: normalizedErrors
     };
   } catch (err) {
     console.error('[IMAGE_VALIDATION] Error:', err);

@@ -621,6 +621,30 @@ async function applyOptionalFaceSwap({
 
 export default function Step6ReviewCheckout() {
   const { formData, prevStep, updateFormData } = useWizardStore();
+  
+  // Extract photo selection methods from Zustand store
+  const {
+    selectedPhotoIndex,
+    lastGeneratedPhotoIndex,
+    photoIllustrationCache,
+    generationInProgress,
+    setSelectedPhotoIndex,
+    cachePhotoIllustration,
+    getPhotoIllustration,
+    hasPhotoChanged,
+    markPhotoAsGenerated,
+  } = useWizardStore((state) => ({
+    selectedPhotoIndex: state.selectedPhotoIndex ?? -1,
+    lastGeneratedPhotoIndex: state.lastGeneratedPhotoIndex ?? -1,
+    photoIllustrationCache: state.photoIllustrationCache ?? {},
+    generationInProgress: state.generationInProgress ?? false,
+    setSelectedPhotoIndex: state.setSelectedPhotoIndex,
+    cachePhotoIllustration: state.cachePhotoIllustration,
+    getPhotoIllustration: state.getPhotoIllustration,
+    hasPhotoChanged: state.hasPhotoChanged,
+    markPhotoAsGenerated: state.markPhotoAsGenerated,
+  }));
+
   const {
     selectedCountry = 'United States',
     selectedCurrency = 'USD',
@@ -663,6 +687,8 @@ export default function Step6ReviewCheckout() {
   const pendingFaceSwapQueueRef = useRef([]);
   const activeFaceSwapTaskRef = useRef(null);
   const hasOpenedFirstIllustratedPageRef = useRef(false);
+  const uploadedImagesCountRef = useRef(0);
+  const isRegeneratingRef = useRef(false);
   const [giftData, setGiftData] = useState({
     isGift: false,
     recipientName: '',
@@ -750,6 +776,50 @@ export default function Step6ReviewCheckout() {
       activeFaceSwapTaskRef.current = null;
     };
   }, []);
+
+  // Load photo selection state from backend on mount
+  useEffect(() => {
+    const projectId = String(formData?.projectId || '').trim();
+    
+    if (!projectId) {
+      return;
+    }
+
+    const loadPhotoSelection = async () => {
+      try {
+        const response = await storyAPI.loadPhotoSelection(projectId);
+        const { photoSelection } = response?.data || {};
+        
+        if (!photoSelection) {
+          return;
+        }
+
+        // Hydrate Zustand store with saved photo selection state
+        const {
+          selectedPhotoIndex: savedPhotoIndex = -1,
+          lastGeneratedPhotoIndex: savedLastGeneratedIndex = -1,
+          photoIllustrationCache: savedCache = {},
+        } = photoSelection;
+
+        console.log('[PHOTO_SELECTION_LOADED]', {
+          selectedPhotoIndex: savedPhotoIndex,
+          lastGeneratedPhotoIndex: savedLastGeneratedIndex,
+          cacheSize: Object.keys(savedCache || {}).length,
+        });
+
+        // Update store with saved photo selection
+        useWizardStore.setState((state) => ({
+          selectedPhotoIndex: savedPhotoIndex,
+          lastGeneratedPhotoIndex: savedLastGeneratedIndex,
+          photoIllustrationCache: savedCache,
+        }));
+      } catch (error) {
+        console.warn('[PHOTO_SELECTION_LOAD_ERROR]', error);
+      }
+    };
+
+    loadPhotoSelection();
+  }, [formData?.projectId]);
 
   useEffect(() => {
     if (storyPreview) {
@@ -1414,6 +1484,7 @@ export default function Step6ReviewCheckout() {
     }
 
     generationSessionRef.current += 1;
+    isRegeneratingRef.current = forceRegenerate;
 
     setLoading(true);
     setError('');
@@ -1424,12 +1495,24 @@ export default function Step6ReviewCheckout() {
     setGenerationQueueVersion((currentVersion) => currentVersion + 1);
     setCurrentPage(0);
     setPreviewPrepProgress(14);
-    setPreviewPrepTitle(
-      `Creating ${formData.childName || 'your child'}'s book preview`
-    );
-    setPreviewPrepDetail(
-      'We are writing the story and preparing the first illustrated page.'
-    );
+    
+    // Show different messages for manual regenerate vs initial creation
+    if (forceRegenerate) {
+      setPreviewPrepTitle(
+        `Regenerating ${formData.childName || 'your child'}'s entire book preview`
+      );
+      setPreviewPrepDetail(
+        `Rewriting all ${formData.pageCount || 20} pages and redrawing all illustrations with the selected photo as reference.`
+      );
+    } else {
+      setPreviewPrepTitle(
+        `Creating ${formData.childName || 'your child'}'s book preview`
+      );
+      setPreviewPrepDetail(
+        'We are writing the story and preparing the first illustrated page.'
+      );
+    }
+    
     setShowEmailFallback(false);
     setPreviewEmailStatus('idle');
     setPreviewEmailFeedback('');
@@ -1606,12 +1689,41 @@ export default function Step6ReviewCheckout() {
     });
 
     if (nextPageIndex === firstIllustratedPageIndex) {
-      setPreviewPrepTitle(
-        `Creating ${formData.childName || 'your child'}'s book preview`
-      );
-      setPreviewPrepDetail(
-        'Painting the first page now. If artwork takes too long, we will open the preview with your child photo first so you can keep going.'
-      );
+      if (isRegeneratingRef.current) {
+        setPreviewPrepTitle(
+          `Regenerating ${formData.childName || 'your child'}'s entire book preview`
+        );
+        setPreviewPrepDetail(
+          `Illustrating all ${formData.pageCount || 20} pages with the selected photo. Page ${pageLabel} is being painted now.`
+        );
+      } else {
+        setPreviewPrepTitle(
+          `Creating ${formData.childName || 'your child'}'s book preview`
+        );
+        setPreviewPrepDetail(
+          'Painting the first page now. If artwork takes too long, we will open the preview with your child photo first so you can keep going.'
+        );
+      }
+    }
+
+    // Check if illustration is cached for this photo and page
+    const cachedIllustration = getPhotoIllustration(selectedPhotoIndex, nextPageIndex);
+    if (cachedIllustration) {
+      console.log('[USING_CACHED_ILLUSTRATION]', {
+        pageIndex: nextPageIndex,
+        photoIndex: selectedPhotoIndex,
+        cachedUrl: cachedIllustration,
+      });
+
+      updatePageGenerationState(nextPageIndex, {
+        status: 'ready',
+        message: 'Using cached illustration for this page.',
+      });
+
+      handleIllustrationReady(nextPageIndex, cachedIllustration);
+      setGenerationQueueVersion((currentVersion) => currentVersion + 1);
+      activeGenerationPageIndexRef.current = null;
+      return () => {};
     }
 
     createStoryPageIllustration({
@@ -1655,6 +1767,14 @@ export default function Step6ReviewCheckout() {
         }
 
         handleIllustrationReady(nextPageIndex, imageUrl);
+
+        // Cache the illustration for this photo and page
+        cachePhotoIllustration(selectedPhotoIndex, nextPageIndex, imageUrl);
+        console.log('[ILLUSTRATION_CACHED]', {
+          pageIndex: nextPageIndex,
+          photoIndex: selectedPhotoIndex,
+          imageUrl,
+        });
 
         if (nextPageIndex === firstIllustratedPageIndex) {
           setPreviewPrepProgress(100);
@@ -1712,6 +1832,14 @@ export default function Step6ReviewCheckout() {
 
         if (!cancelled) {
           setGenerationQueueVersion((currentVersion) => currentVersion + 1);
+          
+          // Mark photo as generated when first page completes
+          if (nextPageIndex === firstIllustratedPageIndex && selectedPhotoIndex !== lastGeneratedPhotoIndex) {
+            markPhotoAsGenerated(selectedPhotoIndex);
+            console.log('[PHOTO_MARKED_AS_GENERATED]', {
+              photoIndex: selectedPhotoIndex,
+            });
+          }
         }
       });
 
@@ -1728,6 +1856,89 @@ export default function Step6ReviewCheckout() {
     storyReferenceImages,
     storyPreview,
     storySubjectImage,
+  ]);
+
+  // Save photo selection state to backend when it changes
+  useEffect(() => {
+    const projectId = String(formData?.projectId || '').trim();
+    
+    if (!projectId) {
+      return;
+    }
+
+    // Only save if something important changed
+    if (selectedPhotoIndex === -1 && lastGeneratedPhotoIndex === -1) {
+      return;
+    }
+
+    const savePhotoSelectionState = async () => {
+      try {
+        await storyAPI.savePhotoSelection(projectId, {
+          selectedPhotoIndex,
+          lastGeneratedPhotoIndex,
+          photoIllustrationCache: photoIllustrationCache || {},
+          uploadedImages: formData?.uploadedImages || [],
+        });
+
+        console.log('[PHOTO_SELECTION_SAVED]', {
+          projectId,
+          selectedPhotoIndex,
+          lastGeneratedPhotoIndex,
+        });
+      } catch (error) {
+        console.warn('[PHOTO_SELECTION_SAVE_ERROR]', error);
+      }
+    };
+
+    // Debounce the save to avoid too many requests
+    const timeoutId = window.setTimeout(savePhotoSelectionState, 1000);
+    return () => window.clearTimeout(timeoutId);
+  }, [selectedPhotoIndex, lastGeneratedPhotoIndex, formData?.projectId, photoIllustrationCache]);
+
+  // Detect when a new photo is uploaded and handle regeneration
+  useEffect(() => {
+    if (!Array.isArray(formData?.uploadedImages) || formData.uploadedImages.length === 0) {
+      return;
+    }
+
+    const currentPhotosCount = formData.uploadedImages.length;
+
+    // If new photos were added, check if we should regenerate
+    if (currentPhotosCount > uploadedImagesCountRef.current) {
+      const newPhotoIndex = currentPhotosCount - 1;
+      
+      console.log('[NEW_PHOTOS_DETECTED]', {
+        previousCount: uploadedImagesCountRef.current,
+        currentCount: currentPhotosCount,
+        newPhotoIndex,
+      });
+
+      // Automatically select the new photo
+      setSelectedPhotoIndex(newPhotoIndex);
+
+      // Check if we should regenerate (only if generation isn't in progress)
+      if (
+        newPhotoIndex !== lastGeneratedPhotoIndex &&
+        !generationInProgress &&
+        storyPreview
+      ) {
+        console.log('[TRIGGERING_REGENERATION_FOR_NEW_PHOTO]', {
+          newPhotoIndex,
+          lastGeneratedPhotoIndex,
+        });
+
+        // Clear page generation states to trigger regeneration
+        setPageGenerationStates({});
+        setGenerationQueueVersion((currentVersion) => currentVersion + 1);
+      }
+    }
+
+    uploadedImagesCountRef.current = currentPhotosCount;
+  }, [
+    formData?.uploadedImages?.length,
+    lastGeneratedPhotoIndex,
+    generationInProgress,
+    storyPreview,
   ]);
 
   const handleNextPage = () => {

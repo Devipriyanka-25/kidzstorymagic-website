@@ -4,8 +4,10 @@ import {
 } from "@/lib/replicate/client";
 import type { Prediction } from "replicate";
 
-const DEFAULT_STORYBOOK_MODEL = "black-forest-labs/flux-2-pro";
+const DEFAULT_STORYBOOK_MODEL = "black-forest-labs/flux-kontext-pro";
 const INITIAL_REPLICATE_WAIT_SECONDS = 3;
+const DEFAULT_STORYBOOK_ASPECT_RATIO =
+  process.env.REPLICATE_STORYBOOK_ASPECT_RATIO?.trim() || "4:3";
 
 function normalizeStorybookModelId(): string {
   return (
@@ -31,9 +33,10 @@ function splitStorybookModelId(modelId: string): {
 const STORYBOOK_MODEL = normalizeStorybookModelId();
 const STORYBOOK_MODEL_PARTS = splitStorybookModelId(STORYBOOK_MODEL);
 const FLUX_STORYBOOK_MODEL_PREFIX = "black-forest-labs/flux-2-";
+const KONTEXT_STORYBOOK_MODEL_PREFIX = "black-forest-labs/flux-kontext-";
 
 export const DEFAULT_STORYBOOK_NEGATIVE_PROMPT =
-  "photorealistic, real photo, live action, portrait photo, selfie, school photo, documentary look, close-up face, cropped head, giant face, floating head, split layout, collage, side-by-side comparison, flat vector, dull colors, desaturated, gloomy, sad, somber, dark horror mood, eerie forest, creepy, scary, spooky, haunted, thriller lighting, blue-grey darkness, dim lighting, harsh shadows, low detail, blurry, text, watermark, random face, wrong child, unrecognizable child, adult face, duplicate child, deformed anatomy, extra limbs, realistic skin pores, realistic hair strands, horror poster, moody realism, face swap look, pasted photo face";
+  "generic child, different face, different skin tone, changed hair type, changed hair color, older child, adult face, distorted face, extra fingers, bad anatomy, face mismatch, random character, copied photo background, copied original clothing, shirt text, logos, letters on clothing, misspelled text, watermark, real photo, selfie, close-up portrait, cropped head, floating head, split layout, collage, flat vector, anime, 3D Pixar, plastic doll face, pasted photo face, blurry, washed out, pale colors, low contrast, muddy watercolor, gloomy lighting, horror mood";
 
 export type StoryPageGenerationInput = {
   prompt: string;
@@ -223,28 +226,52 @@ function extractErrorStatusCode(error: unknown): number | null {
   return statusMatch ? Number(statusMatch[1]) : null;
 }
 
-function buildStorybookPrompt(prompt: string): string {
-  return JSON.stringify({
-    scene: prompt.trim(),
-    subject:
-      "One young child, reconstructed from the provided reference photos as a premium 3D animated cartoon hero for a children's storybook.",
-    style:
-      "Bright premium animated family-film illustration, polished 3D cartoon finish, rounded child-friendly shapes, expressive eyes, soft cinematic materials, welcoming children's book cover energy, ultra-vivid premium color, rich playful saturation, luminous magical highlights.",
-    composition:
-      "Vertical premium storybook cover composition, full scene with a complete background world, full-body or three-quarter-body hero framing, visible environmental depth, not a close-up portrait.",
-    lighting:
-      "Bright cheerful daylight or golden sunrise glow, soft magical highlights, warm welcoming atmosphere, no gloomy or eerie mood.",
-    color_palette:
-      "Ultra-vibrant joyful storybook colors with warm sky tones, candy-bright accents, playful contrast, jewel-tone depth, pastel glow, and a premium glossy animated feel.",
-    character_consistency:
-      "Keep the same child identity, face structure, skin tone, hairstyle, eye spacing, nose shape, smile shape, and proportions consistent across every page while converting the child into a stylized cartoon character instead of a real photo. The child should still feel clearly recognizable as the uploaded child.",
-    quality:
-      "High-end children's storybook illustration, polished 3D rendering feel, cinematic depth, friendly emotion, premium catalog-worthy finish.",
-  });
+function buildPositiveAvoidanceInstructions(negativePrompt: string): string {
+  const cleaned = negativePrompt
+    .split(",")
+    .map((value) => value.trim())
+    .filter(Boolean)
+    .slice(0, 18);
+
+  if (cleaned.length === 0) {
+    return "";
+  }
+
+  return `Avoid outputs with these problems: ${cleaned.join(", ")}.`;
+}
+
+function buildStorybookPrompt(
+  prompt: string,
+  negativePrompt = DEFAULT_STORYBOOK_NEGATIVE_PROMPT
+): string {
+  const normalizedScenePrompt = prompt.replace(/\s+/g, " ").trim();
+  const avoidanceInstruction =
+    buildPositiveAvoidanceInstructions(negativePrompt);
+
+  return [
+    "Create a premium semi-realistic children's storybook illustration of the SAME child from the uploaded reference photo.",
+    "Use the uploaded child photo as an IDENTITY REFERENCE ONLY: preserve face shape, skin tone, hair style, hair texture, hair color, eyes, nose, cheeks, mouth shape, age, and recognizable expression.",
+    "Do not copy the original photo background, furniture, pose, lighting, cup, real-world setting, shirt text, logos, or exact clothing. Reimagine the child naturally inside the story scene.",
+    "The child should look like a polished illustrated version of the real child, not a generic cartoon, not a pasted face, and not a literal photo filter.",
+    "Target visual style: Imagine-Time-like premium digital storybook painting, crisp expressive face, warm realistic skin tones, bright catchlights in the eyes, detailed soft hair, painterly brushwork, rich saturated color, cinematic golden light, soft floral or magical bokeh, gentle depth of field.",
+    "Make the face more detailed and sharper than the background while keeping the full scene magical, clean, bright, and kid-friendly.",
+    "Use an appealing natural smile when appropriate, but keep the child's core facial identity from the reference photo.",
+    "Show the child as a full-body or three-quarter-body hero inside a complete magical scene, not as a close-up portrait or floating head.",
+    `Scene direction: ${normalizedScenePrompt}`,
+    "Keep the child recognizable across every page. Do not change gender, age, skin tone, hair type, hair color, or facial structure.",
+    "Preserve identity first, then adapt clothing, pose, and background to the story moment. Clothing should be simple, clean, story-appropriate, and contain no readable text.",
+    avoidanceInstruction,
+  ]
+    .filter(Boolean)
+    .join(" ");
 }
 
 function isFluxStorybookModel(modelId: string): boolean {
   return modelId.startsWith(FLUX_STORYBOOK_MODEL_PREFIX);
+}
+
+function isKontextStorybookModel(modelId: string): boolean {
+  return modelId.startsWith(KONTEXT_STORYBOOK_MODEL_PREFIX);
 }
 
 function normalizeReferenceInputs(
@@ -257,8 +284,8 @@ function normalizeReferenceInputs(
 
 function getNormalizedReferenceImages(input: StoryPageGenerationInput): string[] {
   const orderedImages = [
-    ...(Array.isArray(input.referenceImages) ? input.referenceImages : []),
     ...(input.subjectImage ? [input.subjectImage] : []),
+    ...(Array.isArray(input.referenceImages) ? input.referenceImages : []),
   ]
     .map((value) => String(value || "").trim())
     .filter(Boolean);
@@ -276,13 +303,30 @@ function buildFluxPredictionInput(input: StoryPageGenerationInput) {
   }
 
   return {
-    prompt: buildStorybookPrompt(input.prompt),
+    prompt: buildStorybookPrompt(input.prompt, input.negativePrompt),
     input_images: normalizeReferenceInputs(referenceImages.slice(0, 4)),
-    width: 960,
-    height: 1280,
+    width: 1024,
+    height: 768,
     safety_tolerance: 2,
     output_format: "png",
-    output_quality: 90,
+    output_quality: 95,
+  };
+}
+
+function buildKontextPredictionInput(input: StoryPageGenerationInput) {
+  const referenceImages = getNormalizedReferenceImages(input);
+  const primaryReferenceImage = referenceImages[0] || input.subjectImage;
+
+  if (!primaryReferenceImage) {
+    throw new Error(
+      "subjectImage is required for the identity-preserving story illustration model."
+    );
+  }
+
+  return {
+    prompt: buildStorybookPrompt(input.prompt, input.negativePrompt),
+    input_image: normalizeSubjectInput(primaryReferenceImage),
+    aspect_ratio: DEFAULT_STORYBOOK_ASPECT_RATIO,
   };
 }
 
@@ -294,7 +338,7 @@ function buildLegacyPredictionInput(input: StoryPageGenerationInput) {
   }
 
   return {
-    prompt: buildStorybookPrompt(input.prompt),
+    prompt: buildStorybookPrompt(input.prompt, input.negativePrompt),
     negative_prompt:
       input.negativePrompt || DEFAULT_STORYBOOK_NEGATIVE_PROMPT,
     subject: normalizeSubjectInput(input.subjectImage),
@@ -302,11 +346,15 @@ function buildLegacyPredictionInput(input: StoryPageGenerationInput) {
     number_of_images_per_pose: 1,
     randomise_poses: false,
     output_format: "png",
-    output_quality: 90,
+    output_quality: 95,
   };
 }
 
 function buildPredictionInput(input: StoryPageGenerationInput) {
+  if (isKontextStorybookModel(STORYBOOK_MODEL)) {
+    return buildKontextPredictionInput(input);
+  }
+
   if (isFluxStorybookModel(STORYBOOK_MODEL)) {
     return buildFluxPredictionInput(input);
   }
@@ -402,10 +450,54 @@ export function isReplicateBillingError(error: unknown): boolean {
   );
 }
 
+export function isReplicateRateLimitError(error: unknown): boolean {
+  const statusCode = extractErrorStatusCode(error);
+  return statusCode === 429;
+}
+
+export function getReplicateRetryAfter(error: unknown): number {
+  if (typeof error === "object" && error !== null) {
+    const maybeError = error as {
+      response?: {
+        headers?: Record<string, string | string[]>;
+        retryAfter?: string | number;
+      };
+      retryAfter?: string | number;
+    };
+
+    // Check retry-after header
+    const retryAfterHeaderValue = maybeError.response?.headers?.["retry-after"];
+    const retryAfterHeader = Array.isArray(retryAfterHeaderValue)
+      ? retryAfterHeaderValue[0]
+      : retryAfterHeaderValue;
+    if (retryAfterHeader) {
+      const retryAfterMs = isNaN(Number(retryAfterHeader))
+        ? new Date(retryAfterHeader).getTime() - Date.now()
+        : Number(retryAfterHeader) * 1000;
+      if (retryAfterMs > 0) {
+        return Math.min(retryAfterMs, 60000); // Cap at 60 seconds
+      }
+    }
+
+    // Check direct retryAfter property
+    if (maybeError.retryAfter) {
+      const retryAfterMs = isNaN(Number(maybeError.retryAfter))
+        ? new Date(maybeError.retryAfter).getTime() - Date.now()
+        : Number(maybeError.retryAfter) * 1000;
+      if (retryAfterMs > 0) {
+        return Math.min(retryAfterMs, 60000);
+      }
+    }
+  }
+
+  // Default: exponential backoff starting at 2 seconds
+  return 2000;
+}
+
 export function createFallbackStoryPageIllustration(
   input: StoryPageGenerationInput
 ): StoryPageGenerationResult {
-  const prompt = buildStorybookPrompt(input.prompt);
+  const prompt = buildStorybookPrompt(input.prompt, input.negativePrompt);
 
   return {
     imageUrl: buildSvgDataUrl(buildFallbackIllustrationSvg(input.prompt)),
@@ -489,7 +581,7 @@ export async function createStoryPageIllustrationPrediction(
     process.env.REPLICATE_STORYBOOK_MODEL_VERSION ||
       process.env.REPLICATE_CONSISTENT_CHARACTER_VERSION
   );
-  const prompt = buildStorybookPrompt(input.prompt);
+  const prompt = buildStorybookPrompt(input.prompt, input.negativePrompt);
 
   const prediction = await replicate.predictions.create({
     version,

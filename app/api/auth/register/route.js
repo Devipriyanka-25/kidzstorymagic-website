@@ -6,6 +6,7 @@ import {
   isPersistentAuthAvailable,
   normalizeEmail,
 } from '../../shared/authUsers.js';
+import { buildClientAuthUser } from '../../shared/authRoles.js';
 import { userStore } from '../../shared/userStore.js';
 
 const bcrypt = require('bcryptjs');
@@ -65,7 +66,7 @@ export async function POST(request) {
           preferredCurrency,
         });
 
-        userStore.addUser(normalizedEmail, {
+        const clientUser = buildClientAuthUser({
           id: userData.id,
           name: userData.name,
           email: userData.email,
@@ -73,6 +74,7 @@ export async function POST(request) {
           preferredCurrency: userData.preferred_currency,
           createdAt: userData.created_at,
         });
+        userStore.addUser(normalizedEmail, clientUser);
 
         const token = jwt.sign(
           { id: userData.id, email: userData.email, name: userData.name },
@@ -83,12 +85,7 @@ export async function POST(request) {
         return NextResponse.json(
           {
             message: 'User registered successfully',
-            user: {
-              id: userData.id,
-              name: userData.name,
-              email: userData.email,
-              preferredCurrency: userData.preferred_currency,
-            },
+            user: clientUser,
             token,
             source: 'supabase',
           },
@@ -137,7 +134,8 @@ export async function POST(request) {
       createdAt: new Date().toISOString(),
     };
 
-    userStore.addUser(normalizedEmail, userData);
+    const clientUser = buildClientAuthUser(userData);
+    userStore.addUser(normalizedEmail, clientUser);
 
     const token = jwt.sign(
       { id: userId, email: normalizedEmail, name },
@@ -148,12 +146,7 @@ export async function POST(request) {
     return NextResponse.json(
       {
         message: 'User registered successfully',
-        user: {
-          id: userId,
-          name,
-          email: normalizedEmail,
-          preferredCurrency: preferredCurrency || 'USD',
-        },
+        user: clientUser,
         token,
         source: 'shared-store',
       },

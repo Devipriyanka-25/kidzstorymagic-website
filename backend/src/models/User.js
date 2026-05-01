@@ -4,13 +4,13 @@ const crypto = require('crypto');
 
 class User {
   static async create(userData) {
-    const { name, email, password_hash, preferred_currency = 'USD' } = userData;
+    const { name, email, password_hash, preferred_currency = 'USD', role = 'user' } = userData;
     
     const result = await pool.query(
-      `INSERT INTO users (name, email, password_hash, preferred_currency, created_at, updated_at)
-       VALUES ($1, $2, $3, $4, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-       RETURNING id, name, email, preferred_currency, created_at`,
-      [name, email, password_hash, preferred_currency]
+      `INSERT INTO users (name, email, password_hash, preferred_currency, role, created_at, updated_at)
+       VALUES ($1, $2, $3, $4, $5, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+       RETURNING id, name, email, preferred_currency, role, created_at`,
+      [name, email, password_hash, preferred_currency, role]
     );
     
     return result.rows[0];
@@ -18,7 +18,7 @@ class User {
 
   static async findByEmail(email) {
     const result = await pool.query(
-      'SELECT * FROM users WHERE email = $1',
+      'SELECT id, name, email, password_hash, preferred_currency, role, created_at, updated_at, is_active FROM users WHERE email = $1',
       [email]
     );
     return result.rows[0] || null;
@@ -26,7 +26,7 @@ class User {
 
   static async findById(id) {
     const result = await pool.query(
-      'SELECT id, name, email, profile_picture_url, preferred_currency, location, created_at FROM users WHERE id = $1 AND is_active = true',
+      'SELECT id, name, email, profile_picture_url, preferred_currency, role, location, created_at FROM users WHERE id = $1 AND is_active = true',
       [id]
     );
     return result.rows[0] || null;

@@ -106,7 +106,7 @@ router.post('/register', [
 
     // Generate JWT token
     const token = jwt.sign(
-      { id: user.id, email: user.email },
+      { id: user.id, email: user.email, role: user.role || 'user' },
       config.jwt.secret,
       { expiresIn: config.jwt.expiresIn || '24h' }
     );
@@ -125,6 +125,7 @@ router.post('/register', [
         id: user.id,
         name: user.name,
         email: user.email,
+        role: user.role || 'user',
         preferredCurrency: user.preferred_currency
       }
     });
@@ -260,6 +261,8 @@ router.post('/login', [
 
     // Find user
     const user = await User.findByEmail(email);
+    console.log('[LOGIN DEBUG] User found:', { email, id: user?.id, role: user?.role, fullUser: user });
+    
     if (!user) {
       return res.status(401).json({ error: 'Invalid credentials' });
     }
@@ -272,19 +275,24 @@ router.post('/login', [
 
     // Create JWT token
     const token = jwt.sign(
-      { id: user.id, email: user.email },
+      { id: user.id, email: user.email, role: user.role || 'user' },
       config.jwt.secret,
       { expiresIn: config.jwt.expiresIn }
     );
 
+    const responseUser = {
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      role: user.role || 'user',
+      preferred_currency: user.preferred_currency
+    };
+    
+    console.log('[LOGIN DEBUG] Sending response:', { token, user: responseUser });
+
     res.json({
       token,
-      user: {
-        id: user.id,
-        name: user.name,
-        email: user.email,
-        preferred_currency: user.preferred_currency
-      }
+      user: responseUser
     });
   } catch (err) {
     console.error(err);

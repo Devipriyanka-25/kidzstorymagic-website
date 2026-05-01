@@ -139,7 +139,7 @@ export async function GET() {
       "POST a prompt plus one or more child reference images to start storybook illustration generation. Poll /api/generate-story-page/[predictionId] until the image is ready.",
     model:
       process.env.REPLICATE_STORYBOOK_MODEL?.trim() ||
-      "black-forest-labs/flux-2-pro",
+      "black-forest-labs/flux-kontext-pro",
     expectedBody: {
       prompt: "A whimsical forest adventure scene featuring the child hero",
       subjectImage: "https://example.com/child-photo.png",

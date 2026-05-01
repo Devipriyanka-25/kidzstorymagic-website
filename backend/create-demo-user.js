@@ -11,13 +11,14 @@ async function createDemoUser() {
     
     // Insert new user
     const result = await pool.query(
-      'INSERT INTO users (name, email, password_hash, preferred_currency, created_at, updated_at, is_active) VALUES ($1, $2, $3, $4, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, true) RETURNING id, name, email, password_hash',
-      ['Demo User', 'demo@example.com', passwordHash, 'USD']
+      'INSERT INTO users (name, email, password_hash, preferred_currency, role, created_at, updated_at, is_active) VALUES ($1, $2, $3, $4, $5, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, true) RETURNING id, name, email, password_hash, role',
+      ['Demo User', 'demo@example.com', passwordHash, 'USD', 'admin']
     );
     
     console.log('Demo user created successfully:');
     console.log('Email:', result.rows[0].email);
     console.log('Name:', result.rows[0].name);
+    console.log('Role:', result.rows[0].role);
     console.log('Password Hash:', result.rows[0].password_hash);
     console.log('\nYou can now log in with:');
     console.log('Email: demo@example.com');

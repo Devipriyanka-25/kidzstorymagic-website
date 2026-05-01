@@ -1,117 +1,127 @@
 /**
  * Replicate API Service
- * Handles face swap and other ML tasks via Replicate
+ * Handles face swap and other ML tasks via Replicate.
  */
 
-const REPLICATE_API_BASE = 'https://api.replicate.com/v1';
+import {
+  getReplicateClient,
+  resolveModelVersionId,
+} from '@/lib/replicate/client';
+
+const DEFAULT_REPLICATE_FACE_SWAP_MODEL = 'synthesys-ai/synthesys-roop';
+const DEFAULT_POLL_INTERVAL_MS = 5000;
+const DEFAULT_MAX_ATTEMPTS = 60;
+const INITIAL_WAIT_SECONDS = 5;
+
+function splitReplicateModelId(modelId) {
+  const [owner, name] = String(modelId || '').split('/');
+
+  if (!owner || !name) {
+    throw new Error(
+      `Invalid REPLICATE_FACE_SWAP_MODEL "${modelId}". Expected owner/name.`
+    );
+  }
+
+  return { owner, name };
+}
+
+function normalizePredictionOutput(output) {
+  if (Array.isArray(output)) {
+    return output.find((value) => typeof value === 'string') || '';
+  }
+
+  return typeof output === 'string' ? output : '';
+}
 
 /**
- * Call Replicate API to perform face swap
- * Using strmoder/roop - Popular face swap model
+ * Call Replicate API to perform face swap.
+ * Uses a versioned model payload that matches Replicate's current API contract.
  */
-export async function faceSwapWithReplicate(faceImageUrl, targetImageUrl, options = {}) {
-  const apiToken = process.env.REPLICATE_API_TOKEN;
-
-  if (!apiToken) {
-    throw new Error('REPLICATE_API_TOKEN not configured. Get it from https://replicate.com/account/api-tokens');
-  }
+export async function faceSwapWithReplicate(
+  faceImageUrl,
+  targetImageUrl,
+  options = {}
+) {
+  const modelId =
+    process.env.REPLICATE_FACE_SWAP_MODEL?.trim() ||
+    DEFAULT_REPLICATE_FACE_SWAP_MODEL;
+  const { owner, name } = splitReplicateModelId(modelId);
+  const replicate = getReplicateClient();
 
   try {
     console.log('[REPLICATE] Starting face swap prediction...');
     console.log(`[REPLICATE] Face image: ${faceImageUrl.substring(0, 50)}...`);
-    console.log(`[REPLICATE] Target image: ${targetImageUrl.substring(0, 50)}...`);
+    console.log(
+      `[REPLICATE] Target image: ${targetImageUrl.substring(0, 50)}...`
+    );
 
-    // Create prediction using model path (gets latest version automatically)
-    const predictionResponse = await fetch(`${REPLICATE_API_BASE}/predictions`, {
-      method: 'POST',
-      headers: {
-        Authorization: `Token ${apiToken}`,
-        'Content-Type': 'application/json',
+    const version = await resolveModelVersionId(
+      owner,
+      name,
+      process.env.REPLICATE_FACE_SWAP_VERSION
+    );
+
+    let prediction = await replicate.predictions.create({
+      version,
+      wait: INITIAL_WAIT_SECONDS,
+      input: {
+        source_path: faceImageUrl,
+        target_path: targetImageUrl,
+        frame_processor:
+          options.frameProcessor || ['face_swapper', 'face_enhancer'],
       },
-      body: JSON.stringify({
-        model: 'strmoder/roop', // Use model path, Replicate uses latest version
-        input: {
-          source_url: faceImageUrl,
-          target_url: targetImageUrl,
-          swap_condition: 'All faces', // Swap all faces in target
-          gender_source: options.genderSource || 'No', // Detect automatically
-          gender_target: options.genderTarget || 'No',
-          model: 'inswapper_128.onnx', // High quality model
-          codeformer: false, // Don't apply face restoration for speed
-          only_center_face: options.onlyCenterFace !== false, // Focus on center face
-          num_steps: 50, // Quality vs speed tradeoff
-        },
-      }),
     });
 
-    if (!predictionResponse.ok) {
-      const error = await predictionResponse.json();
-      throw new Error(`Replicate API error: ${error.detail || predictionResponse.statusText}`);
-    }
-
-    let prediction = await predictionResponse.json();
-    const predictionId = prediction.id;
-
-    console.log(`[REPLICATE] Prediction created: ${predictionId}`);
+    console.log(`[REPLICATE] Prediction created: ${prediction.id}`);
     console.log(`[REPLICATE] Status: ${prediction.status}`);
 
-    // Poll for completion (max 5 minutes)
-    const maxAttempts = 60; // 60 * 5 seconds = 5 minutes
     let attempts = 0;
-
     while (
       (prediction.status === 'processing' || prediction.status === 'starting') &&
-      attempts < maxAttempts
+      attempts < DEFAULT_MAX_ATTEMPTS
     ) {
-      await new Promise((resolve) => setTimeout(resolve, 5000)); // Wait 5 seconds
+      await new Promise((resolve) =>
+        setTimeout(resolve, DEFAULT_POLL_INTERVAL_MS)
+      );
 
-      const statusResponse = await fetch(`${REPLICATE_API_BASE}/predictions/${predictionId}`, {
-        headers: {
-          Authorization: `Token ${apiToken}`,
-        },
-      });
+      prediction = await replicate.predictions.get(prediction.id);
+      attempts += 1;
 
-      if (!statusResponse.ok) {
-        throw new Error(`Failed to get prediction status: ${statusResponse.statusText}`);
-      }
-
-      prediction = await statusResponse.json();
-      attempts++;
-
-      console.log(`[REPLICATE] Attempt ${attempts}/${maxAttempts} - Status: ${prediction.status}`);
-
-      if (prediction.status === 'succeeded') {
-        console.log('[REPLICATE] ✓ Face swap completed successfully');
-        return {
-          success: true,
-          resultUrl: prediction.output,
-          predictionId,
-          processedAt: new Date().toISOString(),
-          model: 'strmoder/roop:v2',
-        };
-      }
-
-      if (prediction.status === 'failed') {
-        console.error('[REPLICATE] Prediction failed:', prediction.error);
-        throw new Error(`Face swap failed: ${prediction.error || 'Unknown error'}`);
-      }
+      console.log(
+        `[REPLICATE] Attempt ${attempts}/${DEFAULT_MAX_ATTEMPTS} - Status: ${prediction.status}`
+      );
     }
 
-    if (attempts >= maxAttempts) {
-      throw new Error('Face swap processing timed out after 5 minutes');
+    if (prediction.status === 'failed') {
+      throw new Error(`Face swap failed: ${prediction.error || 'Unknown error'}`);
     }
 
-    throw new Error(`Unexpected prediction status: ${prediction.status}`);
+    if (prediction.status !== 'succeeded') {
+      throw new Error(
+        `Face swap processing timed out with status: ${prediction.status || 'unknown'}`
+      );
+    }
+
+    const resultUrl = normalizePredictionOutput(prediction.output);
+    if (!resultUrl) {
+      throw new Error('Face swap completed without an output URL.');
+    }
+
+    console.log('[REPLICATE] Face swap completed successfully');
+    return {
+      success: true,
+      resultUrl,
+      predictionId: prediction.id,
+      processedAt: new Date().toISOString(),
+      model: `${modelId}:${version}`,
+      provider: 'replicate',
+    };
   } catch (error) {
     console.error('[REPLICATE] Error:', error.message);
     throw error;
   }
 }
 
-/**
- * Download image and convert to base64
- * Needed for client-side image processing
- */
 export async function imageUrlToBase64(imageUrl) {
   try {
     const response = await fetch(imageUrl);
@@ -121,8 +131,6 @@ export async function imageUrlToBase64(imageUrl) {
 
     const buffer = await response.arrayBuffer();
     const base64 = Buffer.from(buffer).toString('base64');
-
-    // Detect image type from URL or content-type
     const contentType = response.headers.get('content-type') || 'image/jpeg';
     return `data:${contentType};base64,${base64}`;
   } catch (error) {
@@ -131,9 +139,6 @@ export async function imageUrlToBase64(imageUrl) {
   }
 }
 
-/**
- * Validate image URL is accessible
- */
 export async function validateImageUrl(imageUrl) {
   try {
     const response = await fetch(imageUrl, { method: 'HEAD' });
@@ -144,15 +149,14 @@ export async function validateImageUrl(imageUrl) {
   }
 }
 
-/**
- * Get face swap pricing info
- */
 export function getPricingInfo() {
   return {
-    model: 'strmoder/roop:v2',
-    costPerCall: 0.085, // Approximate cost
-    estimatedCostFor20Pages: 1.7, // 20 * 0.085
-    note: 'Prices are approximate and may vary based on usage',
-    source: 'https://replicate.com/strmoder/roop',
+    model:
+      process.env.REPLICATE_FACE_SWAP_MODEL?.trim() ||
+      DEFAULT_REPLICATE_FACE_SWAP_MODEL,
+    costPerCall: 0.14,
+    estimatedCostFor20Pages: 2.8,
+    note: 'Prices are approximate and may vary based on model version and runtime.',
+    source: 'https://replicate.com/synthesys-ai/synthesys-roop',
   };
 }

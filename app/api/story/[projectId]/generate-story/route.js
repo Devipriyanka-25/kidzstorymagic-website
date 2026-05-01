@@ -428,8 +428,10 @@ function buildIllustrationPrompt({
     `Story moment to illustrate: ${storyMoment}.`,
     `Build a complete cinematic environment: ${sceneGuide.setting}.`,
     `The child should be actively interacting with the world by ${sceneGuide.interaction}.`,
-    'Show the child as a joyful full-body or three-quarter-body storybook hero inside the world instead of a close-up portrait.',
-    `Color direction: ${sceneGuide.palette}. Keep the palette warm, soft, magical, and premium storybook-like with watercolor energy and clean details.`,
+    'Use the uploaded photo only for the child identity, not for copying the original photo pose, room, furniture, cup, shirt text, logo, or clothing.',
+    'Show the child as a joyful full-body or three-quarter-body illustrated hero inside the world instead of a close-up portrait.',
+    'Use a premium semi-realistic digital storybook painting style like a high-end personalized kids book: crisp expressive face, natural warm skin, bright eyes with catchlights, detailed soft hair, smooth painterly brushwork, and a magical bokeh background.',
+    `Color direction: ${sceneGuide.palette}. Keep the palette rich, saturated, bright, magical, and premium storybook-like with clean details, not washed out or pale.`,
     `Mood and reading level: ${ageHint}.`,
     milestoneInstruction,
     milestoneCoverInstruction,
@@ -437,10 +439,11 @@ function buildIllustrationPrompt({
     customSceneInstruction,
     interestInstruction,
     notesInstruction,
-    'Lighting must be bright, warm, cheerful, and child-safe. Prefer sunny daylight, pastel sky glow, lantern warmth, or golden sunrise light over moody, gloomy, or dark scenes.',
-    'Composition should feel like a premium vertical storybook page with a full background, visible depth, space for the child to stand naturally, and strong magical atmosphere.',
+    'Lighting must be bright, warm, cheerful, and child-safe. Prefer golden sunrise glow, floral garden bokeh, sunny daylight, pastel sky glow, or lantern warmth over moody, gloomy, or dark scenes.',
+    'Composition should feel like a premium 4:3 storybook page with a full background, visible depth, space for the child to sit, stand, or interact naturally, and strong magical atmosphere.',
     'Clothing, props, and background should follow the story theme, but the child should remain the same recognizable child across every page.',
-    'Make this feel like a polished hand-painted picture-book illustration for kids: colorful, magical, emotionally warm, welcoming, and never like a glossy 3D toy render.',
+    'Clothing should be clean and story-appropriate with no readable text or logos. Do not reproduce lettering from the uploaded photo.',
+    'Make this feel like a polished personalized picture-book illustration for kids: colorful, magical, emotionally warm, welcoming, and never like a faded filter over the original photo.',
   ].join(' ');
 }
 
@@ -991,6 +994,3 @@ export async function POST(request, { params }) {
         details: error.message,
       },
       { status: 500 }
-    );
-  }
-}

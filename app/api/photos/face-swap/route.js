@@ -1,34 +1,36 @@
 /**
  * Face Swap Endpoint - Integrate face into story illustrations
  * POST /api/photos/face-swap
- * Uses DeepAI API for real face swapping (alternative to Replicate)
- * Handles both data URLs and HTTP URLs
+ * Uses the best available configured provider and falls back when possible.
+ * Handles both data URLs and HTTP URLs.
  */
 
 import { NextResponse } from 'next/server';
 import { convertDataUrlToHttpUrl } from '../../lib/dataUrlToUrlConverter.js';
+import { faceSwapWithDeepAI } from '../../lib/deepaiService.js';
+import { faceSwapWithReplicate } from '../../lib/replicateService.js';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 export const maxDuration = 300; // 5 minutes for face swap processing
 
-// Use DeepAI API for face swap (subscribed service)
-import { faceSwapWithDeepAI } from '../../lib/deepaiService.js';
-
 export async function POST(request) {
   try {
-    console.log('[FACE_SWAP] Starting face swap with DeepAI API...');
+    console.log('[FACE_SWAP] Starting face swap...');
 
-    // Check if DeepAI API token is configured upfront
-    const deepaiKey = process.env.DEEPAI_API_KEY;
-    if (!deepaiKey) {
-      console.error('[FACE_SWAP] ✗ DEEPAI_API_KEY not configured');
+    const replicateKey = process.env.REPLICATE_API_TOKEN?.trim();
+    const deepaiKey = process.env.DEEPAI_API_KEY?.trim();
+
+    if (!replicateKey && !deepaiKey) {
+      console.error('[FACE_SWAP] No face swap provider configured');
       return NextResponse.json(
-        { 
+        {
           error: 'Face swap service not configured',
-          message: 'DEEPAI_API_KEY environment variable is missing',
-          setup: 'Add DEEPAI_API_KEY to Vercel environment variables',
-          docs: 'https://deepai.org/account/profile'
+          message:
+            'Configure REPLICATE_API_TOKEN or a supported fallback provider.',
+          setup:
+            'Add REPLICATE_API_TOKEN to your environment variables to enable story face swap.',
+          docs: 'https://replicate.com/account/api-tokens',
         },
         { status: 503 }
       );
@@ -44,51 +46,105 @@ export async function POST(request) {
       childName = 'Child',
     } = body;
 
-    // Validate required fields
     if (!faceImageUrl || !illustrationImageUrl) {
       console.error('[FACE_SWAP] Missing required fields');
       return NextResponse.json(
-        { 
+        {
           error: 'Missing required fields',
           required: ['faceImageUrl', 'illustrationImageUrl'],
-          optional: ['storyId', 'photoId', 'pageNumber', 'childName']
+          optional: ['storyId', 'photoId', 'pageNumber', 'childName'],
         },
         { status: 400 }
       );
     }
 
-    console.log(`[FACE_SWAP] Processing page ${pageNumber || 'N/A'} for ${childName}`);
-    console.log(`[FACE_SWAP] Face image URL: ${faceImageUrl.substring(0, 80)}...`);
-    console.log(`[FACE_SWAP] Illustration URL: ${illustrationImageUrl.substring(0, 80)}...`);
-    console.log('[FACE_SWAP] ✓ DeepAI API token configured');
+    console.log(
+      `[FACE_SWAP] Processing page ${pageNumber || 'N/A'} for ${childName}`
+    );
+    console.log(
+      `[FACE_SWAP] Face image URL: ${faceImageUrl.substring(0, 80)}...`
+    );
+    console.log(
+      `[FACE_SWAP] Illustration URL: ${illustrationImageUrl.substring(0, 80)}...`
+    );
+    console.log('[FACE_SWAP] Providers:', {
+      replicate: Boolean(replicateKey),
+      deepai: Boolean(deepaiKey),
+    });
 
-    console.log('[FACE_SWAP] ✓ Configuration validated');
-
-    // Get host from request headers for building URLs
     const host = request.headers.get('host') || 'www.kidzstorymagic.org';
-
-    // Convert data URLs to HTTP URLs if needed
     let httpFaceUrl = faceImageUrl;
     let httpIllustrationUrl = illustrationImageUrl;
 
     if (faceImageUrl.startsWith('data:image/')) {
       console.log('[FACE_SWAP] Converting face image data URL to HTTP URL...');
       httpFaceUrl = await convertDataUrlToHttpUrl(faceImageUrl, host);
-      console.log('[FACE_SWAP] ✓ Face image converted:', httpFaceUrl.substring(0, 60) + '...');
+      console.log(
+        '[FACE_SWAP] Face image converted:',
+        httpFaceUrl.substring(0, 60) + '...'
+      );
     }
 
     if (illustrationImageUrl.startsWith('data:image/')) {
-      console.log('[FACE_SWAP] Converting illustration data URL to HTTP URL...');
-      httpIllustrationUrl = await convertDataUrlToHttpUrl(illustrationImageUrl, host);
-      console.log('[FACE_SWAP] ✓ Illustration converted:', httpIllustrationUrl.substring(0, 60) + '...');
+      console.log(
+        '[FACE_SWAP] Converting illustration data URL to HTTP URL...'
+      );
+      httpIllustrationUrl = await convertDataUrlToHttpUrl(
+        illustrationImageUrl,
+        host
+      );
+      console.log(
+        '[FACE_SWAP] Illustration converted:',
+        httpIllustrationUrl.substring(0, 60) + '...'
+      );
     }
 
-    // Perform face swap via DeepAI
-    console.log('[FACE_SWAP] Calling DeepAI API for face swap...');
-    const swapResult = await faceSwapWithDeepAI(httpFaceUrl, httpIllustrationUrl);
+    let swapResult = null;
+    let lastProviderError = null;
 
-    console.log('[FACE_SWAP] ✓ Face swap completed successfully');
-    console.log(`[FACE_SWAP] Output URL: ${swapResult.resultUrl.substring(0, 80)}...`);
+    if (replicateKey) {
+      try {
+        console.log('[FACE_SWAP] Calling Replicate for face swap...');
+        swapResult = await faceSwapWithReplicate(
+          httpFaceUrl,
+          httpIllustrationUrl
+        );
+      } catch (replicateError) {
+        lastProviderError = replicateError;
+        console.warn(
+          '[FACE_SWAP] Replicate face swap failed:',
+          replicateError.message
+        );
+      }
+    }
+
+    if (!swapResult && deepaiKey) {
+      try {
+        console.log('[FACE_SWAP] Calling DeepAI for face swap...');
+        swapResult = await faceSwapWithDeepAI(
+          httpFaceUrl,
+          httpIllustrationUrl
+        );
+      } catch (deepaiError) {
+        lastProviderError = deepaiError;
+        console.warn(
+          '[FACE_SWAP] DeepAI face swap failed:',
+          deepaiError.message
+        );
+      }
+    }
+
+    if (!swapResult) {
+      throw (
+        lastProviderError ||
+        new Error('No configured face swap provider completed successfully.')
+      );
+    }
+
+    console.log('[FACE_SWAP] Face swap completed successfully');
+    console.log(
+      `[FACE_SWAP] Output URL: ${swapResult.resultUrl.substring(0, 80)}...`
+    );
 
     return NextResponse.json(
       {
@@ -104,15 +160,16 @@ export async function POST(request) {
           predictionId: swapResult.predictionId,
           processedAt: swapResult.processedAt,
           model: swapResult.model,
+          provider: swapResult.provider || 'unknown',
         },
         pricing: {
-          provider: 'deepai',
-          model: 'deepai-face-swap',
+          provider: swapResult.provider || 'unknown',
+          model: swapResult.model || 'unknown',
         },
         metadata: {
           faceImageUrl: faceImageUrl.substring(0, 100),
           illustrationImageUrl: illustrationImageUrl.substring(0, 100),
-          source: 'deepai-api',
+          source: swapResult.provider || 'provider-fallback',
         },
       },
       { status: 200 }
@@ -121,19 +178,22 @@ export async function POST(request) {
     console.error('[FACE_SWAP] Error:', error.message);
     console.error('[FACE_SWAP] Stack:', error.stack);
 
-    // Return appropriate error response
     let statusCode = 500;
     let errorMessage = 'Face swap failed';
 
     if (error.message.includes('not configured')) {
       statusCode = 503;
-      errorMessage = 'Face swap service not configured - get API key from deepai.org';
+      errorMessage = 'Face swap service not configured';
     } else if (error.message.includes('timed out')) {
       statusCode = 504;
       errorMessage = 'Face swap processing timed out';
     } else if (error.message.includes('not accessible')) {
       statusCode = 400;
       errorMessage = 'Invalid image URL';
+    } else if (error.message.includes('model not found')) {
+      statusCode = 503;
+      errorMessage =
+        'The configured DeepAI face swap model is unavailable. Use Replicate for face swap.';
     }
 
     return NextResponse.json(

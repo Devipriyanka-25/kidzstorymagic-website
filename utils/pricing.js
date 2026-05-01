@@ -28,7 +28,7 @@ export const CURRENCY_SYMBOLS = {
   GBP: 'GBP ',
   EUR: 'EUR ',
   AUD: 'A$',
-  INR: 'INR ',
+  INR: '₹',
 };
 
 export function normalizeStoryPageCount(pageCount) {

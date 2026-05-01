@@ -11,6 +11,11 @@ CREATE TABLE IF NOT EXISTS orders (
   payment_status TEXT DEFAULT 'pending', -- 'pending', 'completed', 'failed'
   payment_method TEXT DEFAULT 'stripe', -- 'stripe', 'razorpay', etc.
   transaction_id TEXT,
+  customer_name TEXT,
+  customer_email TEXT,
+  customer_phone TEXT,
+  billing_address JSONB,
+  shipping_address JSONB,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   completed_at TIMESTAMP,
   metadata JSONB

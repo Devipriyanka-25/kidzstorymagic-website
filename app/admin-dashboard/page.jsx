@@ -5,10 +5,11 @@ import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/utils/store';
 import Link from 'next/link';
 import { paymentAPI } from '@/utils/api';
+import AdminSidebar from '@/components/dashboard/AdminSidebar';
 
 export default function AdminDashboard() {
   const router = useRouter();
-  const { user, isAuthenticated } = useAuthStore();
+  const { user, isAuthenticated, isInitializing } = useAuthStore();
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -17,45 +18,58 @@ export default function AdminDashboard() {
     totalRevenue: 0,
     totalCustomers: 0,
     pendingOrders: 0,
+    completedOrders: 0,
+    processingOrders: 0,
+    failedOrders: 0,
+    averageOrderValue: 0,
   });
+
+  const getOrderAmount = (order) => Number(order?.amount || 0);
 
   // Check if user is admin
   useEffect(() => {
+    if (isInitializing) {
+      return;
+    }
+
     if (!isAuthenticated) {
       router.push('/auth/login');
       return;
     }
 
-    // Check if user is admin (you might need to add role to user object)
     if (user && user.role !== 'admin') {
       router.push('/dashboard');
       return;
     }
-  }, [isAuthenticated, user, router]);
+  }, [isAuthenticated, isInitializing, user, router]);
 
   // Fetch all orders
   useEffect(() => {
-    if (!isAuthenticated || !user || user.role !== 'admin') return;
+    if (isInitializing || !isAuthenticated || !user || user.role !== 'admin') {
+      return;
+    }
     fetchOrders();
-  }, [isAuthenticated, user]);
+  }, [isAuthenticated, isInitializing, user]);
 
   const fetchOrders = async () => {
     try {
       setLoading(true);
       setError('');
 
-      // Try to fetch orders from orders endpoint
       try {
-        const response = await paymentAPI.getAllOrders?.();
+        const response = await paymentAPI.getAllOrders();
         if (response?.data) {
-          const allOrders = Array.isArray(response.data) ? response.data : response.data.orders || [];
+          const allOrders = Array.isArray(response.data)
+            ? response.data
+            : response.data.orders || [];
           setOrders(allOrders);
-          calculateStats(allOrders);
+          calculateStats(
+            allOrders,
+            response.data.stats || null
+          );
         }
       } catch (e) {
-        // If getAllOrders doesn't exist, fetch from payment verification
-        console.log('[ADMIN] getAllOrders not available, using alternate method:', e.message);
-        // Set empty for now - will be populated by individual order verifications
+        console.log('[ADMIN] getAllOrders failed:', e.message);
         setOrders([]);
       }
     } catch (err) {
@@ -66,21 +80,37 @@ export default function AdminDashboard() {
     }
   };
 
-  const calculateStats = (orderList) => {
+  const calculateStats = (orderList, apiStats = null) => {
+    if (apiStats) {
+      setStats(apiStats);
+      return;
+    }
+
     const totalOrders = orderList.length;
-    const totalRevenue = orderList.reduce((sum, order) => sum + (order.amount || 0), 0);
+    const totalRevenue = orderList.reduce(
+      (sum, order) => sum + getOrderAmount(order),
+      0
+    );
     const uniqueCustomers = new Set(orderList.map(o => o.email || o.customer_email)).size;
     const pending = orderList.filter(o => o.status === 'pending').length;
+    const completed = orderList.filter(o => o.status === 'completed').length;
+    const processing = orderList.filter(o => o.status === 'processing').length;
+    const failed = orderList.filter(o => o.status === 'failed' || o.status === 'cancelled').length;
+    const averageOrderValue = totalOrders > 0 ? totalRevenue / totalOrders : 0;
 
     setStats({
       totalOrders,
-      totalRevenue: totalRevenue / 100, // Convert from cents
+      totalRevenue,
       totalCustomers: uniqueCustomers,
       pendingOrders: pending,
+      completedOrders: completed,
+      processingOrders: processing,
+      failedOrders: failed,
+      averageOrderValue,
     });
   };
 
-  if (loading) {
+  if (loading || isInitializing) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center pt-20">
         <div className="text-center">
@@ -91,7 +121,7 @@ export default function AdminDashboard() {
     );
   }
 
-  if (!isAuthenticated || (user && user.role !== 'admin')) {
+  if (!isInitializing && (!isAuthenticated || (user && user.role !== 'admin'))) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center pt-20">
         <div className="text-center">
@@ -106,9 +136,11 @@ export default function AdminDashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="max-w-7xl mx-auto px-4 py-8">
-        {/* Header */}
+    <div className="min-h-screen bg-gray-50 flex">
+      <AdminSidebar user={user} />
+      <div className="flex-1 p-8">
+        <div className="max-w-7xl mx-auto">
+          {/* Header */}
         <div className="mb-8">
           <h1 className="text-4xl font-bold text-gray-900 mb-2">⚙️ Admin Dashboard</h1>
           <p className="text-gray-600">Manage all orders and customer data</p>
@@ -130,8 +162,17 @@ export default function AdminDashboard() {
               <h3 className="text-gray-600 font-semibold">Total Revenue</h3>
               <span className="text-3xl">💰</span>
             </div>
-            <p className="text-3xl font-bold text-gray-900">${stats.totalRevenue.toFixed(2)}</p>
+            <p className="text-3xl font-bold text-gray-900">${(stats.totalRevenue || 0).toFixed(2)}</p>
             <p className="text-sm text-gray-500 mt-2">Total earnings</p>
+          </div>
+
+          <div className="bg-white rounded-lg shadow-md p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-gray-600 font-semibold">Avg Order Value</h3>
+              <span className="text-3xl">💳</span>
+            </div>
+            <p className="text-3xl font-bold text-gray-900">${(stats.averageOrderValue || 0).toFixed(2)}</p>
+            <p className="text-sm text-gray-500 mt-2">Average per order</p>
           </div>
 
           <div className="bg-white rounded-lg shadow-md p-6">
@@ -142,14 +183,44 @@ export default function AdminDashboard() {
             <p className="text-3xl font-bold text-gray-900">{stats.totalCustomers}</p>
             <p className="text-sm text-gray-500 mt-2">Unique customers</p>
           </div>
+        </div>
 
-          <div className="bg-white rounded-lg shadow-md p-6">
+        {/* Order Status Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+          <div className="bg-white rounded-lg shadow-md p-6 border-l-4 border-yellow-500">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-gray-600 font-semibold">Pending Orders</h3>
               <span className="text-3xl">⏳</span>
             </div>
-            <p className="text-3xl font-bold text-orange-600">{stats.pendingOrders}</p>
+            <p className="text-3xl font-bold text-yellow-600">{stats.pendingOrders}</p>
             <p className="text-sm text-gray-500 mt-2">Awaiting fulfillment</p>
+          </div>
+
+          <div className="bg-white rounded-lg shadow-md p-6 border-l-4 border-blue-500">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-gray-600 font-semibold">Processing</h3>
+              <span className="text-3xl">⚙️</span>
+            </div>
+            <p className="text-3xl font-bold text-blue-600">{stats.processingOrders}</p>
+            <p className="text-sm text-gray-500 mt-2">Currently being processed</p>
+          </div>
+
+          <div className="bg-white rounded-lg shadow-md p-6 border-l-4 border-green-500">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-gray-600 font-semibold">Completed</h3>
+              <span className="text-3xl">✅</span>
+            </div>
+            <p className="text-3xl font-bold text-green-600">{stats.completedOrders}</p>
+            <p className="text-sm text-gray-500 mt-2">Successfully delivered</p>
+          </div>
+
+          <div className="bg-white rounded-lg shadow-md p-6 border-l-4 border-red-500">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-gray-600 font-semibold">Failed/Cancelled</h3>
+              <span className="text-3xl">❌</span>
+            </div>
+            <p className="text-3xl font-bold text-red-600">{stats.failedOrders}</p>
+            <p className="text-sm text-gray-500 mt-2">Failed or cancelled</p>
           </div>
         </div>
 
@@ -180,44 +251,57 @@ export default function AdminDashboard() {
                     <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Email</th>
                     <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Amount</th>
                     <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Status</th>
-                    <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Date</th>
+                    <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Order Date</th>
+                    <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Est. Delivery</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {orders.map((order, index) => (
-                    <tr key={order.id || index} className="border-b border-gray-200 hover:bg-gray-50 transition">
-                      <td className="px-6 py-4 text-sm font-semibold text-gray-900">
-                        {order.id?.substring(0, 8) || 'N/A'}...
-                      </td>
-                      <td className="px-6 py-4 text-sm text-gray-600">
-                        {order.customer_name || order.name || 'Unknown'}
-                      </td>
-                      <td className="px-6 py-4 text-sm text-gray-600">
-                        {order.email || order.customer_email || 'N/A'}
-                      </td>
-                      <td className="px-6 py-4 text-sm font-semibold text-gray-900">
-                        ${((order.amount || 0) / 100).toFixed(2)}
-                      </td>
-                      <td className="px-6 py-4">
-                        <span
-                          className={`inline-block px-3 py-1 rounded-full text-xs font-semibold ${
-                            order.status === 'completed'
-                              ? 'bg-green-100 text-green-800'
-                              : order.status === 'pending'
-                              ? 'bg-yellow-100 text-yellow-800'
-                              : 'bg-gray-100 text-gray-800'
-                          }`}
-                        >
-                          {order.status || 'pending'}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 text-sm text-gray-600">
-                        {order.created_at
-                          ? new Date(order.created_at).toLocaleDateString()
-                          : new Date().toLocaleDateString()}
-                      </td>
-                    </tr>
-                  ))}
+                  {orders.map((order, index) => {
+                    const createdDate = order.created_at ? new Date(order.created_at) : new Date();
+                    const estimatedDelivery = new Date(createdDate.getTime() + (60 * 60 * 1000)); // 1 hour delivery estimate
+                    
+                    return (
+                      <tr key={order.id || index} className="border-b border-gray-200 hover:bg-gray-50 transition">
+                        <td className="px-6 py-4 text-sm font-semibold text-gray-900">
+                          {order.id?.substring(0, 8) || 'N/A'}...
+                        </td>
+                        <td className="px-6 py-4 text-sm text-gray-600">
+                          {order.customer_name || order.name || 'Unknown'}
+                        </td>
+                        <td className="px-6 py-4 text-sm text-gray-600">
+                          {order.email || order.customer_email || 'N/A'}
+                        </td>
+                        <td className="px-6 py-4 text-sm font-semibold text-gray-900">
+                          {(order.currency || 'USD').toUpperCase()} {getOrderAmount(order).toFixed(2)}
+                        </td>
+                        <td className="px-6 py-4">
+                          <span
+                            className={`inline-block px-3 py-1 rounded-full text-xs font-semibold ${
+                              order.status === 'completed'
+                                ? 'bg-green-100 text-green-800'
+                                : order.status === 'processing'
+                                ? 'bg-blue-100 text-blue-800'
+                                : order.status === 'pending'
+                                ? 'bg-yellow-100 text-yellow-800'
+                                : order.status === 'failed' || order.status === 'cancelled'
+                                ? 'bg-red-100 text-red-800'
+                                : 'bg-gray-100 text-gray-800'
+                            }`}
+                          >
+                            {order.status || 'pending'}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 text-sm text-gray-600">
+                          {order.created_at
+                            ? new Date(order.created_at).toLocaleDateString()
+                            : new Date().toLocaleDateString()}
+                        </td>
+                        <td className="px-6 py-4 text-sm text-gray-600">
+                          {estimatedDelivery.toLocaleDateString()} {estimatedDelivery.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
@@ -226,11 +310,18 @@ export default function AdminDashboard() {
 
         {/* Footer Info */}
         <div className="mt-8 bg-blue-50 rounded-lg border border-blue-200 p-6">
-          <h3 className="font-semibold text-blue-900 mb-2">💡 Admin Info</h3>
-          <p className="text-sm text-blue-800">
-            This dashboard shows all orders placed by customers. Orders are automatically populated when payments are verified.
-            Make sure your payment verification API is set up correctly to capture all orders.
+          <h3 className="font-semibold text-blue-900 mb-2">� Admin Dashboard Overview</h3>
+          <p className="text-sm text-blue-800 mb-4">
+            This dashboard provides a comprehensive view of all orders and business metrics:
           </p>
+          <ul className="text-sm text-blue-800 space-y-2 ml-4">
+            <li>✓ <strong>Total Orders:</strong> All orders placed by customers</li>
+            <li>✓ <strong>Revenue Metrics:</strong> Total earnings and average order value</li>
+            <li>✓ <strong>Order Status Breakdown:</strong> Pending, Processing, Completed, and Failed orders</li>
+            <li>✓ <strong>Estimated Delivery:</strong> Automated 1-hour delivery estimate from order creation</li>
+            <li>✓ <strong>Customer Tracking:</strong> Unique customers and their purchase history</li>
+          </ul>
+        </div>
         </div>
       </div>
     </div>

@@ -18,7 +18,7 @@ const verifyToken = (req, res, next) => {
     const decoded = jwt.verify(token, config.jwt.secret);
     // JWT contains 'id', not 'userId'
     req.userId = decoded.id;
-    req.user = { id: decoded.id, email: decoded.email };
+    req.user = { id: decoded.id, email: decoded.email, role: decoded.role || 'user' };
     next();
   } catch (error) {
     return res.status(401).json({
@@ -38,7 +38,7 @@ const optionalToken = (req, res, next) => {
     if (token) {
       const decoded = jwt.verify(token, config.jwt.secret);
       req.userId = decoded.id;
-      req.user = { id: decoded.id, email: decoded.email };
+      req.user = { id: decoded.id, email: decoded.email, role: decoded.role || 'user' };
     }
   } catch (error) {
     // Silently fail - token is optional

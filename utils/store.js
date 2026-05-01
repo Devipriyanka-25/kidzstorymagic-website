@@ -342,6 +342,12 @@ export const useStoryStore = create((set) => ({
 export const useWizardStore = create((set, get) => ({
   step: 1,
   formData: createInitialWizardFormData(),
+  
+  // Photo selection and illustration caching for smart regeneration
+  selectedPhotoIndex: -1, // -1 means no photo selected
+  lastGeneratedPhotoIndex: -1, // -1 means never generated
+  photoIllustrationCache: {}, // { photoIndex: { pageIndex: imageUrl } }
+  generationInProgress: false, // Prevent overlapping regenerations
 
   setStep: (step) => {
     set({ step });
@@ -446,6 +452,61 @@ export const useWizardStore = create((set, get) => ({
       immediate: true,
     });
     console.log('[DRAFT] Manually saved draft at step:', state.step);
+  },
+
+  // Photo selection and caching methods
+  setSelectedPhotoIndex: (index) => {
+    console.log('[PHOTO_SELECTION] Selected photo index:', index);
+    set({ selectedPhotoIndex: index });
+  },
+
+  setGenerationInProgress: (inProgress) => {
+    set({ generationInProgress: inProgress });
+  },
+
+  // Cache illustration for a specific photo and page
+  cachePhotoIllustration: (photoIndex, pageIndex, imageUrl) => {
+    set((state) => {
+      const cache = { ...state.photoIllustrationCache };
+      if (!cache[photoIndex]) {
+        cache[photoIndex] = {};
+      }
+      cache[photoIndex][pageIndex] = imageUrl;
+      console.log(`[ILLUSTRATION_CACHE] Cached page ${pageIndex} for photo ${photoIndex}`);
+      return { photoIllustrationCache: cache };
+    });
+  },
+
+  // Get cached illustration for a specific photo and page
+  getPhotoIllustration: (photoIndex, pageIndex) => {
+    const state = get();
+    return state.photoIllustrationCache?.[photoIndex]?.[pageIndex] || null;
+  },
+
+  // Clear cache for specific photo or all photos
+  clearPhotoCache: (photoIndex) => {
+    set((state) => {
+      if (photoIndex === undefined) {
+        console.log('[ILLUSTRATION_CACHE] Cleared all photo caches');
+        return { photoIllustrationCache: {} };
+      }
+      const cache = { ...state.photoIllustrationCache };
+      delete cache[photoIndex];
+      console.log(`[ILLUSTRATION_CACHE] Cleared cache for photo ${photoIndex}`);
+      return { photoIllustrationCache: cache };
+    });
+  },
+
+  // Check if photo changed and needs regeneration
+  hasPhotoChanged: () => {
+    const state = get();
+    return state.selectedPhotoIndex !== state.lastGeneratedPhotoIndex;
+  },
+
+  // Mark photo as generated
+  markPhotoAsGenerated: (photoIndex) => {
+    console.log(`[PHOTO_GENERATION] Marked photo ${photoIndex} as generated`);
+    set({ lastGeneratedPhotoIndex: photoIndex });
   },
 
   // Clear draft

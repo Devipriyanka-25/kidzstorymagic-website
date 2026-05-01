@@ -5,6 +5,7 @@ import {
   isPersistentAuthAvailable,
   normalizeEmail,
 } from '../../shared/authUsers.js';
+import { buildClientAuthUser } from '../../shared/authRoles.js';
 import { userStore } from '../../shared/userStore.js';
 
 const jwt = require('jsonwebtoken');
@@ -65,15 +66,7 @@ export async function GET(request) {
 
         return NextResponse.json(
           {
-            user: {
-              id: user.id,
-              name: user.name,
-              email: user.email,
-              profilePictureUrl: user.profile_picture_url,
-              preferredCurrency: user.preferred_currency,
-              location: user.location,
-              createdAt: user.created_at,
-            },
+            user: buildClientAuthUser(user),
             source: 'supabase',
           },
           { status: 200 }
@@ -107,15 +100,7 @@ export async function GET(request) {
 
     return NextResponse.json(
       {
-        user: {
-          id: demoUser.id,
-          name: demoUser.name,
-          email: demoUser.email,
-          profilePictureUrl: null,
-          preferredCurrency: demoUser.preferredCurrency,
-          location: null,
-          createdAt: demoUser.createdAt,
-        },
+        user: buildClientAuthUser(demoUser),
         source: 'demo',
         note: 'Running in demo mode - Supabase not available',
       },

@@ -9,6 +9,13 @@ import {
   buildGiftPreviewUrl,
   sendGiftStoryEmail,
 } from '@/lib/giftStory';
+import { buildOrderContactDetails } from '@/lib/orderData';
+import {
+  isSmsConfigured,
+  resolveConfiguredAppBaseUrl,
+  sendOrderConfirmationEmail,
+  sendOrderConfirmationSms,
+} from '@/lib/orderNotifications';
 
 const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 
@@ -16,6 +23,102 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 const WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET;
+
+function isCompatibilityColumnError(error) {
+  const code = String(error?.code || '');
+  const details = `${error?.message || ''} ${error?.details || ''}`.toLowerCase();
+
+  return (
+    code === 'PGRST204' ||
+    code === '42703' ||
+    details.includes('schema cache') ||
+    details.includes('column')
+  );
+}
+
+function buildOrderMetadata(session, contact) {
+  return {
+    customerName: contact.customerName,
+    customerEmail: contact.customerEmail,
+    customerPhone: contact.customerPhone,
+    billingAddress: contact.billingAddress,
+    shippingAddress: contact.shippingAddress,
+    childName: session.metadata?.childName || '',
+    theme: session.metadata?.theme || '',
+    pageCount: session.metadata?.pageCount || '',
+    isGift: session.metadata?.isGift === 'true',
+    giftRecipientName: session.metadata?.giftRecipientName || '',
+    giftRecipientEmail: session.metadata?.giftRecipientEmail || '',
+  };
+}
+
+async function insertCompletedOrderRecord({
+  session,
+  projectId,
+  userId,
+  completedAt,
+  contact,
+}) {
+  const baseOrder = {
+    project_id: projectId,
+    user_id: userId,
+    amount: (session.amount_total || 0) / 100,
+    currency: session.currency?.toUpperCase() || 'USD',
+    original_amount: Number(
+      session.metadata?.basePriceUSD || (session.amount_total || 0) / 100
+    ),
+    original_currency: 'USD',
+    status: 'completed',
+    stripe_payment_intent_id: session.payment_intent || null,
+    stripe_session_id: session.id,
+    payment_method: session.payment_method_types?.[0] || 'card',
+    completed_at: completedAt,
+  };
+  const metadata = buildOrderMetadata(session, contact);
+  const insertVariants = [
+    {
+      ...baseOrder,
+      customer_name: contact.customerName,
+      customer_email: contact.customerEmail,
+      customer_phone: contact.customerPhone,
+      billing_address: contact.billingAddress,
+      shipping_address: contact.shippingAddress,
+      metadata,
+    },
+    {
+      ...baseOrder,
+      metadata,
+    },
+    baseOrder,
+  ];
+
+  let lastError = null;
+
+  for (let index = 0; index < insertVariants.length; index += 1) {
+    const candidate = insertVariants[index];
+    const { data, error } = await supabaseClient
+      .from('orders')
+      .insert([candidate])
+      .select()
+      .single();
+
+    if (!error) {
+      return data;
+    }
+
+    lastError = error;
+    if (!isCompatibilityColumnError(error) || index === insertVariants.length - 1) {
+      throw error;
+    }
+
+    console.warn(
+      '[WEBHOOK] Retrying order insert with a reduced column set:',
+      error.message
+    );
+  }
+
+  throw lastError || new Error('Failed to insert completed order.');
+}
 
 async function upsertCompletedOrder(session) {
   if (!supabaseClient) {
@@ -25,6 +128,7 @@ async function upsertCompletedOrder(session) {
   const projectId = Number(session.metadata?.projectId || session.metadata?.storyId);
   const userId = Number(session.metadata?.userId);
   const completedAt = new Date().toISOString();
+  const contact = buildOrderContactDetails(session);
 
   if (!Number.isFinite(projectId) || !Number.isFinite(userId)) {
     throw new Error('Missing projectId or userId in session metadata.');
@@ -32,7 +136,7 @@ async function upsertCompletedOrder(session) {
 
   const { data: existingOrder, error: existingOrderError } = await supabaseClient
     .from('orders')
-    .select('id')
+    .select('*')
     .eq('stripe_session_id', session.id)
     .maybeSingle();
 
@@ -43,35 +147,18 @@ async function upsertCompletedOrder(session) {
     );
   }
 
+  let savedOrder = existingOrder || null;
+
   if (!existingOrder) {
-    const order = {
-      project_id: projectId,
-      user_id: userId,
-      amount: (session.amount_total || 0) / 100,
-      currency: session.currency?.toUpperCase() || 'USD',
-      original_amount: Number(
-        session.metadata?.basePriceUSD || (session.amount_total || 0) / 100
-      ),
-      original_currency: 'USD',
-      status: 'completed',
-      stripe_payment_intent_id: session.payment_intent || null,
-      stripe_session_id: session.id,
-      payment_method: session.payment_method_types?.[0] || 'card',
-      completed_at: completedAt,
-    };
-
-    console.log('[WEBHOOK] Creating order:', order);
-
-    const { data, error } = await supabaseClient
-      .from('orders')
-      .insert([order])
-      .select();
-
-    if (error) {
-      throw error;
-    }
-
-    console.log('[WEBHOOK] ✓ Order created successfully:', data);
+    console.log('[WEBHOOK] Creating order for session:', session.id);
+    savedOrder = await insertCompletedOrderRecord({
+      session,
+      projectId,
+      userId,
+      completedAt,
+      contact,
+    });
+    console.log('[WEBHOOK] Order created successfully:', savedOrder?.id || savedOrder);
   }
 
   const { error: updateError } = await supabaseClient
@@ -88,10 +175,14 @@ async function upsertCompletedOrder(session) {
       updateError
     );
   } else {
-    console.log('[WEBHOOK] ✓ Story project updated to published');
+    console.log('[WEBHOOK] Story project updated to published');
   }
 
-  return { projectId };
+  return {
+    projectId,
+    order: savedOrder,
+    wasCreated: !existingOrder,
+  };
 }
 
 async function maybeSendGiftEmail(session, projectId) {
@@ -122,7 +213,45 @@ async function maybeSendGiftEmail(session, projectId) {
     previewUrl,
   });
 
-  console.log('[WEBHOOK] ✓ Gift story email sent');
+  console.log('[WEBHOOK] Gift story email sent');
+}
+
+async function maybeSendOrderNotifications(session, { projectId, order, wasCreated }) {
+  const appBaseUrl = resolveConfiguredAppBaseUrl();
+  const orderId = order?.id || session.id;
+
+  try {
+    await sendOrderConfirmationEmail({
+      session,
+      orderId,
+      projectId,
+      appBaseUrl,
+    });
+    console.log('[WEBHOOK] Order confirmation email sent');
+  } catch (emailError) {
+    console.error('[WEBHOOK] Order confirmation email failed:', emailError);
+  }
+
+  if (!wasCreated) {
+    return;
+  }
+
+  if (!isSmsConfigured()) {
+    console.log('[WEBHOOK] Order confirmation SMS skipped: Twilio is not configured');
+    return;
+  }
+
+  try {
+    await sendOrderConfirmationSms({
+      session,
+      orderId,
+      projectId,
+      appBaseUrl,
+    });
+    console.log('[WEBHOOK] Order confirmation SMS sent');
+  } catch (smsError) {
+    console.error('[WEBHOOK] Order confirmation SMS failed:', smsError);
+  }
 }
 
 export async function POST(request) {
@@ -161,10 +290,12 @@ export async function POST(request) {
       });
 
       try {
-        const { projectId } = await upsertCompletedOrder(session);
+        const fulfillment = await upsertCompletedOrder(session);
+
+        await maybeSendOrderNotifications(session, fulfillment);
 
         try {
-          await maybeSendGiftEmail(session, projectId);
+          await maybeSendGiftEmail(session, fulfillment.projectId);
         } catch (giftError) {
           console.error('[WEBHOOK] Gift email failed:', giftError);
         }
