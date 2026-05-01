@@ -767,6 +767,11 @@ export default function Step6ReviewCheckout() {
   ]);
   const storySubjectImage = storyReferenceImages[0] || null;
   const shouldGateIllustrations = Boolean(storySubjectImage);
+  const shouldGateIllustrationsRef = useRef(shouldGateIllustrations);
+
+  useEffect(() => {
+    shouldGateIllustrationsRef.current = shouldGateIllustrations;
+  }, [shouldGateIllustrations]);
 
   useEffect(() => {
     return () => {
@@ -836,7 +841,7 @@ export default function Step6ReviewCheckout() {
   useEffect(() => {
     const projectId = String(formData.projectId || '').trim();
 
-    if (!projectId || storyPreview || isRestoringSavedPreview) {
+    if (!projectId || storyPreview) {
       return;
     }
 
@@ -899,15 +904,19 @@ export default function Step6ReviewCheckout() {
           return;
         }
 
-        const cachedPreview = Array.isArray(formData?.storyPreview)
-          ? formData.storyPreview
+        const latestFormData = useWizardStore.getState().formData || {};
+        const cachedPreview = Array.isArray(latestFormData?.storyPreview)
+          ? latestFormData.storyPreview
           : [];
         const restoredPages = normalizeStoryPreviewPages(savedPages, cachedPreview);
 
         setStoryPreview(restoredPages);
         setCurrentPage(0);
         setPageGenerationStates(
-          buildInitialPageGenerationStates(restoredPages, shouldGateIllustrations)
+          buildInitialPageGenerationStates(
+            restoredPages,
+            shouldGateIllustrationsRef.current
+          )
         );
 
         useWizardStore.setState((state) => ({
@@ -974,20 +983,8 @@ export default function Step6ReviewCheckout() {
       }
     };
   }, [
-    formData?.storyPreview,
-    formData.childGender,
-    formData.childInterests,
-    formData.childName,
-    formData.childNotes,
-    formData.customIllustrationPrompt,
-    formData.illustrationStyle,
-    formData.pageCount,
     formData.projectId,
-    formData.theme,
-    formData.ageGroup,
-    isRestoringSavedPreview,
     previewRestoreRetryNonce,
-    shouldGateIllustrations,
     storyPreview,
   ]);
 
