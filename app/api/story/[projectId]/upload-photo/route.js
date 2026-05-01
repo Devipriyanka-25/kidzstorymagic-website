@@ -12,19 +12,6 @@ export async function POST(request, { params }) {
     const { projectId } = params;
     console.log(`[UPLOAD_PHOTO] Processing photo upload for project: ${projectId}`);
 
-    // Get auth token from header
-    const authHeader = request.headers.get('authorization');
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      console.error('[UPLOAD_PHOTO] No valid authorization token');
-      return NextResponse.json(
-        { error: 'Unauthorized', details: 'Missing or invalid authorization header' },
-        { status: 401 }
-      );
-    }
-
-    const token = authHeader.substring(7);
-    console.log(`[UPLOAD_PHOTO] Token received`);
-
     // Parse the multipart form data
     const formData = await request.formData();
 
@@ -47,9 +34,11 @@ export async function POST(request, { params }) {
 
     // Verify Supabase client is initialized
     if (!supabaseClient) {
-      console.error('[UPLOAD_PHOTO] Supabase client not initialized');
+      console.error('[UPLOAD_PHOTO] Supabase client not initialized - missing environment variables');
+      console.log('[UPLOAD_PHOTO] NEXT_PUBLIC_SUPABASE_URL:', process.env.NEXT_PUBLIC_SUPABASE_URL ? 'SET' : 'MISSING');
+      console.log('[UPLOAD_PHOTO] SUPABASE_SERVICE_KEY:', process.env.SUPABASE_SERVICE_KEY ? 'SET' : 'MISSING');
       return NextResponse.json(
-        { error: 'Service unavailable' },
+        { error: 'Service unavailable', details: 'Supabase not configured' },
         { status: 503 }
       );
     }
@@ -60,39 +49,56 @@ export async function POST(request, { params }) {
 
     console.log(`[UPLOAD_PHOTO] Uploading to Supabase storage: ${storagePath}`);
 
-    const { data: uploadData, error: uploadError } = await supabaseClient
-      .storage
-      .from('story-assets')
-      .upload(storagePath, photoBuffer, {
-        contentType: photoFile.type,
-        upsert: false,
-      });
+    try {
+      const { data: uploadData, error: uploadError } = await supabaseClient
+        .storage
+        .from('story-assets')
+        .upload(storagePath, photoBuffer, {
+          contentType: photoFile.type,
+          upsert: false,
+        });
 
-    if (uploadError) {
-      console.error('[UPLOAD_PHOTO] Storage upload failed:', uploadError);
+      if (uploadError) {
+        console.error('[UPLOAD_PHOTO] Storage upload failed:', JSON.stringify(uploadError));
+        return NextResponse.json(
+          { error: 'Photo storage failed', details: uploadError.message || 'Unknown storage error' },
+          { status: 500 }
+        );
+      }
+
+      console.log('[UPLOAD_PHOTO] File uploaded successfully');
+    } catch (storageError) {
+      console.error('[UPLOAD_PHOTO] Storage exception:', storageError.message);
       return NextResponse.json(
-        { error: 'Photo storage failed', details: uploadError.message },
+        { error: 'Storage error', details: storageError.message },
         { status: 500 }
       );
     }
 
     // Get public URL
-    const { data: { publicUrl } } = supabaseClient
-      .storage
-      .from('story-assets')
-      .getPublicUrl(storagePath);
+    try {
+      const { data: { publicUrl } } = supabaseClient
+        .storage
+        .from('story-assets')
+        .getPublicUrl(storagePath);
 
-    console.log(`[UPLOAD_PHOTO] Photo uploaded successfully: ${publicUrl}`);
+      console.log(`[UPLOAD_PHOTO] Public URL generated: ${publicUrl}`);
 
-    console.log('[UPLOAD_PHOTO] Success - photo uploaded');
-    return NextResponse.json({
-      success: true,
-      message: 'Photo uploaded successfully',
-      photoUrl: publicUrl,
-    }, { status: 200 });
+      return NextResponse.json({
+        success: true,
+        message: 'Photo uploaded successfully',
+        photoUrl: publicUrl,
+      }, { status: 200 });
+    } catch (urlError) {
+      console.error('[UPLOAD_PHOTO] URL generation error:', urlError.message);
+      return NextResponse.json(
+        { error: 'URL error', details: urlError.message },
+        { status: 500 }
+      );
+    }
 
   } catch (error) {
-    console.error('[UPLOAD_PHOTO] Error:', error.message);
+    console.error('[UPLOAD_PHOTO] Unexpected error:', error.message, error.stack);
     return NextResponse.json(
       {
         error: 'Photo upload failed',
