@@ -166,6 +166,14 @@ export default function WizardPage() {
             }));
           }
 
+          // Mark entry context as 'payment' so Step 6 knows to attempt restore
+          useWizardStore.setState((state) => ({
+            formData: {
+              ...state.formData,
+              step6EntryContext: 'payment',
+            },
+          }));
+
           if (requestedProjectId) {
             useWizardStore.setState((state) => ({
               formData: {

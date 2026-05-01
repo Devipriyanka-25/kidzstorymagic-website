@@ -31,6 +31,8 @@ const PREVIEW_POLL_INTERVAL_MS = 3000;
 const PREVIEW_FIRST_PAGE_TIMEOUT_MS = 45000;
 const MAX_POLL_RETRIES = 8;
 const FREE_PREVIEW_PAGE_LIMIT = 3;
+const RESTORE_FALLBACK_MESSAGE =
+  "We couldn't reopen your saved preview. Please generate a fresh preview or go back and try again.";
 const PREVIEW_QUOTES = [
   {
     quote:
@@ -760,6 +762,14 @@ export default function Step6ReviewCheckout() {
       return;
     }
 
+    // Only restore from server when returning from a draft or payment page.
+    // For initial generation (user progressing through wizard steps 1-5),
+    // skip the restore so a fresh preview is generated instead.
+    const step6EntryContext = String(formData.step6EntryContext || '').trim();
+    if (step6EntryContext !== 'draft' && step6EntryContext !== 'payment') {
+      return;
+    }
+
     if (
       completedPreviewRestoreProjectsRef.current.has(projectId) ||
       activePreviewRestoreProjectIdRef.current === projectId
@@ -777,6 +787,7 @@ export default function Step6ReviewCheckout() {
     let cancelled = false;
     activePreviewRestoreProjectIdRef.current = projectId;
     setIsRestoringSavedPreview(true);
+    setRestoreRetryCount(0);
     setPreviewPrepProgress(22);
     setPreviewPrepTitle('Reopening your saved book preview');
     setPreviewPrepDetail(
@@ -821,9 +832,7 @@ export default function Step6ReviewCheckout() {
           completedPreviewRestoreProjectsRef.current.add(projectId);
           if (!cancelled) {
             setRestoreFailed(true);
-            setRestoreError(
-              "We couldn't reopen your saved preview. Please generate a fresh preview or go back and try again."
-            );
+            setRestoreError(RESTORE_FALLBACK_MESSAGE);
           }
           return;
         }
@@ -895,11 +904,10 @@ export default function Step6ReviewCheckout() {
 
         completedPreviewRestoreProjectsRef.current.add(projectId);
         setRestoreFailed(true);
-        setRestoreError(
-          "We couldn't reopen your saved preview. Please generate a fresh preview or go back and try again."
-        );
+        setRestoreError(RESTORE_FALLBACK_MESSAGE);
       } finally {
         clearTimeout(timeoutHandleRef.current);
+        timeoutHandleRef.current = null;
         if (activePreviewRestoreProjectIdRef.current === projectId) {
           activePreviewRestoreProjectIdRef.current = null;
         }
@@ -933,6 +941,7 @@ export default function Step6ReviewCheckout() {
     formData.projectId,
     formData.theme,
     formData.ageGroup,
+    formData.step6EntryContext,
     isRestoringSavedPreview,
     restoreFailed,
     restoreRetryCount,
@@ -1197,8 +1206,8 @@ export default function Step6ReviewCheckout() {
     : 0;
   const currentQuote = PREVIEW_QUOTES[quoteIndex % PREVIEW_QUOTES.length];
   const showPreviewPreparationScreen =
-    (loading || isRestoringSavedPreview || restoreFailed) && !storyPreview ||
-    isPreparingInitialPreview;
+    (((loading || isRestoringSavedPreview || restoreFailed) && !storyPreview) ||
+      isPreparingInitialPreview);
   const previewEmailRecipient = useMemo(() => {
     const candidate = formData.parentEmail || authUser?.email || '';
     return String(candidate || '').trim();
@@ -1344,6 +1353,7 @@ export default function Step6ReviewCheckout() {
     activePreviewRestoreProjectIdRef.current = null;
     setRestoreFailed(false);
     setRestoreError('');
+    setRestoreRetryCount(0);
     setIsRestoringSavedPreview(false);
     handleGenerateStory();
   };
