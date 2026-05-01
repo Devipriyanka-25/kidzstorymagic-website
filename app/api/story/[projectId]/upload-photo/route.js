@@ -7,6 +7,41 @@
 import { NextResponse } from 'next/server';
 import supabaseClient from '@/app/api/shared/supabaseClient';
 
+const BUCKET_NAME = 'story-assets';
+
+async function ensureBucketExists() {
+  if (!supabaseClient) return false;
+  
+  try {
+    // Try to get bucket info
+    const { data, error } = await supabaseClient.storage.getBucket(BUCKET_NAME);
+    
+    if (error || !data) {
+      console.log(`[UPLOAD_PHOTO] Bucket ${BUCKET_NAME} not found, attempting to create...`);
+      
+      // Try to create the bucket
+      const { data: createdBucket, error: createError } = await supabaseClient.storage.createBucket(BUCKET_NAME, {
+        public: true,
+        fileSizeLimit: 52428800, // 50MB
+      });
+      
+      if (createError) {
+        console.warn('[UPLOAD_PHOTO] Could not create bucket:', createError.message);
+        return false;
+      }
+      
+      console.log('[UPLOAD_PHOTO] Bucket created successfully');
+      return true;
+    }
+    
+    console.log('[UPLOAD_PHOTO] Bucket exists');
+    return true;
+  } catch (err) {
+    console.error('[UPLOAD_PHOTO] Bucket check error:', err.message);
+    return false;
+  }
+}
+
 export async function POST(request, { params }) {
   try {
     const { projectId } = params;
@@ -43,6 +78,16 @@ export async function POST(request, { params }) {
       );
     }
 
+    // Ensure bucket exists
+    const bucketReady = await ensureBucketExists();
+    if (!bucketReady) {
+      console.error('[UPLOAD_PHOTO] Could not ensure bucket exists');
+      return NextResponse.json(
+        { error: 'Storage not available', details: 'Could not access storage bucket' },
+        { status: 503 }
+      );
+    }
+
     // Upload photo to Supabase storage
     const fileName = `${projectId}/${Date.now()}_${photoFile.name}`;
     const storagePath = `child-photos/${fileName}`;
@@ -52,7 +97,7 @@ export async function POST(request, { params }) {
     try {
       const { data: uploadData, error: uploadError } = await supabaseClient
         .storage
-        .from('story-assets')
+        .from(BUCKET_NAME)
         .upload(storagePath, photoBuffer, {
           contentType: photoFile.type,
           upsert: false,
@@ -79,7 +124,7 @@ export async function POST(request, { params }) {
     try {
       const { data: { publicUrl } } = supabaseClient
         .storage
-        .from('story-assets')
+        .from(BUCKET_NAME)
         .getPublicUrl(storagePath);
 
       console.log(`[UPLOAD_PHOTO] Public URL generated: ${publicUrl}`);
