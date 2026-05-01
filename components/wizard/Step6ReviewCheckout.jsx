@@ -26,6 +26,12 @@ import {
 } from '@/utils/pricing';
 
 const isIllustratedStoryPage = (page) => page?.pageType === 'story';
+const getSavedPageImageUrl = (page) =>
+  page?.faceSwappedUrl ||
+  page?.illustrationUrl ||
+  page?.image_url ||
+  page?.image ||
+  null;
 const PREVIEW_SUPPORT_EMAIL = 'support@kidzstorymagic.com';
 const PREVIEW_POLL_INTERVAL_MS = 3000;
 const PREVIEW_FIRST_PAGE_TIMEOUT_MS = 45000;
@@ -61,7 +67,7 @@ const buildInitialPageGenerationStates = (
       status:
         !shouldGateIllustrations ||
         !isIllustratedStoryPage(page) ||
-        Boolean(page?.illustrationUrl)
+        Boolean(getSavedPageImageUrl(page))
           ? 'ready'
           : 'idle',
       message: '',
@@ -85,9 +91,11 @@ function normalizeStoryPreviewPages(pages = [], cachedPages = []) {
     const cachedPage = cachedPagesByNumber.get(pageNumber) || cachedPages[index] || null;
     const illustrationUrl =
       page?.illustrationUrl ||
+      page?.faceSwappedUrl ||
       page?.image_url ||
       page?.image ||
       cachedPage?.illustrationUrl ||
+      cachedPage?.faceSwappedUrl ||
       cachedPage?.image_url ||
       cachedPage?.image ||
       null;
@@ -1083,7 +1091,7 @@ export default function Step6ReviewCheckout() {
     }
 
     return (
-      Boolean(page?.illustrationUrl) ||
+      Boolean(getSavedPageImageUrl(page)) ||
       pageGenerationStates[pageIndex]?.status === 'ready'
     );
   };
@@ -1158,11 +1166,12 @@ export default function Step6ReviewCheckout() {
           index > 0 &&
           index < storyPreview.length - 1 &&
           isIllustratedStoryPage(page) &&
-          Boolean(page?.illustrationUrl)
+          Boolean(getSavedPageImageUrl(page))
       );
+      const firstReadyStoryPageImage = getSavedPageImageUrl(firstReadyStoryPage);
 
-      if (firstReadyStoryPage?.illustrationUrl) {
-        return firstReadyStoryPage.illustrationUrl;
+      if (firstReadyStoryPageImage) {
+        return firstReadyStoryPageImage;
       }
     }
 
@@ -1357,7 +1366,7 @@ export default function Step6ReviewCheckout() {
 
     for (let index = 0; index < storyPreview.length; index += 1) {
       const page = storyPreview[index];
-      if (!isIllustratedStoryPage(page) || page?.illustrationUrl) {
+      if (!isIllustratedStoryPage(page) || getSavedPageImageUrl(page)) {
         continue;
       }
 
