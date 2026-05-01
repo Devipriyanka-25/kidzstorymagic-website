@@ -317,6 +317,55 @@ function cleanPromptDetail(value, maxLength = 280) {
     .slice(0, maxLength);
 }
 
+function firstPromptDetail(values, maxLength = 280) {
+  return values
+    .map((value) => cleanPromptDetail(value, maxLength))
+    .find(Boolean) || '';
+}
+
+function escapeHtml(value) {
+  return String(value || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function buildStoryPersonalizationLines({
+  childName,
+  childInterests,
+  childNotes,
+}) {
+  const interestDetail = cleanPromptDetail(childInterests, 160);
+  const noteDetail = cleanPromptDetail(childNotes, 220);
+  const openingLines = [];
+  const closingLines = [];
+
+  if (interestDetail) {
+    openingLines.push(
+      `${childName}'s favorite things, like ${interestDetail}, sparkled through the adventure in little ways.`
+    );
+    closingLines.push(
+      `Best of all, the journey remembered the things ${childName} loves most: ${interestDetail}.`
+    );
+  }
+
+  if (noteDetail) {
+    openingLines.push(
+      `The story also followed this special note about ${childName}: ${noteDetail}.`
+    );
+    closingLines.push(
+      `Every page was made with ${childName}'s special note in mind: ${noteDetail}.`
+    );
+  }
+
+  return {
+    opening: openingLines.join(' '),
+    closing: closingLines.join(' '),
+  };
+}
+
 function sanitizeIllustrationText(value, maxLength = 280) {
   let sanitized = cleanPromptDetail(value, maxLength);
 
@@ -451,6 +500,10 @@ export async function POST(request, { params }) {
       ageGroup,
       theme,
       pageCount,
+      childInterests,
+      childNotes,
+      child_interests,
+      child_notes,
       storyLanguage = 'en',
       milestoneTitle,
       milestonePromptHint = '',
@@ -469,6 +522,25 @@ export async function POST(request, { params }) {
       );
     }
     errorContext.project = existingProject;
+
+    const resolvedChildInterests = firstPromptDetail(
+      [
+        childInterests,
+        child_interests,
+        existingProject.child_interests,
+        existingProject.childInterests,
+      ],
+      160
+    );
+    const resolvedChildNotes = firstPromptDetail(
+      [
+        childNotes,
+        child_notes,
+        existingProject.child_notes,
+        existingProject.childNotes,
+      ],
+      220
+    );
 
     // Validate required fields before marking the draft as generating.
     if (!childName || !ageGroup || !theme) {
@@ -616,6 +688,11 @@ export async function POST(request, { params }) {
             originalTheme || pageThemeTitle
           } story.`
         : '';
+    const personalizationLines = buildStoryPersonalizationLines({
+      childName,
+      childInterests: resolvedChildInterests,
+      childNotes: resolvedChildNotes,
+    });
 
     for (let i = 0; i < storyPages; i++) {
       const arcStart = i * arcsPerPage;
@@ -624,6 +701,7 @@ export async function POST(request, { params }) {
       const pageContent = [
         i === 0 ? milestoneIntro : '',
         i === 0 ? seriesIntro : '',
+        i === 0 ? personalizationLines.opening : '',
         pageArcs.join(' ') || `${childName}'s story continues...`,
       ]
         .filter(Boolean)
@@ -643,9 +721,8 @@ export async function POST(request, { params }) {
             existingProject.illustration_style || existingProject.illustrationStyle,
           customPrompt:
             body.customPrompt || existingProject.custom_illustration_prompt || null,
-          childInterests:
-            existingProject.child_interests || existingProject.childInterests,
-          childNotes: existingProject.child_notes || existingProject.childNotes,
+          childInterests: resolvedChildInterests,
+          childNotes: resolvedChildNotes,
           ageHint,
           pageTitle,
           pageContent,
@@ -670,16 +747,16 @@ export async function POST(request, { params }) {
       });
     }
 
+    const endingText = `${childName} closes the book with a happy heart and a mind full of magical memories.${
+      milestoneTitle ? ` This keepsake honors ${milestoneTitle.toLowerCase()}.` : ''
+    }${personalizationLines.closing ? ` ${personalizationLines.closing}` : ''}`;
+
     pagesArray.push({
       pageNumber: totalPages,
       pageType: 'end',
       title: 'The End',
-      content: `${childName} closes the book with a happy heart and a mind full of magical memories.${
-        milestoneTitle ? ` This keepsake honors ${milestoneTitle.toLowerCase()}.` : ''
-      }`,
-      text: `${childName} closes the book with a happy heart and a mind full of magical memories.${
-        milestoneTitle ? ` This keepsake honors ${milestoneTitle.toLowerCase()}.` : ''
-      }`,
+      content: endingText,
+      text: endingText,
       illustrationPrompt: null,
       illustrationUrl: null,
       image: null,
@@ -691,6 +768,8 @@ export async function POST(request, { params }) {
       title: storyTitle,
       childName: childName,
       childGender: childGender,
+      childInterests: resolvedChildInterests,
+      childNotes: resolvedChildNotes,
       ageGroup: ageGroup,
       theme: theme,
       pageCount: totalPages,
@@ -699,6 +778,11 @@ export async function POST(request, { params }) {
       content: `
         <h2>${storyTitle}</h2>
         <p>Once upon a time, there was a special child named ${childName}. This is a special story created just for them.</p>
+        ${
+          personalizationLines.opening
+            ? `<p>${escapeHtml(personalizationLines.opening)}</p>`
+            : ''
+        }
         <p>In this wonderful journey, ${childName} experiences amazing things and learns valuable lessons.
         Every page brings new excitement, new friends, and new discoveries.</p>
         <p>${childName} shows remarkable courage, kindness, and determination throughout this tale.
@@ -709,11 +793,16 @@ export async function POST(request, { params }) {
       htmlContent: `
         <div style="font-family: 'Comic Sans MS', cursive; padding: 40px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); min-height: 100vh;">
           <h1 style="color: white; text-align: center; font-size: 48px; margin-bottom: 30px;">${storyTitle}</h1>
-          <div style="background: white; border-radius: 20px; padding: 40px; max-width: 800px; margin: 0 auto; box-shadow: 0 10px 30px rgba(0,0,0,0.3);">
-            <h2 style="color: #667eea; font-size: 28px;">Chapter 1: The Beginning</h2>
-            <p style="color: #333; font-size: 16px; line-height: 1.8;">
-              Once upon a time, in a magical place, there lived an amazing child named ${childName}.
-              ${childName} had a special gift - the ability to see wonder in the world around them.
+      <div style="background: white; border-radius: 20px; padding: 40px; max-width: 800px; margin: 0 auto; box-shadow: 0 10px 30px rgba(0,0,0,0.3);">
+        <h2 style="color: #667eea; font-size: 28px;">Chapter 1: The Beginning</h2>
+        ${
+          personalizationLines.opening
+            ? `<p style="color: #333; font-size: 16px; line-height: 1.8;">${escapeHtml(personalizationLines.opening)}</p>`
+            : ''
+        }
+        <p style="color: #333; font-size: 16px; line-height: 1.8;">
+          Once upon a time, in a magical place, there lived an amazing child named ${childName}.
+          ${childName} had a special gift - the ability to see wonder in the world around them.
             </p>
             <p style="color: #333; font-size: 16px; line-height: 1.8;">
               One day, something extraordinary happened. A magical adventure was about to begin,
@@ -760,10 +849,8 @@ export async function POST(request, { params }) {
       page_count: totalPages,
       child_name: childName,
       child_gender: childGender,
-      child_interests:
-        existingProject.child_interests || existingProject.childInterests || null,
-      child_notes:
-        existingProject.child_notes || existingProject.childNotes || null,
+      child_interests: resolvedChildInterests || null,
+      child_notes: resolvedChildNotes || null,
       status: 'draft',
       current_step: 6,
       is_generated: true,
@@ -780,6 +867,8 @@ export async function POST(request, { params }) {
           ...(existingDraftFlow.formData || {}),
           childName,
           childGender,
+          childInterests: resolvedChildInterests,
+          childNotes: resolvedChildNotes,
           ageGroup,
           theme,
           pageCount: totalPages,

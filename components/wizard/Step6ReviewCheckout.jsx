@@ -1459,6 +1459,8 @@ export default function Step6ReviewCheckout() {
       const storyData = {
         childName: formData.childName || 'Child',
         childGender: formData.childGender || 'child',
+        childInterests: formData.childInterests || '',
+        childNotes: formData.childNotes || '',
         ageGroup: formData.ageGroup || '5-8',
         theme: formData.theme || 'animal-adventure',
         pageCount: formData.pageCount || 20,
