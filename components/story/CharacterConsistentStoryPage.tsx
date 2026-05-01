@@ -118,7 +118,7 @@ export default function CharacterConsistentStoryPage({
   referenceImages = null,
   subjectImage,
 }: CharacterConsistentStoryPageProps) {
-  const initialImage = page.faceSwappedUrl || page.illustrationUrl || null;
+  const initialImage = page.illustrationUrl || page.faceSwappedUrl || null;
   const [imageUrl, setImageUrl] = useState<string | null>(initialImage);
   const [isGenerating, setIsGenerating] = useState(!initialImage);
   const [error, setError] = useState<string | null>(null);
@@ -171,8 +171,8 @@ export default function CharacterConsistentStoryPage({
       return;
     }
 
-    if (page.faceSwappedUrl || page.illustrationUrl) {
-      setImageUrl(page.faceSwappedUrl || page.illustrationUrl || null);
+    if (page.illustrationUrl || page.faceSwappedUrl) {
+      setImageUrl(page.illustrationUrl || page.faceSwappedUrl || null);
       setIsGenerating(false);
       setError(null);
       setStatusMessage(null);
@@ -213,9 +213,9 @@ export default function CharacterConsistentStoryPage({
       return;
     }
 
-    if (page.faceSwappedUrl || page.illustrationUrl) {
+    if (page.illustrationUrl || page.faceSwappedUrl) {
       const resolvedPageImage =
-        page.faceSwappedUrl || page.illustrationUrl || null;
+        page.illustrationUrl || page.faceSwappedUrl || null;
       setImageUrl(resolvedPageImage);
       setIsGenerating(false);
       setError(null);
@@ -392,11 +392,11 @@ export default function CharacterConsistentStoryPage({
                     }}
                   />
                   <p className="text-2xl font-black text-slate-900">
-                    Painting your 3D story scene...
+                    Painting your storybook illustration...
                   </p>
                   <p className="mt-3 text-sm leading-7 text-slate-600 sm:text-base">
                     {statusMessage ||
-                      "We are building a bright premium animated story world and turning your child into the main cartoon hero for this page."}
+                      "We are painting a premium 2D storybook scene and preserving your child's key facial details in an illustrated style."}
                   </p>
                 </div>
               </div>

@@ -4,8 +4,8 @@ import { useMemo, useState } from 'react';
 
 function getPageImage(page) {
   return (
-    page?.faceSwappedUrl ||
     page?.illustrationUrl ||
+    page?.faceSwappedUrl ||
     page?.imageUrl ||
     page?.image ||
     null

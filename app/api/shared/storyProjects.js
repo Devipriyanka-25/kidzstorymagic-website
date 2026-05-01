@@ -723,8 +723,8 @@ export async function replaceStoryProjectPages(projectId, pages) {
       page.illustration_prompt ||
       null,
     image_url:
-      page.faceSwappedUrl ||
       page.illustrationUrl ||
+      page.faceSwappedUrl ||
       page.image_url ||
       page.image ||
       null,

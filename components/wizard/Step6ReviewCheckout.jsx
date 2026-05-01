@@ -27,11 +27,13 @@ import {
 
 const isIllustratedStoryPage = (page) => page?.pageType === 'story';
 const getSavedPageImageUrl = (page) =>
-  page?.faceSwappedUrl ||
   page?.illustrationUrl ||
+  page?.faceSwappedUrl ||
   page?.image_url ||
   page?.image ||
   null;
+const ENABLE_PREVIEW_FACE_SWAP =
+  process.env.NEXT_PUBLIC_ENABLE_PREVIEW_FACE_SWAP === 'true';
 const PREVIEW_SUPPORT_EMAIL = 'support@kidzstorymagic.com';
 const PREVIEW_POLL_INTERVAL_MS = 3000;
 const PREVIEW_FIRST_PAGE_TIMEOUT_MS = 90000;
@@ -91,13 +93,13 @@ function normalizeStoryPreviewPages(pages = [], cachedPages = []) {
     const cachedPage = cachedPagesByNumber.get(pageNumber) || cachedPages[index] || null;
     const illustrationUrl =
       page?.illustrationUrl ||
-      page?.faceSwappedUrl ||
       page?.image_url ||
       page?.image ||
       cachedPage?.illustrationUrl ||
-      cachedPage?.faceSwappedUrl ||
       cachedPage?.image_url ||
       cachedPage?.image ||
+      page?.faceSwappedUrl ||
+      cachedPage?.faceSwappedUrl ||
       null;
     const faceSwappedUrl =
       cachedPage?.faceSwappedUrl ||
@@ -1122,6 +1124,7 @@ export default function Step6ReviewCheckout() {
     illustrationImageUrl,
   }) => {
     if (
+      !ENABLE_PREVIEW_FACE_SWAP ||
       !faceImageUrl ||
       !illustrationImageUrl ||
       illustrationImageUrl.startsWith('data:image/svg+xml')
@@ -1439,7 +1442,9 @@ export default function Step6ReviewCheckout() {
         ...page,
         illustrationUrl: imageUrl,
         faceSwappedUrl:
-          page.faceSwappedUrl === imageUrl ? imageUrl : page.faceSwappedUrl,
+          ENABLE_PREVIEW_FACE_SWAP && page.faceSwappedUrl === imageUrl
+            ? imageUrl
+            : page.faceSwappedUrl,
       };
       
       return nextPages;
@@ -2405,9 +2410,9 @@ export default function Step6ReviewCheckout() {
                     </div>
                   ) : (
                     <>
-                      {storyPreview[index].faceSwappedUrl || storyPreview[index].illustrationUrl ? (
+                      {storyPreview[index].illustrationUrl || storyPreview[index].faceSwappedUrl ? (
                         <img
-                          src={storyPreview[index].faceSwappedUrl || storyPreview[index].illustrationUrl}
+                          src={storyPreview[index].illustrationUrl || storyPreview[index].faceSwappedUrl}
                           alt={`Page ${index + 1}`}
                           className="h-full w-full object-cover"
                           onError={(event) => {
@@ -2545,10 +2550,10 @@ export default function Step6ReviewCheckout() {
                             >
                               E
                             </div>
-                          ) : storyPreview[index].faceSwappedUrl || storyPreview[index].illustrationUrl ? (
+                          ) : storyPreview[index].illustrationUrl || storyPreview[index].faceSwappedUrl ? (
                             <div className="relative h-full w-full">
                               <img
-                                src={storyPreview[index].faceSwappedUrl || storyPreview[index].illustrationUrl}
+                                src={storyPreview[index].illustrationUrl || storyPreview[index].faceSwappedUrl}
                                 alt={`Page ${index + 1}`}
                                 className="h-full w-full object-cover"
                                 onError={(event) => {

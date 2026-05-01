@@ -1,9 +1,9 @@
 const DATA_IMAGE_PREFIX = /^data:image\//i;
-const MAX_REFERENCE_DIMENSION = 512;
-const MAX_REFERENCE_BYTES = 140 * 1024;
-const INITIAL_JPEG_QUALITY = 0.72;
-const MIN_JPEG_QUALITY = 0.32;
-const MIN_SCALE = 0.28;
+const MAX_REFERENCE_DIMENSION = 768;
+const MAX_REFERENCE_BYTES = 260 * 1024;
+const INITIAL_JPEG_QUALITY = 0.84;
+const MIN_JPEG_QUALITY = 0.42;
+const MIN_SCALE = 0.36;
 
 const subjectImagePreparationCache = new Map();
 

@@ -230,7 +230,7 @@ export default function Step2ThemeSelection() {
         <p className="mx-auto mt-4 max-w-3xl text-base leading-7 text-slate-600 sm:text-lg">
           {isAdultAudience
             ? 'Pick the premium celebration, tribute, or event-style story experience you want us to build. These cards preview the visual direction for a keepsake-quality illustrated book.'
-            : 'Pick the premium story world you want us to build around your child. These cards show the theme direction only. The final Pixar-style 3D child illustration is generated later from the uploaded photos.'}
+            : 'Pick the premium story world you want us to build around your child. These cards show the theme direction only. The final personalized 2D storybook illustration is generated later from the uploaded photos.'}
         </p>
       </div>
 

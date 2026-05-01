@@ -240,7 +240,7 @@ export default function Step5PhotoUpload() {
               </li>
               <li>
                 Use 3 to 5 photos with slightly different angles for stronger
-                cartoon consistency.
+                storybook character consistency.
               </li>
               <li>
                 Images should support the selected book world:{' '}
