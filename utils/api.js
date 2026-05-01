@@ -221,6 +221,13 @@ storyAPI.deleteDraft = draftAPI.deleteDraft;
 storyAPI.publishDraft = draftAPI.publishDraft;
 storyAPI.saveDraftProgress = draftAPI.saveDraftProgress;
 
+// Photo selection and illustration caching methods
+storyAPI.savePhotoSelection = (projectId, photoSelectionData) =>
+  createAPIClient().post(`/story/${projectId}/save-photo-selection`, photoSelectionData);
+
+storyAPI.loadPhotoSelection = (projectId) =>
+  createAPIClient().get(`/story/${projectId}/save-photo-selection`);
+
 // Payment APIs with retry logic for reliability
 export const paymentAPI = {
   createCheckout: (data) => 
