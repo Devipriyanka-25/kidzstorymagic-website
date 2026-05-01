@@ -3,7 +3,13 @@
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { useAuthStore } from '@/utils/store';
-import { storyAPI, paymentAPI } from '@/utils/api';
+import { storyAPI } from '@/utils/api';
+import {
+  isDashboardDraftStory,
+  isPaidOrPublishedStory,
+  mergeUniqueStories,
+  storyMatchesDashboardFilters,
+} from '@/utils/storyStatus';
 import Link from 'next/link';
 import DashboardSidebar from '@/components/dashboard/DashboardSidebar';
 import StoriesGrid from '@/components/dashboard/StoriesGrid';
@@ -56,7 +62,7 @@ export default function DashboardPage() {
       setLoading(true);
       setError('');
       
-      const storiesResponse = await storyAPI.getProjects();
+      const storiesResponse = await storyAPI.getProjects(100, 0);
       setStories(storiesResponse.data.stories || []);
 
       // Fetch drafts if available
@@ -88,29 +94,19 @@ export default function DashboardPage() {
   };
 
   // Filter stories based on search and theme
-  const filteredStories = stories
-    .filter(story => story.status === 'published')
-    .filter(story => {
-      const matchesSearch = 
-        story.child_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        story.theme?.toLowerCase().includes(searchQuery.toLowerCase());
-      const matchesTheme = selectedTheme === 'all' || story.theme === selectedTheme;
-      return matchesSearch && matchesTheme;
-    });
+  const dashboardStories = mergeUniqueStories(stories, drafts);
+  const dashboardFilters = { searchQuery, selectedTheme };
+  const filteredStories = dashboardStories
+    .filter(isPaidOrPublishedStory)
+    .filter((story) => storyMatchesDashboardFilters(story, dashboardFilters));
 
-  const filteredDrafts = drafts
-    .filter(draft => {
-      const matchesSearch = 
-        draft.child_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        draft.theme?.toLowerCase().includes(searchQuery.toLowerCase());
-      const matchesTheme = selectedTheme === 'all' || draft.theme === selectedTheme;
-      return matchesSearch && matchesTheme;
-    });
+  const filteredDrafts = dashboardStories
+    .filter(isDashboardDraftStory)
+    .filter((draft) => storyMatchesDashboardFilters(draft, dashboardFilters));
 
   // Get unique themes
   const allThemes = new Set();
-  stories.forEach(s => s.theme && allThemes.add(s.theme));
-  drafts.forEach(d => d.theme && allThemes.add(d.theme));
+  dashboardStories.forEach(s => s.theme && allThemes.add(s.theme));
 
   // Auth check
   if (!user) {

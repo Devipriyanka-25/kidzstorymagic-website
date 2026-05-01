@@ -16,6 +16,7 @@ import {
   sendOrderConfirmationEmail,
   sendOrderConfirmationSms,
 } from '@/lib/orderNotifications';
+import { markStoryProjectPaid } from '../../shared/storyProjects.js';
 
 const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 
@@ -161,21 +162,21 @@ async function upsertCompletedOrder(session) {
     console.log('[WEBHOOK] Order created successfully:', savedOrder?.id || savedOrder);
   }
 
-  const { error: updateError } = await supabaseClient
-    .from('story_projects')
-    .update({
-      status: 'published',
-      completed_at: completedAt,
-    })
-    .eq('id', projectId);
+  try {
+    const updatedStory = await markStoryProjectPaid(userId, projectId, {
+      completedAt,
+    });
 
-  if (updateError) {
+    if (!updatedStory) {
+      throw new Error('Story project not found for payment fulfillment.');
+    }
+
+    console.log('[WEBHOOK] Story project marked as paid and published');
+  } catch (updateError) {
     console.warn(
       '[WEBHOOK] Warning: Could not update story project status:',
       updateError
     );
-  } else {
-    console.log('[WEBHOOK] Story project updated to published');
   }
 
   return {

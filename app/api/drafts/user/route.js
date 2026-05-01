@@ -70,12 +70,16 @@ export async function GET(request) {
       offset: 0,
       statuses: ['draft', 'in_progress', 'pending'],
     });
+    const unpaidDrafts = projects.filter(
+      (project) =>
+        project.status !== 'published' && !project.isPaid && !project.is_paid
+    );
 
     return NextResponse.json(
       {
         success: true,
-        drafts: projects,
-        count: projects.length,
+        drafts: unpaidDrafts,
+        count: unpaidDrafts.length,
       },
       { status: 200 }
     );
@@ -141,4 +145,3 @@ export async function POST(request) {
     );
   }
 }
-

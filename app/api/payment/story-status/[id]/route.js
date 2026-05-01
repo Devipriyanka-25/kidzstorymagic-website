@@ -45,7 +45,9 @@ export async function GET(request, { params }) {
     const projectId = params?.id;
     const story = await getStoryProjectById(authUser.id, projectId);
 
-    let isPaid = story?.status === 'published';
+    let isPaid = Boolean(
+      story?.status === 'published' || story?.isPaid || story?.is_paid
+    );
 
     if (!isPaid && supabaseClient) {
       const { data: paidOrder } = await supabaseClient

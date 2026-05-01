@@ -8,7 +8,15 @@ import { NextResponse } from 'next/server';
 import jwt from 'jsonwebtoken';
 import { supabaseClient } from '../../../shared/supabaseClient.js';
 import { verifyGiftPreviewToken } from '@/lib/giftStory';
-import { resolveAuthenticatedStoryUser } from '../../../shared/storyProjects.js';
+import {
+  listStoryProjectPages,
+  mapStoryProjectRecord,
+  resolveAuthenticatedStoryUser,
+} from '../../../shared/storyProjects.js';
+import {
+  buildStoryPdfBufferWithImages,
+  sanitizePdfFilename,
+} from '@/lib/pdf/simpleStoryPdf';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -66,10 +74,11 @@ export async function GET(request, { params }) {
       return NextResponse.json({ error: 'Story not found.' }, { status: 404 });
     }
 
+    const story = mapStoryProjectRecord(storyRecord);
     let hasAccess = Boolean(giftAccess);
 
     if (authUser?.id && Number(storyRecord.user_id) === Number(authUser.id)) {
-      if (storyRecord.status === 'published') {
+      if (story.status === 'published' || story.isPaid || story.is_paid) {
         hasAccess = true;
       } else {
         const { data: paidOrder } = await supabaseClient
@@ -92,16 +101,16 @@ export async function GET(request, { params }) {
       );
     }
 
-    const mockPDF = Buffer.from(
-      '%PDF-1.4\n1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj 2 0 obj<</Type/Pages/Kids[3 0 R]/Count 1>>endobj 3 0 obj<</Type/Page/Parent 2 0 R/MediaBox[0 0 612 792]>>endobj xref 0 4 0000000000 65535 f 0000000009 00000 n 0000000058 00000 n 0000000115 00000 n trailer<</Size 4/Root 1 0 R>>startxref 190 %%EOF'
-    );
+    const pages = await listStoryProjectPages(projectId);
+    const pdfBuffer = await buildStoryPdfBufferWithImages({ story, pages });
+    const filename = `${sanitizePdfFilename(story.title || story.child_name)}.pdf`;
 
-    return new NextResponse(mockPDF, {
+    return new NextResponse(pdfBuffer, {
       status: 200,
       headers: {
         'Content-Type': 'application/pdf',
-        'Content-Disposition': `attachment; filename="${projectId}.pdf"`,
-        'Content-Length': mockPDF.length,
+        'Content-Disposition': `attachment; filename="${filename}"`,
+        'Content-Length': pdfBuffer.length,
         'Cache-Control': 'no-cache, no-store, must-revalidate',
       },
     });

@@ -66,6 +66,7 @@ const OPTIONAL_GENERATION_COLUMNS = new Set([
   'draft_expires_at',
   'generation_started_at',
   'generation_completed_at',
+  'completed_at',
 ]);
 
 function isOptionalGenerationColumnError(error) {
@@ -137,6 +138,8 @@ export function mapStoryProjectRecord(record) {
     photoMetadata?.draftFlow && typeof photoMetadata.draftFlow === 'object'
       ? photoMetadata.draftFlow
       : {};
+  const status = record?.status || 'draft';
+  const isPaid = Boolean(record?.is_paid || draftFlow.isPaid || status === 'published');
 
   return {
     id: String(record?.id ?? ''),
@@ -159,7 +162,7 @@ export function mapStoryProjectRecord(record) {
     childInterests: record?.child_interests || '',
     child_notes: record?.child_notes || '',
     childNotes: record?.child_notes || '',
-    status: record?.status || 'draft',
+    status,
     current_step: record?.current_step || 1,
     currentStep: record?.current_step || 1,
     preview_url: previewImageUrl,
@@ -171,8 +174,8 @@ export function mapStoryProjectRecord(record) {
     photo_metadata: photoMetadata,
     isGenerated: Boolean(record?.is_generated || draftFlow.isGenerated),
     is_generated: Boolean(record?.is_generated || draftFlow.isGenerated),
-    isPaid: Boolean(record?.is_paid || draftFlow.isPaid),
-    is_paid: Boolean(record?.is_paid || draftFlow.isPaid),
+    isPaid,
+    is_paid: isPaid,
     draftExpiresAt: record?.draft_expires_at || draftFlow.draftExpiresAt || null,
     draft_expires_at: record?.draft_expires_at || draftFlow.draftExpiresAt || null,
     generationStartedAt:
@@ -189,6 +192,77 @@ export function mapStoryProjectRecord(record) {
     updated_at: record?.updated_at || null,
     updatedAt: record?.updated_at || null,
   };
+}
+
+export function mergeStoryProjectDraftFlowMetadata(project, patch = {}) {
+  const metadata =
+    project?.photo_metadata && typeof project.photo_metadata === 'object'
+      ? project.photo_metadata
+      : {};
+  const draftFlow =
+    metadata.draftFlow && typeof metadata.draftFlow === 'object'
+      ? metadata.draftFlow
+      : {};
+
+  return {
+    ...metadata,
+    draftFlow: {
+      ...draftFlow,
+      ...patch,
+    },
+  };
+}
+
+async function getCompletedOrderProjectIds(userId, projectIds = []) {
+  const client = requireStoryStorage();
+  const normalizedProjectIds = projectIds
+    .map((id) => parseStoryProjectId(id))
+    .filter(Boolean);
+
+  if (normalizedProjectIds.length === 0) {
+    return new Set();
+  }
+
+  const { data, error } = await client
+    .from('orders')
+    .select('project_id')
+    .eq('user_id', Number(userId))
+    .eq('status', 'completed')
+    .in('project_id', normalizedProjectIds);
+
+  if (error) {
+    console.warn('[STORY_PROJECTS] Could not join completed orders:', {
+      userId,
+      code: error.code,
+      message: error.message,
+    });
+    return new Set();
+  }
+
+  return new Set(
+    (data || [])
+      .map((order) => parseStoryProjectId(order.project_id))
+      .filter(Boolean)
+  );
+}
+
+function applyPaidOrderMarkers(records = [], paidProjectIds = new Set()) {
+  return records.map((record) => {
+    const isPaidByOrder = paidProjectIds.has(parseStoryProjectId(record?.id));
+    if (!isPaidByOrder) {
+      return record;
+    }
+
+    return {
+      ...record,
+      status: 'published',
+      is_paid: true,
+      photo_metadata: mergeStoryProjectDraftFlowMetadata(record, {
+        isPaid: true,
+        isActive: false,
+      }),
+    };
+  });
 }
 
 export function mapStoryContentRecord(record, totalPages = 0) {
@@ -262,8 +336,15 @@ export async function listStoryProjectsByUser(
       count: count || 0,
     });
 
+    const paidProjectIds = await getCompletedOrderProjectIds(
+      userId,
+      (data || []).map((record) => record.id)
+    );
+
     return {
-      projects: (data || []).map(mapStoryProjectRecord),
+      projects: applyPaidOrderMarkers(data || [], paidProjectIds).map(
+        mapStoryProjectRecord
+      ),
       total: count || 0,
     };
   } catch (err) {
@@ -359,7 +440,42 @@ export async function getStoryProjectById(userId, projectId) {
     throw wrapStoryProjectError('get project by id', error);
   }
 
-  return data ? mapStoryProjectRecord(data) : null;
+  if (!data) {
+    return null;
+  }
+
+  const paidProjectIds = await getCompletedOrderProjectIds(userId, [data.id]);
+  const [markedRecord] = applyPaidOrderMarkers([data], paidProjectIds);
+
+  return mapStoryProjectRecord(markedRecord);
+}
+
+export async function markStoryProjectPaid(
+  userId,
+  projectId,
+  { completedAt = new Date().toISOString(), publishedPdfUrl = undefined } = {}
+) {
+  const project = await getStoryProjectById(userId, projectId);
+
+  if (!project) {
+    return null;
+  }
+
+  return updateStoryProjectRecord(userId, projectId, {
+    status: 'published',
+    current_step: Math.max(Number(project.current_step || project.currentStep || 6), 6),
+    is_paid: true,
+    completed_at: completedAt,
+    ...(publishedPdfUrl !== undefined
+      ? { published_pdf_url: publishedPdfUrl }
+      : {}),
+    photo_metadata: mergeStoryProjectDraftFlowMetadata(project, {
+      isPaid: true,
+      paidAt: completedAt,
+      isActive: false,
+      lastSavedStep: 6,
+    }),
+  });
 }
 
 export async function createStoryProjectRecord(userId, payload) {

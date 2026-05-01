@@ -93,7 +93,7 @@ export async function GET(request, { params }) {
     let isUnlocked = Boolean(giftAccess);
 
     if (authUser?.id && Number(story.user_id) === Number(authUser.id)) {
-      if (story.status === 'published') {
+      if (story.status === 'published' || story.isPaid || story.is_paid) {
         isUnlocked = true;
       } else {
         const { data: paidOrder } = await supabaseClient

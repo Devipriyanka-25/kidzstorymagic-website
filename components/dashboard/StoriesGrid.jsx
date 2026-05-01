@@ -3,10 +3,12 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { getTheme } from '@/utils/themes';
-import { storyAPI } from '@/utils/api';
+import { paymentAPI, storyAPI } from '@/utils/api';
+import { getStoryId } from '@/utils/storyStatus';
 
 export default function StoriesGrid({ stories, onRefresh }) {
   const [deleting, setDeleting] = useState(null);
+  const [downloading, setDownloading] = useState(null);
 
   // Helper to format theme name
   const formatThemeName = (theme) => {
@@ -21,6 +23,47 @@ export default function StoriesGrid({ stories, onRefresh }) {
     }
     // Default gradient if theme not found
     return 'from-blue-400 to-purple-500';
+  };
+
+  const getPdfFilename = (story) => {
+    const title = story.title || `${story.child_name || story.childName || 'story'} story`;
+    const safeTitle = title
+      .replace(/[^a-z0-9-_ ]/gi, '')
+      .replace(/\s+/g, '_')
+      .slice(0, 80);
+
+    return `${safeTitle || 'story'}.pdf`;
+  };
+
+  const handleDownloadPDF = async (story) => {
+    const storyId = getStoryId(story);
+
+    if (!storyId) {
+      alert('Unable to download this story. Please refresh and try again.');
+      return;
+    }
+
+    try {
+      setDownloading(storyId);
+      const response = await paymentAPI.getPDF(storyId);
+      const blob = response.data;
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = getPdfFilename(story);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('Error downloading PDF:', error);
+      alert(
+        error.response?.data?.error ||
+          'Failed to download the unlocked PDF. Please try again.'
+      );
+    } finally {
+      setDownloading(null);
+    }
   };
 
   // Handle story deletion
@@ -131,26 +174,21 @@ export default function StoriesGrid({ stories, onRefresh }) {
 
             {/* Action Buttons */}
             <div className="flex gap-2">
-              {/* View/Download Button */}
-              {story.published_pdf_url ? (
-                <a
-                  href={story.published_pdf_url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex-1 py-2 px-3 bg-gradient-to-r from-blue-500 to-blue-600 text-white text-sm font-bold rounded-lg hover:from-blue-600 hover:to-blue-700 transition-all transform hover:scale-105 text-center flex items-center justify-center gap-1"
-                >
-                  <span>📥</span>
-                  <span>Download</span>
-                </a>
-              ) : (
-                <Link
-                  href={`/story/${story.id}`}
-                  className="flex-1 py-2 px-3 bg-gradient-to-r from-blue-500 to-blue-600 text-white text-sm font-bold rounded-lg hover:from-blue-600 hover:to-blue-700 transition-all transform hover:scale-105 text-center flex items-center justify-center gap-1"
-                >
-                  <span>👁️</span>
-                  <span>View</span>
-                </Link>
-              )}
+              <Link
+                href={`/story/preview/${story.id}`}
+                className="flex-1 py-2 px-3 bg-gradient-to-r from-blue-500 to-blue-600 text-white text-sm font-bold rounded-lg hover:from-blue-600 hover:to-blue-700 transition-all transform hover:scale-105 text-center flex items-center justify-center gap-1"
+              >
+                <span>View</span>
+              </Link>
+
+              <button
+                onClick={() => handleDownloadPDF(story)}
+                disabled={downloading === getStoryId(story)}
+                className="flex-1 py-2 px-3 bg-gradient-to-r from-green-500 to-emerald-600 text-white text-sm font-bold rounded-lg hover:from-green-600 hover:to-emerald-700 transition-all transform hover:scale-105 text-center flex items-center justify-center gap-1 disabled:cursor-not-allowed disabled:opacity-60"
+                title="Download unlocked PDF without preview watermark"
+              >
+                <span>{downloading === getStoryId(story) ? 'Downloading...' : 'PDF'}</span>
+              </button>
 
               {/* Edit Button */}
               <button

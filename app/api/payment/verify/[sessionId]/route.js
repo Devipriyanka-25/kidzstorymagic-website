@@ -3,6 +3,7 @@ import jwt from 'jsonwebtoken';
 import { supabaseClient } from '../../../shared/supabaseClient.js';
 import {
   getStoryProjectById,
+  markStoryProjectPaid,
   resolveAuthenticatedStoryUser,
 } from '../../../shared/storyProjects.js';
 import {
@@ -83,6 +84,7 @@ export async function GET(request, { params }) {
     let sessionMetadata = null;
     let sessionAmount = null;
     let sessionCurrency = null;
+    let sessionPaymentComplete = isMockSession;
     let sessionContact = {
       customerName: null,
       customerEmail: null,
@@ -93,6 +95,8 @@ export async function GET(request, { params }) {
 
     if (!isMockSession && stripe) {
       const session = await stripe.checkout.sessions.retrieve(sessionId);
+      sessionPaymentComplete =
+        session.payment_status === 'paid' || session.status === 'complete';
       sessionMetadata = session.metadata || null;
       sessionAmount = session.amount_total
         ? Number(session.amount_total) / 100
@@ -123,10 +127,10 @@ export async function GET(request, { params }) {
       );
     }
 
-    if (isMockSession) {
-      await updateStoryProjectRecord(authUser.id, resolvedProjectId, {
-        status: 'published',
-        completed_at: new Date().toISOString(),
+    if (sessionPaymentComplete) {
+      const completedAt = new Date().toISOString();
+      await markStoryProjectPaid(authUser.id, resolvedProjectId, {
+        completedAt,
       });
     }
 

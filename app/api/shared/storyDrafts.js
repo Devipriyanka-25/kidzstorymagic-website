@@ -174,6 +174,7 @@ export function buildDraftResponse(draft, pages = []) {
   const draftExpiresAt = getDraftExpiresAt(draft);
   const expired = new Date(draftExpiresAt).getTime() <= Date.now();
   const isGenerated = Boolean(flow.isGenerated || pages.length > 0);
+  const isPaid = Boolean(flow.isPaid || draft?.isPaid || draft?.is_paid);
 
   return {
     ...draft,
@@ -182,8 +183,8 @@ export function buildDraftResponse(draft, pages = []) {
     currentStep: clampWizardStep(draft?.current_step || draft?.currentStep || 1),
     isGenerated,
     is_generated: isGenerated,
-    isPaid: Boolean(flow.isPaid),
-    is_paid: Boolean(flow.isPaid),
+    isPaid,
+    is_paid: isPaid,
     generationStatus:
       flow.generationStatus || (isGenerated ? 'completed' : 'idle'),
     draftExpiresAt,
