@@ -628,6 +628,9 @@ export default function Step6ReviewCheckout() {
       : null;
   });
   const [isRestoringSavedPreview, setIsRestoringSavedPreview] = useState(false);
+  const [restoreFailed, setRestoreFailed] = useState(false);
+  const [restoreError, setRestoreError] = useState('');
+  const [restoreRetryCount, setRestoreRetryCount] = useState(0);
   const [pageGenerationStates, setPageGenerationStates] = useState({});
   const activeGenerationPageIndexRef = useRef(null);
   const [generationQueueVersion, setGenerationQueueVersion] = useState(0);
@@ -753,7 +756,7 @@ export default function Step6ReviewCheckout() {
   useEffect(() => {
     const projectId = String(formData.projectId || '').trim();
 
-    if (!projectId || storyPreview || isRestoringSavedPreview) {
+    if (!projectId || storyPreview || isRestoringSavedPreview || restoreFailed) {
       return;
     }
 
@@ -784,14 +787,44 @@ export default function Step6ReviewCheckout() {
     setPreviewEmailFeedback('');
     setPreviewEmailSentTo('');
 
+    const RESTORE_TIMEOUT_MS = 10000;
+    const abortController = new AbortController();
+    let timeoutHandle = null;
+
     const restoreSavedPreview = async () => {
       try {
-        const response = await storyAPI.getProject(projectId);
+        const timeoutPromise = new Promise((_, reject) => {
+          timeoutHandle = setTimeout(() => {
+            abortController.abort();
+            reject(new DOMException('Restore timed out', 'TimeoutError'));
+          }, RESTORE_TIMEOUT_MS);
+        });
+
+        const fetchPromise = storyAPI.getProject(projectId);
+        const response = await Promise.race([fetchPromise, timeoutPromise]);
+
+        clearTimeout(timeoutHandle);
+        timeoutHandle = null;
+
         const savedStory = response?.data?.story;
         const savedPages = Array.isArray(savedStory?.pages) ? savedStory.pages : [];
 
-        if (cancelled || savedPages.length === 0) {
+        if (cancelled) {
+          return;
+        }
+
+        if (savedPages.length === 0) {
+          console.warn('[PREVIEW_RESTORE_EMPTY]', {
+            projectId,
+            savedStory: savedStory ? { id: savedStory.id, theme: savedStory.theme } : null,
+          });
           completedPreviewRestoreProjectsRef.current.add(projectId);
+          if (!cancelled) {
+            setRestoreFailed(true);
+            setRestoreError(
+              "We couldn't reopen your saved preview. Please generate a fresh preview or go back and try again."
+            );
+          }
           return;
         }
 
@@ -832,19 +865,43 @@ export default function Step6ReviewCheckout() {
         }));
         useWizardStore.getState().saveDraft();
         completedPreviewRestoreProjectsRef.current.add(projectId);
-      } catch (restoreError) {
-        if (!cancelled) {
-          completedPreviewRestoreProjectsRef.current.add(projectId);
+      } catch (caughtRestoreError) {
+        clearTimeout(timeoutHandle);
+        timeoutHandle = null;
+
+        if (cancelled) {
+          return;
         }
 
-        console.warn('[PREVIEW_RESTORE_ERROR]', {
-          projectId,
-          message:
-            restoreError instanceof Error
-              ? restoreError.message
-              : String(restoreError),
-        });
+        const isTimeout =
+          caughtRestoreError instanceof DOMException &&
+          (caughtRestoreError.name === 'TimeoutError' ||
+            caughtRestoreError.name === 'AbortError');
+
+        if (isTimeout) {
+          console.warn('[PREVIEW_RESTORE_TIMEOUT]', {
+            projectId,
+            timeoutMs: RESTORE_TIMEOUT_MS,
+          });
+        } else {
+          console.warn('[PREVIEW_RESTORE_ERROR]', {
+            projectId,
+            message:
+              caughtRestoreError instanceof Error
+                ? caughtRestoreError.message
+                : String(caughtRestoreError),
+          });
+        }
+
+        completedPreviewRestoreProjectsRef.current.add(projectId);
+        setRestoreFailed(true);
+        setRestoreError(
+          "We couldn't reopen your saved preview. Please generate a fresh preview or go back and try again."
+        );
       } finally {
+        if (timeoutHandle !== null) {
+          clearTimeout(timeoutHandle);
+        }
         if (activePreviewRestoreProjectIdRef.current === projectId) {
           activePreviewRestoreProjectIdRef.current = null;
         }
@@ -859,6 +916,8 @@ export default function Step6ReviewCheckout() {
 
     return () => {
       cancelled = true;
+      clearTimeout(timeoutHandle);
+      abortController.abort();
       if (activePreviewRestoreProjectIdRef.current === projectId) {
         activePreviewRestoreProjectIdRef.current = null;
       }
@@ -877,6 +936,8 @@ export default function Step6ReviewCheckout() {
     formData.theme,
     formData.ageGroup,
     isRestoringSavedPreview,
+    restoreFailed,
+    restoreRetryCount,
     shouldGateIllustrations,
     storyPreview,
   ]);
@@ -1138,7 +1199,7 @@ export default function Step6ReviewCheckout() {
     : 0;
   const currentQuote = PREVIEW_QUOTES[quoteIndex % PREVIEW_QUOTES.length];
   const showPreviewPreparationScreen =
-    ((loading || isRestoringSavedPreview) && !storyPreview) ||
+    ((loading || isRestoringSavedPreview || (restoreFailed && !storyPreview)) && !storyPreview) ||
     isPreparingInitialPreview;
   const previewEmailRecipient = useMemo(() => {
     const candidate = formData.parentEmail || authUser?.email || '';
@@ -1258,6 +1319,35 @@ export default function Step6ReviewCheckout() {
     setStoryPreview((currentPages) =>
       Array.isArray(currentPages) ? [...currentPages] : currentPages
     );
+  };
+
+  const handleTryAgainRestore = () => {
+    const projectId = String(formData.projectId || '').trim();
+    console.warn('[PREVIEW_RESTORE_RECOVERY]', {
+      action: 'try_again',
+      projectId,
+      retryCount: restoreRetryCount + 1,
+    });
+    completedPreviewRestoreProjectsRef.current.delete(projectId);
+    activePreviewRestoreProjectIdRef.current = null;
+    setRestoreFailed(false);
+    setRestoreError('');
+    setIsRestoringSavedPreview(false);
+    setRestoreRetryCount((count) => count + 1);
+  };
+
+  const handleStartFreshPreview = () => {
+    const projectId = String(formData.projectId || '').trim();
+    console.warn('[PREVIEW_RESTORE_RECOVERY]', {
+      action: 'start_fresh',
+      projectId,
+    });
+    completedPreviewRestoreProjectsRef.current.add(projectId);
+    activePreviewRestoreProjectIdRef.current = null;
+    setRestoreFailed(false);
+    setRestoreError('');
+    setIsRestoringSavedPreview(false);
+    handleGenerateStory();
   };
 
   const handleIllustrationReady = (pageIndex, imageUrl) => {
@@ -1906,39 +1996,43 @@ export default function Step6ReviewCheckout() {
               </div>
             </div>
 
-            <div className="mt-10 flex flex-col items-center">
-              <div
-                className="relative flex h-28 w-28 items-center justify-center rounded-full"
-                style={{
-                  background: `conic-gradient(${currentTheme.primary} ${
-                    Math.max(8, Math.min(100, previewPrepProgress)) * 3.6
-                  }deg, rgba(148,163,184,0.18) 0deg)`,
-                }}
-              >
-                <div className="flex h-20 w-20 items-center justify-center rounded-full bg-white text-2xl font-bold text-slate-700">
-                  {Math.max(8, Math.min(100, Math.round(previewPrepProgress)))}%
+            {!restoreFailed && (
+              <div className="mt-10 flex flex-col items-center">
+                <div
+                  className="relative flex h-28 w-28 items-center justify-center rounded-full"
+                  style={{
+                    background: `conic-gradient(${currentTheme.primary} ${
+                      Math.max(8, Math.min(100, previewPrepProgress)) * 3.6
+                    }deg, rgba(148,163,184,0.18) 0deg)`,
+                  }}
+                >
+                  <div className="flex h-20 w-20 items-center justify-center rounded-full bg-white text-2xl font-bold text-slate-700">
+                    {Math.max(8, Math.min(100, Math.round(previewPrepProgress)))}%
+                  </div>
                 </div>
+
+                <p className="mt-8 text-2xl font-semibold text-slate-800">
+                  {previewPrepTitle}
+                </p>
+                <p className="mt-3 max-w-xl text-center text-base leading-7 text-slate-600">
+                  {pageGenerationStates[firstIllustratedPageIndex]?.status === 'error'
+                    ? pageGenerationStates[firstIllustratedPageIndex]?.message ||
+                      'The first preview page could not be generated right now.'
+                    : previewPrepDetail}
+                </p>
               </div>
+            )}
 
-              <p className="mt-8 text-2xl font-semibold text-slate-800">
-                {previewPrepTitle}
-              </p>
-              <p className="mt-3 max-w-xl text-center text-base leading-7 text-slate-600">
-                {pageGenerationStates[firstIllustratedPageIndex]?.status === 'error'
-                  ? pageGenerationStates[firstIllustratedPageIndex]?.message ||
-                    'The first preview page could not be generated right now.'
-                  : previewPrepDetail}
-              </p>
-            </div>
-
-            <div className="mx-auto mt-10 max-w-md rounded-[28px] bg-slate-900 px-6 py-8 text-center text-white shadow-xl">
-              <p className="text-xl font-semibold italic leading-9">
-                &ldquo;{currentQuote.quote}&rdquo;
-              </p>
-              <p className="mt-4 text-base font-bold text-amber-300">
-                {currentQuote.author}
-              </p>
-            </div>
+            {!restoreFailed && (
+              <div className="mx-auto mt-10 max-w-md rounded-[28px] bg-slate-900 px-6 py-8 text-center text-white shadow-xl">
+                <p className="text-xl font-semibold italic leading-9">
+                  &ldquo;{currentQuote.quote}&rdquo;
+                </p>
+                <p className="mt-4 text-base font-bold text-amber-300">
+                  {currentQuote.author}
+                </p>
+              </div>
+            )}
 
             {pageGenerationStates[firstIllustratedPageIndex]?.status === 'error' && (
               <div className="mt-8 flex flex-wrap justify-center gap-3">
@@ -1949,6 +2043,40 @@ export default function Step6ReviewCheckout() {
                 >
                   Retry First Page
                 </button>
+              </div>
+            )}
+
+            {restoreFailed && !storyPreview && (
+              <div className="mx-auto mt-8 max-w-md rounded-[24px] border border-amber-200 bg-amber-50 px-6 py-6 text-center shadow-sm">
+                <p className="text-base font-semibold text-slate-800">
+                  {restoreError ||
+                    "We couldn't reopen your saved preview. Please generate a fresh preview or go back and try again."}
+                </p>
+                <div className="mt-5 flex flex-wrap justify-center gap-3">
+                  {restoreRetryCount < 1 && (
+                    <button
+                      type="button"
+                      onClick={handleTryAgainRestore}
+                      className="rounded-full border-2 border-slate-800 px-5 py-2.5 font-bold text-slate-800 transition hover:bg-slate-100"
+                    >
+                      Try Again
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={handleStartFreshPreview}
+                    className="rounded-full bg-blue-600 px-5 py-2.5 font-bold text-white transition hover:bg-blue-700"
+                  >
+                    Start Fresh Preview
+                  </button>
+                  <button
+                    type="button"
+                    onClick={prevStep}
+                    className="rounded-full border-2 border-slate-400 px-5 py-2.5 font-bold text-slate-600 transition hover:bg-slate-100"
+                  >
+                    Go Back
+                  </button>
+                </div>
               </div>
             )}
 
