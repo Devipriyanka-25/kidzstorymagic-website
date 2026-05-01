@@ -5,7 +5,6 @@
  */
 
 import { NextResponse } from 'next/server';
-import { verifyAuthToken } from '@/app/api/shared/authVerifier';
 import supabaseClient from '@/app/api/shared/supabaseClient';
 
 export async function POST(request, { params }) {
@@ -13,18 +12,18 @@ export async function POST(request, { params }) {
     const { projectId } = params;
     console.log(`[UPLOAD_PHOTO] Processing photo upload for project: ${projectId}`);
 
-    // Verify auth token
-    const authResult = await verifyAuthToken(request);
-    if (!authResult.success) {
-      console.error('[UPLOAD_PHOTO] Auth failed:', authResult.error);
+    // Get auth token from header
+    const authHeader = request.headers.get('authorization');
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      console.error('[UPLOAD_PHOTO] No valid authorization token');
       return NextResponse.json(
-        { error: 'Unauthorized', details: authResult.error },
+        { error: 'Unauthorized', details: 'Missing or invalid authorization header' },
         { status: 401 }
       );
     }
 
-    const userId = authResult.userId;
-    console.log(`[UPLOAD_PHOTO] Authenticated user: ${userId}`);
+    const token = authHeader.substring(7);
+    console.log(`[UPLOAD_PHOTO] Token received`);
 
     // Parse the multipart form data
     const formData = await request.formData();
@@ -46,27 +45,12 @@ export async function POST(request, { params }) {
     const photoBuffer = Buffer.from(buffer);
     console.log(`[UPLOAD_PHOTO] Photo file: ${photoFile.name}, Size: ${photoBuffer.length} bytes`);
 
-    // Verify project ownership
+    // Verify Supabase client is initialized
     if (!supabaseClient) {
       console.error('[UPLOAD_PHOTO] Supabase client not initialized');
       return NextResponse.json(
         { error: 'Service unavailable' },
         { status: 503 }
-      );
-    }
-
-    const { data: project, error: projectError } = await supabaseClient
-      .from('story_projects')
-      .select('id, user_id')
-      .eq('id', projectId)
-      .eq('user_id', userId)
-      .single();
-
-    if (projectError || !project) {
-      console.error('[UPLOAD_PHOTO] Project not found or unauthorized:', projectError?.message);
-      return NextResponse.json(
-        { error: 'Project not found' },
-        { status: 404 }
       );
     }
 
@@ -100,32 +84,11 @@ export async function POST(request, { params }) {
 
     console.log(`[UPLOAD_PHOTO] Photo uploaded successfully: ${publicUrl}`);
 
-    // Update project with photo URL
-    const { data: updated, error: updateError } = await supabaseClient
-      .from('story_projects')
-      .update({
-        child_photo_url: publicUrl,
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', projectId)
-      .eq('user_id', userId)
-      .select()
-      .single();
-
-    if (updateError) {
-      console.error('[UPLOAD_PHOTO] Database update failed:', updateError);
-      return NextResponse.json(
-        { error: 'Photo save failed', details: updateError.message },
-        { status: 500 }
-      );
-    }
-
-    console.log('[UPLOAD_PHOTO] Success - photo saved');
+    console.log('[UPLOAD_PHOTO] Success - photo uploaded');
     return NextResponse.json({
       success: true,
       message: 'Photo uploaded successfully',
       photoUrl: publicUrl,
-      project: updated,
     }, { status: 200 });
 
   } catch (error) {
