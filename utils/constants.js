@@ -127,7 +127,8 @@ export const STORAGE_KEYS = {
   USER: 'user',
   CURRENCY: 'selectedCurrency',
   THEME: 'appTheme',
-  WIZARD_FORM: 'wizardFormData'
+  WIZARD_FORM: 'wizardFormData',
+  WIZARD_DRAFT: 'wizardDraft'
 };
 
 // Form Validation Rules

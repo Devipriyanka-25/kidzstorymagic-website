@@ -2,22 +2,47 @@
 import { create } from 'zustand';
 import { authAPI, getAuthToken } from './api';
 import { DEFAULT_EXCHANGE_RATES } from './pricing';
+import { STORAGE_KEYS } from './constants';
 
 function buildDraftSafeFormData(formData = {}) {
   const {
     photo,
     uploadedPhoto,
     uploadedImages,
+    storyPreview,
     ...rest
   } = formData;
+
+  // Preserve image previews for face swap (strip file objects to reduce storage)
+  const previewImages = Array.isArray(uploadedImages)
+    ? uploadedImages.map(img => ({
+        preview: img?.preview || img?.data || null,
+        illustrationReference: img?.illustrationReference || null
+      })).filter(img => img.preview)
+    : [];
+
+  // Preserve story preview to avoid regeneration on return from payment
+  const savedPreview = Array.isArray(storyPreview)
+    ? storyPreview.map(page => ({
+        title: page?.title,
+        text: page?.text,
+        page_text: page?.page_text,
+        pageType: page?.pageType,
+        pageNumber: page?.pageNumber,
+        illustrationPrompt: page?.illustrationPrompt,
+        illustrationUrl: page?.illustrationUrl,
+        faceSwappedUrl: page?.faceSwappedUrl,
+      }))
+    : null;
 
   return {
     ...rest,
     photo: null,
     uploadedPhoto: null,
-    uploadedImages: [],
+    uploadedImages: previewImages,
     uploadedImagesCount: Array.isArray(uploadedImages) ? uploadedImages.length : 0,
     needsPhotoReupload: Array.isArray(uploadedImages) && uploadedImages.length > 0,
+    storyPreview: savedPreview,
   };
 }
 
@@ -28,7 +53,7 @@ function persistWizardDraft(step, formData) {
 
   try {
     localStorage.setItem(
-      'wizardDraft',
+      STORAGE_KEYS.WIZARD_DRAFT,
       JSON.stringify({
         step,
         formData: buildDraftSafeFormData(formData),
@@ -183,9 +208,12 @@ export const useWizardStore = create((set, get) => ({
     illustrationStyle: '',
     pageCount: 10,
     childName: '',
+    childAge: '',
     childGender: '',
     childInterests: '',
     childNotes: '',
+    parentConsent: false,
+    parentEmail: '',
     photo: null,
     projectId: null,
     uploadedPhoto: null,
@@ -238,7 +266,7 @@ export const useWizardStore = create((set, get) => ({
   loadDraft: () => {
     if (typeof window !== 'undefined') {
       try {
-        const draft = localStorage.getItem('wizardDraft');
+        const draft = localStorage.getItem(STORAGE_KEYS.WIZARD_DRAFT);
         if (draft) {
           const { step, formData } = JSON.parse(draft);
           set({
@@ -247,7 +275,9 @@ export const useWizardStore = create((set, get) => ({
               ...formData,
               photo: null,
               uploadedPhoto: null,
-              uploadedImages: [],
+              uploadedImages: Array.isArray(formData?.uploadedImages)
+                ? formData.uploadedImages
+                : [],
             },
           });
           console.log('[DRAFT] Loaded draft at step:', step);
@@ -271,7 +301,7 @@ export const useWizardStore = create((set, get) => ({
   clearDraft: () => {
     if (typeof window !== 'undefined') {
       try {
-        localStorage.removeItem('wizardDraft');
+        localStorage.removeItem(STORAGE_KEYS.WIZARD_DRAFT);
         console.log('[DRAFT] Draft cleared');
       } catch (err) {
         console.error('[DRAFT] Failed to clear draft:', err);

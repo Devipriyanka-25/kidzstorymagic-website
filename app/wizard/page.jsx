@@ -52,6 +52,20 @@ const steps = [
   { id: 6, title: 'Review & Checkout', component: Step6ReviewCheckout },
 ];
 
+function resolveRequestedWizardStep(value) {
+  const requestedStep = Number(value);
+
+  if (!Number.isInteger(requestedStep)) {
+    return null;
+  }
+
+  if (requestedStep < 1 || requestedStep > steps.length) {
+    return null;
+  }
+
+  return requestedStep;
+}
+
 export default function WizardPage() {
   const searchParams = useSearchParams();
   const { step: currentStep, loadDraft, clearDraft, resetWizard, formData, updateFormData } = useWizardStore();
@@ -110,10 +124,66 @@ export default function WizardPage() {
   useEffect(() => {
     // Check for existing draft on mount
     if (typeof window !== 'undefined') {
+      const requestedStep = resolveRequestedWizardStep(searchParams.get('step'));
+      const requestedProjectId =
+        searchParams.get('projectId')?.trim() ||
+        searchParams.get('project_id')?.trim() ||
+        '';
+      const resumeSource = searchParams.get('resume')?.trim() || '';
+      const shouldAutoResumeFromCheckout =
+        resumeSource === 'checkout' ||
+        Boolean(requestedProjectId && requestedStep === 6);
+
       try {
         const draft = localStorage.getItem('wizardDraft');
-        if (draft) {
-          const { step } = JSON.parse(draft);
+        const parsedDraft = draft ? JSON.parse(draft) : null;
+
+        if (shouldAutoResumeFromCheckout) {
+          const draftProjectId = String(
+            parsedDraft?.formData?.projectId || ''
+          ).trim();
+          const shouldLoadSavedDraft =
+            Boolean(parsedDraft) &&
+            (!requestedProjectId ||
+              !draftProjectId ||
+              draftProjectId === requestedProjectId);
+
+          if (shouldLoadSavedDraft) {
+            loadDraft();
+          } else {
+            useWizardStore.setState((state) => ({
+              step: requestedStep || 6,
+              formData: {
+                ...state.formData,
+                projectId: requestedProjectId || state.formData.projectId || null,
+                storyPreview:
+                  requestedProjectId &&
+                  String(state.formData.projectId || '').trim() !==
+                    requestedProjectId
+                    ? null
+                    : state.formData.storyPreview || null,
+              },
+            }));
+          }
+
+          if (requestedProjectId) {
+            useWizardStore.setState((state) => ({
+              formData: {
+                ...state.formData,
+                projectId: requestedProjectId,
+              },
+            }));
+          }
+
+          useWizardStore.getState().setStep(requestedStep || 6);
+          applyQueryPrefill();
+          setShowDraftPrompt(false);
+          setShowAgeGateModal(false);
+          return;
+        }
+
+        if (parsedDraft) {
+          const { step } = parsedDraft;
           setDraftStep(step);
           setShowDraftPrompt(true);
         } else {
@@ -129,7 +199,7 @@ export default function WizardPage() {
         setShowAgeGateModal(true);
       }
     }
-  }, [resetWizard, searchParams]);
+  }, [loadDraft, resetWizard, searchParams]);
 
   const handleResumeDraft = () => {
     loadDraft();
@@ -140,15 +210,18 @@ export default function WizardPage() {
     console.log('[WIZARD] Age Gate Data:', ageData);
     setSelectedAge(ageData.age);
     setShowAgeGateModal(false);
+    
+    // Store the verified age in formData for use by downstream steps
+    updateFormData('childAge', String(ageData.age));
 
     // Route based on age
-    if (ageData.age < 12) {
-      // Show child safety verification for users under 12
-      console.log('[WIZARD] Age < 12, showing child safety verification');
+    if (ageData.age < 13) {
+      // Show child safety verification for users under 13
+      console.log('[WIZARD] Age < 13, showing child safety verification');
       setShowSafetyModal(true);
     } else {
-      // Show adult user form for users 12+
-      console.log('[WIZARD] Age >= 12, showing adult user form');
+      // Show adult user form for users 13+
+      console.log('[WIZARD] Age >= 13, showing adult user form');
       setShowAdultFormModal(true);
     }
   };

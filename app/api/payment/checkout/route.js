@@ -6,12 +6,46 @@
 
 import { NextResponse } from 'next/server';
 import { getConvertedStoryPrice, normalizeStoryPageCount } from '@/utils/pricing';
-import { resolveAuthenticatedStoryUser } from '../../shared/storyProjects.js';
 const jwt = require('jsonwebtoken');
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
+
+const STRIPE_ALLOWED_SHIPPING_COUNTRIES = [
+  'US',
+  'CA',
+  'GB',
+  'AU',
+  'IN',
+  'AT',
+  'BE',
+  'BG',
+  'HR',
+  'CY',
+  'CZ',
+  'DK',
+  'EE',
+  'FI',
+  'FR',
+  'DE',
+  'GR',
+  'HU',
+  'IE',
+  'IT',
+  'LV',
+  'LT',
+  'LU',
+  'MT',
+  'NL',
+  'PL',
+  'PT',
+  'RO',
+  'SK',
+  'SI',
+  'ES',
+  'SE',
+];
 
 function normalizeBaseUrl(baseUrl = '') {
   return String(baseUrl || '').trim().replace(/\/$/, '');
@@ -47,6 +81,13 @@ function resolveAppBaseUrl(request) {
   return 'http://localhost:3001';
 }
 
+function isIndiaCheckout(country, currency) {
+  return (
+    String(country || '').trim().toLowerCase() === 'india' ||
+    String(currency || '').trim().toUpperCase() === 'INR'
+  );
+}
+
 export async function POST(request) {
   try {
     const appBaseUrl = resolveAppBaseUrl(request);
@@ -77,13 +118,20 @@ export async function POST(request) {
       );
     }
 
-    const authUser = await resolveAuthenticatedStoryUser(decoded);
-    if (!authUser?.id) {
+    // Trust the JWT token directly - it has been cryptographically verified
+    if (!decoded?.id) {
       return NextResponse.json(
-        { error: 'Authenticated user could not be resolved.' },
+        { error: 'Invalid token: missing user ID' },
         { status: 401 }
       );
     }
+
+    // Create an authUser object from the decoded JWT
+    const authUser = {
+      id: decoded.id,
+      email: decoded.email,
+      name: decoded.name || decoded.email,
+    };
 
     const body = await request.json();
     const {
@@ -173,8 +221,7 @@ export async function POST(request) {
 
       console.log('[CHECKOUT] Creating Stripe checkout session...');
 
-      const session = await stripe.checkout.sessions.create({
-        payment_method_types: ['card'],
+      const baseSessionConfig = {
         line_items: [
           {
             price_data: {
@@ -192,8 +239,16 @@ export async function POST(request) {
           },
         ],
         mode: 'payment',
+        billing_address_collection: 'required',
+        shipping_address_collection: {
+          allowed_countries: STRIPE_ALLOWED_SHIPPING_COUNTRIES,
+        },
+        phone_number_collection: {
+          enabled: true,
+        },
+        customer_email: authUser.email || decoded.email || undefined,
         success_url: `${appBaseUrl}/success?session_id={CHECKOUT_SESSION_ID}&project_id=${encodeURIComponent(projectId)}`,
-        cancel_url: `${appBaseUrl}/wizard?step=6`,
+        cancel_url: `${appBaseUrl}/wizard?step=6&resume=checkout&projectId=${encodeURIComponent(projectId)}`,
         metadata: {
           projectId: projectId,
           userId: String(authUser.id),
@@ -210,7 +265,26 @@ export async function POST(request) {
           giftRecipientEmail: giftData?.recipientEmail || '',
           giftMessage: String(giftData?.giftMessage || '').slice(0, 250),
         },
-      });
+      };
+      const indiaCheckout = isIndiaCheckout(country, normalizedCurrency);
+      let session;
+
+      try {
+        session = await stripe.checkout.sessions.create({
+          ...baseSessionConfig,
+          payment_method_types: indiaCheckout ? ['card', 'upi'] : ['card'],
+        });
+      } catch (sessionCreationError) {
+        if (!indiaCheckout) {
+          throw sessionCreationError;
+        }
+
+        console.warn(
+          '[CHECKOUT] Explicit UPI session failed, retrying with Stripe dynamic payment methods:',
+          sessionCreationError.message
+        );
+        session = await stripe.checkout.sessions.create(baseSessionConfig);
+      }
 
       console.log('[CHECKOUT] ✅ Stripe session created:', session.id);
 

@@ -29,6 +29,7 @@ const isIllustratedStoryPage = (page) => page?.pageType === 'story';
 const PREVIEW_SUPPORT_EMAIL = 'support@kidzstorymagic.com';
 const PREVIEW_POLL_INTERVAL_MS = 3000;
 const PREVIEW_FIRST_PAGE_TIMEOUT_MS = 45000;
+const MAX_POLL_RETRIES = 8;
 const FREE_PREVIEW_PAGE_LIMIT = 3;
 const PREVIEW_QUOTES = [
   {
@@ -64,6 +65,77 @@ const buildInitialPageGenerationStates = (
     };
     return states;
   }, {});
+
+function normalizeStoryPreviewPages(pages = [], cachedPages = []) {
+  const totalPages = Array.isArray(pages) ? pages.length : 0;
+  const cachedPagesByNumber = new Map(
+    (Array.isArray(cachedPages) ? cachedPages : [])
+      .map((page, index) => {
+        const pageNumber = Number(page?.pageNumber || page?.page_number || index + 1);
+        return pageNumber > 0 ? [pageNumber, page] : null;
+      })
+      .filter(Boolean)
+  );
+
+  return (Array.isArray(pages) ? pages : []).map((page, index) => {
+    const pageNumber = Number(page?.pageNumber || page?.page_number || index + 1) || index + 1;
+    const cachedPage = cachedPagesByNumber.get(pageNumber) || cachedPages[index] || null;
+    const illustrationUrl =
+      page?.illustrationUrl ||
+      page?.image_url ||
+      page?.image ||
+      cachedPage?.illustrationUrl ||
+      cachedPage?.image_url ||
+      cachedPage?.image ||
+      null;
+    const faceSwappedUrl =
+      cachedPage?.faceSwappedUrl ||
+      page?.faceSwappedUrl ||
+      null;
+
+    return {
+      ...page,
+      pageNumber,
+      page_number: pageNumber,
+      pageType:
+        page?.pageType ||
+        (pageNumber === 1
+          ? 'cover'
+          : totalPages > 0 && pageNumber === totalPages
+            ? 'end'
+            : 'story'),
+      title: page?.title || page?.page_title || `Page ${pageNumber}`,
+      page_title: page?.page_title || page?.title || `Page ${pageNumber}`,
+      text: page?.text || page?.page_text || page?.content || '',
+      page_text: page?.page_text || page?.text || page?.content || '',
+      content: page?.content || page?.page_text || page?.text || '',
+      illustrationPrompt:
+        page?.illustrationPrompt ||
+        page?.page_illustration_prompt ||
+        cachedPage?.illustrationPrompt ||
+        cachedPage?.page_illustration_prompt ||
+        null,
+      page_illustration_prompt:
+        page?.page_illustration_prompt ||
+        page?.illustrationPrompt ||
+        cachedPage?.page_illustration_prompt ||
+        cachedPage?.illustrationPrompt ||
+        null,
+      illustrationUrl,
+      image_url:
+        page?.image_url ||
+        page?.illustrationUrl ||
+        page?.image ||
+        illustrationUrl,
+      image:
+        page?.image ||
+        page?.illustrationUrl ||
+        page?.image_url ||
+        illustrationUrl,
+      faceSwappedUrl,
+    };
+  });
+}
 
 function waitForDelay(ms, signal) {
   return new Promise((resolve, reject) => {
@@ -258,10 +330,13 @@ async function pollStoryPageIllustration(
   } = {}
 ) {
   const startedAt = Date.now();
+  let consecutiveRateLimitErrors = 0;
+  let currentPollIntervalMs = PREVIEW_POLL_INTERVAL_MS;
 
-  for (let attempt = 0; ; attempt += 1) {
+  for (let attempt = 0; attempt < MAX_POLL_RETRIES; attempt += 1) {
     if (attempt > 0) {
-      await waitForDelay(PREVIEW_POLL_INTERVAL_MS, signal);
+      // Use adaptive polling interval based on rate limiting
+      await waitForDelay(currentPollIntervalMs, signal);
     }
 
     const elapsedMs = Date.now() - startedAt;
@@ -271,6 +346,7 @@ async function pollStoryPageIllustration(
         predictionId,
         elapsedMs,
         timeoutMs,
+        attempts: attempt,
       });
       return createTimedFallbackIllustration({
         prompt: fallbackPrompt,
@@ -290,6 +366,10 @@ async function pollStoryPageIllustration(
       );
       const payload = await readIllustrationApiPayload(response);
 
+      // Reset rate limit counter on successful response
+      consecutiveRateLimitErrors = 0;
+      currentPollIntervalMs = PREVIEW_POLL_INTERVAL_MS;
+
       if (!response.ok) {
         // If it's a fallback response due to billing error, use the fallback image
         if (
@@ -305,6 +385,26 @@ async function pollStoryPageIllustration(
           return payload.imageUrl;
         }
 
+        // Check for rate limiting (429)
+        if (response.status === 429) {
+          consecutiveRateLimitErrors += 1;
+          // Increase poll interval exponentially on rate limit (max 15 seconds)
+          currentPollIntervalMs = Math.min(
+            PREVIEW_POLL_INTERVAL_MS * Math.pow(1.5, consecutiveRateLimitErrors),
+            15000
+          );
+          
+          console.warn('[POLL_ILLUSTRATION_RATE_LIMITED]', {
+            predictionId,
+            attempt,
+            consecutiveErrors: consecutiveRateLimitErrors,
+            nextPollMs: currentPollIntervalMs,
+          });
+          
+          // Continue polling with increased interval instead of failing
+          continue;
+        }
+
         throw new Error(getIllustrationApiErrorMessage(response, payload));
       }
 
@@ -318,6 +418,7 @@ async function pollStoryPageIllustration(
           predictionId,
           attempt,
           elapsedMs,
+          rateLimitErrors: consecutiveRateLimitErrors,
         });
         return payload.imageUrl;
       }
@@ -337,10 +438,11 @@ async function pollStoryPageIllustration(
         predictionId,
         attempt,
         message: pollError instanceof Error ? pollError.message : String(pollError),
+        rateLimitErrors: consecutiveRateLimitErrors,
       });
 
-      // If we have a fallback prompt and still time left, continue polling
-      if (elapsedMs < timeoutMs) {
+      // If we have more retries left, continue
+      if (attempt < MAX_POLL_RETRIES - 1 && elapsedMs < timeoutMs) {
         continue;
       }
 
@@ -351,6 +453,7 @@ async function pollStoryPageIllustration(
           predictionId,
           elapsedMs,
           timeoutMs,
+          attempts: attempt,
         });
         return createTimedFallbackIllustration({
           prompt: fallbackPrompt,
@@ -363,8 +466,23 @@ async function pollStoryPageIllustration(
       throw pollError;
     }
   }
-}
 
+  // Max retries exceeded
+  if (fallbackPrompt) {
+    await cancelStoryPageIllustration(predictionId, signal);
+    console.log('[POLL_ILLUSTRATION_MAX_RETRIES]', {
+      predictionId,
+      maxRetries: MAX_POLL_RETRIES,
+    });
+    return createTimedFallbackIllustration({
+      prompt: fallbackPrompt,
+      bookThemeValue,
+      subjectImage,
+    });
+  }
+
+  throw new Error(`Failed to generate illustration after ${MAX_POLL_RETRIES} attempts. Please try again.`);
+}
 async function createStoryPageIllustration({
   prompt,
   subjectImage,
@@ -372,6 +490,7 @@ async function createStoryPageIllustration({
   bookThemeValue,
   signal,
   onPending,
+  onFaceSwapRequested,
   timeoutMs,
 }) {
   const preparedReferenceImages = await prepareReferenceImagesForGeneration(
@@ -400,24 +519,97 @@ async function createStoryPageIllustration({
   }
 
   if (typeof payload?.imageUrl === 'string' && payload.imageUrl) {
+    onFaceSwapRequested?.({
+      faceImageUrl: preparedSubjectImage,
+      illustrationImageUrl: payload.imageUrl,
+    });
     return payload.imageUrl;
   }
 
   if (payload?.pending && typeof payload?.predictionId === 'string') {
     onPending?.(payload);
-    return pollStoryPageIllustration(payload.predictionId, signal, onPending, {
-      fallbackPrompt: prompt,
-      bookThemeValue,
-      subjectImage: preparedSubjectImage,
-      timeoutMs,
+    const generatedIllustrationUrl = await pollStoryPageIllustration(
+      payload.predictionId,
+      signal,
+      onPending,
+      {
+        fallbackPrompt: prompt,
+        bookThemeValue,
+        subjectImage: preparedSubjectImage,
+        timeoutMs,
+      }
+    );
+
+    onFaceSwapRequested?.({
+      faceImageUrl: preparedSubjectImage,
+      illustrationImageUrl: generatedIllustrationUrl,
     });
+    return generatedIllustrationUrl;
   }
 
   throw new Error('Illustration generation completed without an image.');
 }
 
+async function applyOptionalFaceSwap({
+  faceImageUrl,
+  illustrationImageUrl,
+  signal,
+}) {
+  if (
+    !faceImageUrl ||
+    !illustrationImageUrl ||
+    illustrationImageUrl.startsWith('data:image/svg+xml')
+  ) {
+    return illustrationImageUrl;
+  }
+
+  try {
+    const response = await fetch('/api/photos/face-swap', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      signal,
+      body: JSON.stringify({
+        faceImageUrl,
+        illustrationImageUrl,
+      }),
+    });
+    const payload = await response.json().catch(() => null);
+
+    if (!response.ok) {
+      console.warn('[FACE_SWAP_PREVIEW_FALLBACK]', {
+        status: response.status,
+        error: payload?.error || payload?.message || 'Face swap unavailable',
+      });
+      return illustrationImageUrl;
+    }
+
+    return (
+      payload?.swappedUrl ||
+      payload?.result?.swappedImageUrl ||
+      illustrationImageUrl
+    );
+  } catch (faceSwapError) {
+    if (
+      faceSwapError instanceof DOMException &&
+      faceSwapError.name === 'AbortError'
+    ) {
+      throw faceSwapError;
+    }
+
+    console.warn('[FACE_SWAP_PREVIEW_ERROR]', {
+      message:
+        faceSwapError instanceof Error
+          ? faceSwapError.message
+          : String(faceSwapError),
+    });
+    return illustrationImageUrl;
+  }
+}
+
 export default function Step6ReviewCheckout() {
-  const { formData, prevStep } = useWizardStore();
+  const { formData, prevStep, updateFormData } = useWizardStore();
   const {
     selectedCountry = 'United States',
     selectedCurrency = 'USD',
@@ -429,7 +621,13 @@ export default function Step6ReviewCheckout() {
   const { currentLanguage } = useLanguage();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [storyPreview, setStoryPreview] = useState(null);
+  // Initialize from saved preview if it exists, otherwise null
+  const [storyPreview, setStoryPreview] = useState(() => {
+    return formData?.storyPreview && Array.isArray(formData.storyPreview) 
+      ? normalizeStoryPreviewPages(formData.storyPreview)
+      : null;
+  });
+  const [isRestoringSavedPreview, setIsRestoringSavedPreview] = useState(false);
   const [pageGenerationStates, setPageGenerationStates] = useState({});
   const activeGenerationPageIndexRef = useRef(null);
   const [generationQueueVersion, setGenerationQueueVersion] = useState(0);
@@ -446,6 +644,12 @@ export default function Step6ReviewCheckout() {
   const [previewEmailFeedback, setPreviewEmailFeedback] = useState('');
   const [previewEmailSentTo, setPreviewEmailSentTo] = useState('');
   const [quoteIndex, setQuoteIndex] = useState(0);
+  const isMountedRef = useRef(true);
+  const generationSessionRef = useRef(0);
+  const completedPreviewRestoreProjectsRef = useRef(new Set());
+  const activePreviewRestoreProjectIdRef = useRef(null);
+  const pendingFaceSwapQueueRef = useRef([]);
+  const activeFaceSwapTaskRef = useRef(null);
   const [giftData, setGiftData] = useState({
     isGift: false,
     recipientName: '',
@@ -473,7 +677,7 @@ export default function Step6ReviewCheckout() {
 
   const currentTheme = getActiveTheme();
   const selectedThemeLabel = getBookThemeLabel(formData.theme);
-  const preferredStoryReferenceImage = useMemo(() => {
+  const primaryStoryReferenceImage = useMemo(() => {
     if (selectedFaceReferenceImage) {
       return String(selectedFaceReferenceImage || '').trim();
     }
@@ -500,12 +704,208 @@ export default function Step6ReviewCheckout() {
     formData.uploadedPhoto?.watermarkedUrl,
     selectedFaceReferenceImage,
   ]);
-  const storyReferenceImages = useMemo(
-    () => (preferredStoryReferenceImage ? [preferredStoryReferenceImage] : []),
-    [preferredStoryReferenceImage]
-  );
+  const storyReferenceImages = useMemo(() => {
+    const supportingReferenceImages = Array.isArray(formData.uploadedImages)
+      ? formData.uploadedImages
+          .map((photo) => photo?.illustrationReference || photo?.preview || '')
+          .map((value) => String(value || '').trim())
+          .filter(Boolean)
+      : [];
+
+    const orderedReferenceImages = [
+      primaryStoryReferenceImage,
+      ...supportingReferenceImages,
+      formData.uploadedPhoto?.watermarkedUrl || '',
+    ]
+      .map((value) => String(value || '').trim())
+      .filter(Boolean);
+
+    return Array.from(new Set(orderedReferenceImages)).slice(0, 4);
+  }, [
+    formData.uploadedImages,
+    formData.uploadedPhoto?.watermarkedUrl,
+    primaryStoryReferenceImage,
+  ]);
   const storySubjectImage = storyReferenceImages[0] || null;
   const shouldGateIllustrations = Boolean(storySubjectImage);
+
+  useEffect(() => {
+    return () => {
+      isMountedRef.current = false;
+      generationSessionRef.current += 1;
+      pendingFaceSwapQueueRef.current = [];
+      activeFaceSwapTaskRef.current = null;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (storyPreview) {
+      return;
+    }
+
+    if (!Array.isArray(formData?.storyPreview) || formData.storyPreview.length === 0) {
+      return;
+    }
+
+    setStoryPreview(normalizeStoryPreviewPages(formData.storyPreview));
+  }, [formData?.storyPreview, storyPreview]);
+
+  useEffect(() => {
+    const projectId = String(formData.projectId || '').trim();
+
+    if (!projectId || storyPreview || isRestoringSavedPreview) {
+      return;
+    }
+
+    if (
+      completedPreviewRestoreProjectsRef.current.has(projectId) ||
+      activePreviewRestoreProjectIdRef.current === projectId
+    ) {
+      return;
+    }
+
+    if (
+      typeof window === 'undefined' ||
+      !window.localStorage?.getItem('authToken')
+    ) {
+      return;
+    }
+
+    let cancelled = false;
+    activePreviewRestoreProjectIdRef.current = projectId;
+    setIsRestoringSavedPreview(true);
+    setPreviewPrepProgress(22);
+    setPreviewPrepTitle('Reopening your saved book preview');
+    setPreviewPrepDetail(
+      'We are restoring your saved preview so you can continue without using another generation credit.'
+    );
+    setShowEmailFallback(false);
+    setPreviewEmailStatus('idle');
+    setPreviewEmailFeedback('');
+    setPreviewEmailSentTo('');
+
+    const restoreSavedPreview = async () => {
+      try {
+        const response = await storyAPI.getProject(projectId);
+        const savedStory = response?.data?.story;
+        const savedPages = Array.isArray(savedStory?.pages) ? savedStory.pages : [];
+
+        if (cancelled || savedPages.length === 0) {
+          completedPreviewRestoreProjectsRef.current.add(projectId);
+          return;
+        }
+
+        const cachedPreview = Array.isArray(formData?.storyPreview)
+          ? formData.storyPreview
+          : [];
+        const restoredPages = normalizeStoryPreviewPages(savedPages, cachedPreview);
+
+        setStoryPreview(restoredPages);
+        setCurrentPage(0);
+        setPageGenerationStates(
+          buildInitialPageGenerationStates(restoredPages, shouldGateIllustrations)
+        );
+
+        useWizardStore.setState((state) => ({
+          formData: {
+            ...state.formData,
+            projectId: savedStory?.id || state.formData.projectId,
+            ageGroup: savedStory?.ageGroup || state.formData.ageGroup,
+            theme: savedStory?.theme || state.formData.theme,
+            illustrationStyle:
+              savedStory?.illustrationStyle || state.formData.illustrationStyle,
+            customIllustrationPrompt:
+              savedStory?.customIllustrationPrompt ||
+              savedStory?.custom_illustration_prompt ||
+              state.formData.customIllustrationPrompt,
+            pageCount:
+              Number(savedStory?.pageCount || savedStory?.page_count) ||
+              state.formData.pageCount,
+            childName: savedStory?.childName || state.formData.childName,
+            childGender:
+              savedStory?.childGender || state.formData.childGender,
+            childInterests:
+              savedStory?.childInterests || state.formData.childInterests,
+            childNotes: savedStory?.childNotes || state.formData.childNotes,
+            storyPreview: restoredPages,
+          },
+        }));
+        useWizardStore.getState().saveDraft();
+        completedPreviewRestoreProjectsRef.current.add(projectId);
+      } catch (restoreError) {
+        if (!cancelled) {
+          completedPreviewRestoreProjectsRef.current.add(projectId);
+        }
+
+        console.warn('[PREVIEW_RESTORE_ERROR]', {
+          projectId,
+          message:
+            restoreError instanceof Error
+              ? restoreError.message
+              : String(restoreError),
+        });
+      } finally {
+        if (activePreviewRestoreProjectIdRef.current === projectId) {
+          activePreviewRestoreProjectIdRef.current = null;
+        }
+
+        if (!cancelled) {
+          setIsRestoringSavedPreview(false);
+        }
+      }
+    };
+
+    restoreSavedPreview();
+
+    return () => {
+      cancelled = true;
+      if (activePreviewRestoreProjectIdRef.current === projectId) {
+        activePreviewRestoreProjectIdRef.current = null;
+      }
+      completedPreviewRestoreProjectsRef.current.delete(projectId);
+    };
+  }, [
+    formData?.storyPreview,
+    formData.childGender,
+    formData.childInterests,
+    formData.childName,
+    formData.childNotes,
+    formData.customIllustrationPrompt,
+    formData.illustrationStyle,
+    formData.pageCount,
+    formData.projectId,
+    formData.theme,
+    formData.ageGroup,
+    isRestoringSavedPreview,
+    shouldGateIllustrations,
+    storyPreview,
+  ]);
+
+  // Initialize page generation states when story preview loads or when coming back from payment
+  useEffect(() => {
+    if (!storyPreview) {
+      return;
+    }
+
+    const hasInitialized = Object.keys(pageGenerationStates).length > 0;
+    if (hasInitialized) {
+      return;
+    }
+
+    // Initialize page states for already-loaded preview
+    setPageGenerationStates(
+      buildInitialPageGenerationStates(storyPreview, shouldGateIllustrations)
+    );
+  }, [storyPreview, shouldGateIllustrations]);
+
+  // Save story preview to store whenever it changes
+  useEffect(() => {
+    if (!storyPreview || !updateFormData) {
+      return;
+    }
+
+    updateFormData('storyPreview', storyPreview);
+  }, [storyPreview, updateFormData]);
 
   const updatePageGenerationState = (pageIndex, nextState) => {
     setPageGenerationStates((currentStates) => {
@@ -530,6 +930,120 @@ export default function Step6ReviewCheckout() {
         [pageIndex]: mergedState,
       };
     });
+  };
+
+  const runNextFaceSwapTask = () => {
+    if (activeFaceSwapTaskRef.current) {
+      return;
+    }
+
+    const [nextTask, ...remainingTasks] = pendingFaceSwapQueueRef.current;
+    if (!nextTask) {
+      return;
+    }
+
+    pendingFaceSwapQueueRef.current = remainingTasks;
+    activeFaceSwapTaskRef.current = nextTask;
+
+    applyOptionalFaceSwap({
+      faceImageUrl: nextTask.faceImageUrl,
+      illustrationImageUrl: nextTask.illustrationImageUrl,
+    })
+      .then((swappedUrl) => {
+        if (!isMountedRef.current) {
+          return;
+        }
+
+        if (generationSessionRef.current !== nextTask.generationSessionId) {
+          return;
+        }
+
+        if (
+          typeof swappedUrl !== 'string' ||
+          !swappedUrl ||
+          swappedUrl === nextTask.illustrationImageUrl
+        ) {
+          return;
+        }
+
+        setStoryPreview((currentPages) => {
+          if (!Array.isArray(currentPages)) {
+            return currentPages;
+          }
+
+          const page = currentPages[nextTask.pageIndex];
+          if (!page || page.faceSwappedUrl === swappedUrl) {
+            return currentPages;
+          }
+
+          const nextPages = [...currentPages];
+          nextPages[nextTask.pageIndex] = {
+            ...page,
+            faceSwappedUrl: swappedUrl,
+          };
+          
+          return nextPages;
+        });
+      })
+      .catch((faceSwapError) => {
+        console.warn('[FACE_SWAP_QUEUE_ERROR]', {
+          pageIndex: nextTask.pageIndex,
+          message:
+            faceSwapError instanceof Error
+              ? faceSwapError.message
+              : String(faceSwapError),
+        });
+      })
+      .finally(() => {
+        if (activeFaceSwapTaskRef.current?.taskId === nextTask.taskId) {
+          activeFaceSwapTaskRef.current = null;
+        }
+
+        runNextFaceSwapTask();
+      });
+  };
+
+  const resetFaceSwapQueue = () => {
+    pendingFaceSwapQueueRef.current = [];
+    activeFaceSwapTaskRef.current = null;
+  };
+
+  const queueFaceSwapTask = ({
+    generationSessionId,
+    pageIndex,
+    faceImageUrl,
+    illustrationImageUrl,
+  }) => {
+    if (
+      !faceImageUrl ||
+      !illustrationImageUrl ||
+      illustrationImageUrl.startsWith('data:image/svg+xml')
+    ) {
+      return;
+    }
+
+    const taskId = `${generationSessionId}:${pageIndex}`;
+    const isActiveTask = activeFaceSwapTaskRef.current?.taskId === taskId;
+    const isQueuedTask = pendingFaceSwapQueueRef.current.some(
+      (task) => task.taskId === taskId
+    );
+
+    if (isActiveTask || isQueuedTask) {
+      return;
+    }
+
+    pendingFaceSwapQueueRef.current = [
+      ...pendingFaceSwapQueueRef.current,
+      {
+        taskId,
+        generationSessionId,
+        pageIndex,
+        faceImageUrl,
+        illustrationImageUrl,
+      },
+    ];
+
+    runNextFaceSwapTask();
   };
 
   const isPageIllustrationReady = (page, pageIndex) => {
@@ -624,7 +1138,8 @@ export default function Step6ReviewCheckout() {
     : 0;
   const currentQuote = PREVIEW_QUOTES[quoteIndex % PREVIEW_QUOTES.length];
   const showPreviewPreparationScreen =
-    (loading && !storyPreview) || isPreparingInitialPreview;
+    ((loading || isRestoringSavedPreview) && !storyPreview) ||
+    isPreparingInitialPreview;
   const previewEmailRecipient = useMemo(() => {
     const candidate = formData.parentEmail || authUser?.email || '';
     return String(candidate || '').trim();
@@ -725,6 +1240,8 @@ export default function Step6ReviewCheckout() {
       return;
     }
 
+    generationSessionRef.current += 1;
+    resetFaceSwapQueue();
     setError('');
     setPreviewPrepProgress(42);
     setPreviewPrepDetail(
@@ -758,7 +1275,10 @@ export default function Step6ReviewCheckout() {
       nextPages[pageIndex] = {
         ...page,
         illustrationUrl: imageUrl,
+        faceSwappedUrl:
+          page.faceSwappedUrl === imageUrl ? imageUrl : page.faceSwappedUrl,
       };
+      
       return nextPages;
     });
 
@@ -796,11 +1316,13 @@ export default function Step6ReviewCheckout() {
   const handleGenerateStory = async (languageOverride = currentLanguage) => {
     const resolvedLanguage =
       typeof languageOverride === 'string' ? languageOverride : currentLanguage;
+    generationSessionRef.current += 1;
 
     setLoading(true);
     setError('');
     setStoryPreview(null);
     setPageGenerationStates({});
+    resetFaceSwapQueue();
     activeGenerationPageIndexRef.current = null;
     setGenerationQueueVersion((currentVersion) => currentVersion + 1);
     setCurrentPage(0);
@@ -823,10 +1345,10 @@ export default function Step6ReviewCheckout() {
         return;
       }
 
-      const token =
-        typeof window !== 'undefined' ? localStorage.getItem('authToken') : null;
-
-      if (!token) {
+      if (
+        typeof window === 'undefined' ||
+        !localStorage.getItem('authToken')
+      ) {
         setError('Authentication required. Please log in again.');
         setLoading(false);
         return;
@@ -852,89 +1374,27 @@ export default function Step6ReviewCheckout() {
         bundleSelected: Boolean(formData.seriesBundleSelected),
       };
 
-      // Get child photo URL from uploaded images or photo
-      const childPhotoUrl =
-        (Array.isArray(formData.uploadedImages) && formData.uploadedImages.length > 0
-          ? formData.uploadedImages[0]?.preview
-          : null) ||
-        formData.uploadedPhoto?.watermarkedUrl ||
-        null;
+      const storyResponse = await storyAPI.generateStory(
+        formData.projectId,
+        customPrompt,
+        resolvedLanguage || formData.storyLanguage || 'en',
+        storyData
+      );
 
-      // Check if face swap should be enabled
-      const enableFaceSwap = Boolean(childPhotoUrl);
-
-      // Use new face swap pipeline endpoint if photo is available
-      if (enableFaceSwap) {
-        const faceSwapResponse = await fetch('/api/story/generate-with-faceswap', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify({
-            projectId: formData.projectId,
-            childName: formData.childName || 'Child',
-            childAge: parseInt(formData.ageGroup?.split('-')[0]) || 5,
-            theme: formData.theme || 'animal-adventure',
-            childPhotoUrl,
-            enableFaceSwap: true,
-            pageCount: formData.pageCount || 20,
-            userId: authUser?.id,
-            milestoneTitle: storyData.milestoneTitle,
-            milestonePromptHint: storyData.milestonePromptHint,
-            milestoneCoverBadge: storyData.milestoneCoverBadge,
-            isSeries: storyData.isSeries,
-            chapterNumber: storyData.chapterNumber,
-            originalTheme: storyData.originalTheme,
-          }),
-        });
-
-        if (!faceSwapResponse.ok) {
-          const errorText = await faceSwapResponse.text();
-          let errorMessage = 'Failed to generate story with face swap';
-          try {
-            const errorData = JSON.parse(errorText);
-            errorMessage = errorData.error || errorMessage;
-          } catch {
-            // If response is not JSON, use a generic error message
-            errorMessage = `API Error (${faceSwapResponse.status}): ${errorText.substring(0, 100)}`;
-          }
-          throw new Error(errorMessage);
-        }
-
-        try {
-          const storyResponse = await faceSwapResponse.json();
-          const pages = storyResponse.story?.pages || storyResponse.pages || [];
-          const nextPages = pages.length > 0 ? pages : [{}];
-          setStoryPreview(nextPages);
-          setPageGenerationStates(
-            buildInitialPageGenerationStates(nextPages, shouldGateIllustrations)
-          );
-        } catch (parseError) {
-          const responseText = await faceSwapResponse.text();
-          throw new Error(`Invalid JSON response from story generation: ${parseError.message}. Response: ${responseText.substring(0, 100)}`);
-        }
-      } else {
-        // Fallback to original story generation if no photo
-        const storyResponse = await storyAPI.generateStory(
-          formData.projectId,
-          customPrompt,
-          resolvedLanguage || 'en',
-          storyData
-        );
-
-        const pages = storyResponse.data.story.pages || [];
-        const nextPages = pages.length > 0 ? pages : [{}];
-        setStoryPreview(nextPages);
-        setPageGenerationStates(
-          buildInitialPageGenerationStates(nextPages, shouldGateIllustrations)
-        );
-      }
+      const pages =
+        storyResponse?.data?.story?.pages ||
+        storyResponse?.data?.pages ||
+        [];
+      const nextPages = pages.length > 0 ? pages : [{}];
+      setStoryPreview(nextPages);
+      setPageGenerationStates(
+        buildInitialPageGenerationStates(nextPages, shouldGateIllustrations)
+      );
 
       setPreviewPrepProgress(42);
       setPreviewPrepDetail(
         shouldGateIllustrations
-          ? 'Painting the first page now. If artwork takes too long, we will open the preview with your child photo first so you can keep going.'
+          ? 'Painting the first page now and applying your selected child photo while the rest of the preview keeps moving.'
           : 'Your preview is almost ready.'
       );
       setCurrentPage(0);
@@ -1020,6 +1480,7 @@ export default function Step6ReviewCheckout() {
     let cancelled = false;
     const controller = new AbortController();
     const pageLabel = page?.pageNumber || nextPageIndex + 1;
+    const generationSessionId = generationSessionRef.current;
 
     activeGenerationPageIndexRef.current = nextPageIndex;
     updatePageGenerationState(nextPageIndex, {
@@ -1043,6 +1504,14 @@ export default function Step6ReviewCheckout() {
       bookThemeValue: formData.theme,
       signal: controller.signal,
       timeoutMs: PREVIEW_FIRST_PAGE_TIMEOUT_MS,
+      onFaceSwapRequested: ({ faceImageUrl, illustrationImageUrl }) => {
+        queueFaceSwapTask({
+          generationSessionId,
+          pageIndex: nextPageIndex,
+          faceImageUrl,
+          illustrationImageUrl,
+        });
+      },
       onPending: () => {
         if (cancelled) {
           return;
@@ -1172,7 +1641,7 @@ export default function Step6ReviewCheckout() {
   };
 
   useEffect(() => {
-    const isPreparingStoryText = loading && !storyPreview;
+    const isPreparingStoryText = (loading || isRestoringSavedPreview) && !storyPreview;
     if (!isPreparingStoryText && !isPreparingInitialPreview) {
       setShowEmailFallback(false);
       return;
@@ -1196,7 +1665,7 @@ export default function Step6ReviewCheckout() {
       window.clearInterval(quoteInterval);
       window.clearTimeout(emailTimeout);
     };
-  }, [isPreparingInitialPreview, loading, storyPreview]);
+  }, [isPreparingInitialPreview, isRestoringSavedPreview, loading, storyPreview]);
 
   useEffect(() => {
     const handleKeyPress = (event) => {
@@ -1211,17 +1680,21 @@ export default function Step6ReviewCheckout() {
 
   useEffect(() => {
     const handleLanguageChange = (event) => {
-      const nextLanguage = event?.detail?.language || currentLanguage;
+      const nextLanguage =
+        event?.detail?.language || formData.storyLanguage || currentLanguage;
 
       if (storyPreview) {
         handleGenerateStory(nextLanguage);
       }
     };
 
+    window.addEventListener('languageChanged', handleLanguageChange);
     window.addEventListener('storyLanguageChanged', handleLanguageChange);
-    return () =>
+    return () => {
+      window.removeEventListener('languageChanged', handleLanguageChange);
       window.removeEventListener('storyLanguageChanged', handleLanguageChange);
-  }, [storyPreview, currentLanguage]);
+    };
+  }, [storyPreview, currentLanguage, formData.storyLanguage]);
 
   const handleCheckout = async () => {
     if (!allIllustratedPagesReady) {
@@ -1415,6 +1888,9 @@ export default function Step6ReviewCheckout() {
             >
               {loading ? 'Generating your story...' : 'Preview Story'}
             </button>
+            <p className="mt-4 text-sm text-gray-600">
+              Saved previews load automatically when you return from payment without regenerating.
+            </p>
           </div>
         )}
 
@@ -1787,6 +2263,11 @@ export default function Step6ReviewCheckout() {
                           Billing preview: {CURRENCY_SYMBOLS[currency]}
                           {price} for {formData.pageCount} pages
                         </p>
+                        {selectedCountryOption.country === 'India' ? (
+                          <p className="mt-1 text-xs font-semibold text-emerald-700">
+                            India checkout will prioritize UPI when it is available on your Stripe account.
+                          </p>
+                        ) : null}
                       </div>
                     </div>
                   </div>
@@ -1893,7 +2374,10 @@ export default function Step6ReviewCheckout() {
 
                       <div className="mb-4">
                         <p className="mb-3 text-sm font-semibold text-gray-700">
-                          Select the clearest front-facing child photo. We now use only this selected photo as the main identity reference so the generated cartoon face stays closer to your child:
+                          Select the clearest front-facing child photo. We use
+                          this selected photo as the primary identity
+                          reference and prioritize it over the outfit,
+                          background, and story theme:
                         </p>
                         <div className="flex gap-3 overflow-x-auto pb-2">
                           {formData.uploadedImages.map((photo, idx) => (
@@ -1940,7 +2424,9 @@ export default function Step6ReviewCheckout() {
                         </button>
                       </div>
                       <p className="mt-2 text-xs text-gray-600">
-                        This rebuilds the preview using the selected photo as the primary face reference instead of blending multiple child photos.
+                        This rebuilds the preview using the selected photo as
+                        the main identity reference so the illustrated face
+                        stays closer to your child.
                       </p>
                     </div>
                   )}
@@ -2025,6 +2511,11 @@ export default function Step6ReviewCheckout() {
                   )}
 
                   <p className="mt-3 text-center text-xs text-gray-500">
+                    Stripe checkout will securely collect the billing address,
+                    shipping address, and mobile number for this order.
+                  </p>
+
+                  <p className="mt-2 text-center text-xs text-gray-500">
                     Tip: Use the left and right arrow keys to navigate pages.
                   </p>
                 </div>
