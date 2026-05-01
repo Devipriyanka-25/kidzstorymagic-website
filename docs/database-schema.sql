@@ -34,6 +34,11 @@ CREATE TABLE story_projects (
   child_notes TEXT,
   status VARCHAR(50) DEFAULT 'draft',
   current_step INTEGER DEFAULT 1,
+  is_generated BOOLEAN DEFAULT false,
+  is_paid BOOLEAN DEFAULT false,
+  draft_expires_at TIMESTAMP,
+  generation_started_at TIMESTAMP,
+  generation_completed_at TIMESTAMP,
   preview_url VARCHAR(500),
   published_pdf_url VARCHAR(500),
   child_photo_url VARCHAR(500),
@@ -87,9 +92,26 @@ CREATE TABLE orders (
   stripe_payment_intent_id VARCHAR(255),
   stripe_session_id VARCHAR(255),
   payment_method VARCHAR(100),
+  customer_name VARCHAR(255),
+  customer_email VARCHAR(255),
+  customer_phone VARCHAR(50),
+  billing_address JSONB,
+  shipping_address JSONB,
+  metadata JSONB,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   completed_at TIMESTAMP,
   refunded_at TIMESTAMP
+);
+
+-- Magic Links Table (secure one-hour preview access)
+CREATE TABLE magic_links (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  token_hash TEXT UNIQUE NOT NULL,
+  story_id INTEGER NOT NULL REFERENCES story_projects(id) ON DELETE CASCADE,
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  expires_at TIMESTAMP NOT NULL,
+  used_at TIMESTAMP,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 -- Generated PDFs Table
@@ -142,7 +164,12 @@ CREATE TABLE audit_logs (
 CREATE INDEX idx_users_email ON users(email);
 CREATE INDEX idx_story_projects_user_id ON story_projects(user_id);
 CREATE INDEX idx_story_projects_status ON story_projects(status);
+CREATE INDEX idx_story_projects_draft_expires_at ON story_projects(draft_expires_at);
+CREATE INDEX idx_story_projects_user_status_updated ON story_projects(user_id, status, updated_at DESC);
 CREATE INDEX idx_story_content_project_id ON story_content(project_id);
+CREATE INDEX idx_magic_links_token_hash ON magic_links(token_hash);
+CREATE INDEX idx_magic_links_story_user ON magic_links(story_id, user_id);
+CREATE INDEX idx_magic_links_expires_at ON magic_links(expires_at);
 CREATE INDEX idx_images_project_id ON images(project_id);
 CREATE INDEX idx_orders_user_id ON orders(user_id);
 CREATE INDEX idx_orders_project_id ON orders(project_id);

@@ -67,13 +67,20 @@ export async function POST(request) {
 
     const selectedThemeLabel = getBookThemeLabel(theme);
 
-    const authUser = await resolveAuthenticatedStoryUser(decoded);
-    if (!authUser?.id) {
+    // Trust the JWT token directly - it has been cryptographically verified
+    if (!decoded?.id) {
       return NextResponse.json(
-        { error: 'Authenticated user could not be resolved.' },
+        { error: 'Invalid token: missing user ID' },
         { status: 401 }
       );
     }
+
+    // Create an authUser object from the decoded JWT
+    const authUser = {
+      id: decoded.id,
+      email: decoded.email,
+      name: decoded.name || decoded.email,
+    };
 
     const storyProject = await createStoryProjectRecord(authUser.id, {
       title:

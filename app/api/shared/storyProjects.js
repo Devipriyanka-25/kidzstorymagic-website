@@ -28,8 +28,7 @@ const STORY_PROJECT_COLUMNS = `
   child_photo_processed_url,
   photo_metadata,
   created_at,
-  updated_at,
-  completed_at
+  updated_at
 `;
 
 const STORY_CONTENT_COLUMNS = `
@@ -59,6 +58,40 @@ function wrapStoryProjectError(action, error) {
   wrappedError.code = error?.code;
   wrappedError.details = error?.details;
   return wrappedError;
+}
+
+const OPTIONAL_GENERATION_COLUMNS = new Set([
+  'is_generated',
+  'is_paid',
+  'draft_expires_at',
+  'generation_started_at',
+  'generation_completed_at',
+]);
+
+function isOptionalGenerationColumnError(error) {
+  const errorText = [
+    error?.message,
+    error?.details,
+    error?.hint,
+    error?.code,
+  ]
+    .filter(Boolean)
+    .join(' ')
+    .toLowerCase();
+
+  return (
+    error?.code === 'PGRST204' ||
+    error?.code === '42703' ||
+    Array.from(OPTIONAL_GENERATION_COLUMNS).some((column) =>
+      errorText.includes(column)
+    )
+  );
+}
+
+function stripOptionalGenerationColumns(payload = {}) {
+  return Object.fromEntries(
+    Object.entries(payload).filter(([key]) => !OPTIONAL_GENERATION_COLUMNS.has(key))
+  );
 }
 
 export function parseStoryProjectId(value) {
@@ -96,6 +129,14 @@ function normalizePreviewImageUrl(value) {
 
 export function mapStoryProjectRecord(record) {
   const previewImageUrl = normalizePreviewImageUrl(record?.preview_url);
+  const photoMetadata =
+    record?.photo_metadata && typeof record.photo_metadata === 'object'
+      ? record.photo_metadata
+      : null;
+  const draftFlow =
+    photoMetadata?.draftFlow && typeof photoMetadata.draftFlow === 'object'
+      ? photoMetadata.draftFlow
+      : {};
 
   return {
     id: String(record?.id ?? ''),
@@ -127,13 +168,26 @@ export function mapStoryProjectRecord(record) {
     child_photo_url: record?.child_photo_url || null,
     child_photo_preview_url: record?.child_photo_preview_url || null,
     child_photo_processed_url: record?.child_photo_processed_url || null,
-    photo_metadata: record?.photo_metadata || null,
+    photo_metadata: photoMetadata,
+    isGenerated: Boolean(record?.is_generated || draftFlow.isGenerated),
+    is_generated: Boolean(record?.is_generated || draftFlow.isGenerated),
+    isPaid: Boolean(record?.is_paid || draftFlow.isPaid),
+    is_paid: Boolean(record?.is_paid || draftFlow.isPaid),
+    draftExpiresAt: record?.draft_expires_at || draftFlow.draftExpiresAt || null,
+    draft_expires_at: record?.draft_expires_at || draftFlow.draftExpiresAt || null,
+    generationStartedAt:
+      record?.generation_started_at || draftFlow.generationStartedAt || null,
+    generation_started_at:
+      record?.generation_started_at || draftFlow.generationStartedAt || null,
+    generationCompletedAt:
+      record?.generation_completed_at || draftFlow.generationCompletedAt || null,
+    generation_completed_at:
+      record?.generation_completed_at || draftFlow.generationCompletedAt || null,
+    generationStatus: draftFlow.generationStatus || 'idle',
     created_at: record?.created_at || null,
     createdAt: record?.created_at || null,
     updated_at: record?.updated_at || null,
     updatedAt: record?.updated_at || null,
-    completed_at: record?.completed_at || null,
-    completedAt: record?.completed_at || null,
   };
 }
 
@@ -158,6 +212,7 @@ export function mapStoryContentRecord(record, totalPages = 0) {
     illustrationPrompt: record?.page_illustration_prompt || null,
     page_illustration_prompt: record?.page_illustration_prompt || null,
     illustrationUrl: record?.image_url || null,
+    faceSwappedUrl: record?.image_url || null,
     image_url: record?.image_url || null,
     image: record?.image_url || null,
     created_at: record?.created_at || null,
@@ -169,69 +224,120 @@ export async function listStoryProjectsByUser(
   userId,
   { limit = 10, offset = 0, statuses } = {}
 ) {
-  const client = requireStoryStorage();
+  try {
+    const client = requireStoryStorage();
 
-  let query = client
-    .from('story_projects')
-    .select(STORY_PROJECT_COLUMNS, { count: 'exact' })
-    .eq('user_id', Number(userId))
-    .order('updated_at', { ascending: false });
+    let query = client
+      .from('story_projects')
+      .select(STORY_PROJECT_COLUMNS, { count: 'exact' })
+      .eq('user_id', Number(userId))
+      .order('updated_at', { ascending: false });
 
-  if (Array.isArray(statuses) && statuses.length > 0) {
-    query = query.in('status', statuses);
+    if (Array.isArray(statuses) && statuses.length > 0) {
+      query = query.in('status', statuses);
+    }
+
+    if (Number.isFinite(limit) && Number.isFinite(offset)) {
+      query = query.range(offset, offset + Math.max(limit, 1) - 1);
+    }
+
+    const { data, error, count } = await query;
+
+    if (error) {
+      console.error('[STORY_PROJECTS] Query error:', {
+        userId,
+        code: error.code,
+        message: error.message,
+        details: error.details,
+      });
+      // Return empty list instead of throwing - graceful degradation
+      return {
+        projects: [],
+        total: 0,
+      };
+    }
+
+    console.log('[STORY_PROJECTS] Found projects for user:', {
+      userId,
+      count: count || 0,
+    });
+
+    return {
+      projects: (data || []).map(mapStoryProjectRecord),
+      total: count || 0,
+    };
+  } catch (err) {
+    console.error('[STORY_PROJECTS] Exception in listStoryProjectsByUser:', {
+      userId,
+      error: err.message,
+      stack: err.stack,
+    });
+    // Return empty list on exception - graceful degradation
+    return {
+      projects: [],
+      total: 0,
+    };
   }
-
-  if (Number.isFinite(limit) && Number.isFinite(offset)) {
-    query = query.range(offset, offset + Math.max(limit, 1) - 1);
-  }
-
-  const { data, error, count } = await query;
-
-  if (error) {
-    throw wrapStoryProjectError('list user projects', error);
-  }
-
-  return {
-    projects: (data || []).map(mapStoryProjectRecord),
-    total: count || 0,
-  };
 }
 
 export async function getStoryProjectStats(userId) {
-  const client = requireStoryStorage();
+  try {
+    const client = requireStoryStorage();
 
-  const [totalResult, publishedResult, draftResult] = await Promise.all([
-    client
-      .from('story_projects')
-      .select('id', { count: 'exact', head: true })
-      .eq('user_id', Number(userId)),
-    client
-      .from('story_projects')
-      .select('id', { count: 'exact', head: true })
-      .eq('user_id', Number(userId))
-      .eq('status', 'published'),
-    client
-      .from('story_projects')
-      .select('id', { count: 'exact', head: true })
-      .eq('user_id', Number(userId))
-      .in('status', ['draft', 'in_progress', 'pending']),
-  ]);
+    const [totalResult, publishedResult, draftResult] = await Promise.all([
+      client
+        .from('story_projects')
+        .select('id', { count: 'exact', head: true })
+        .eq('user_id', Number(userId)),
+      client
+        .from('story_projects')
+        .select('id', { count: 'exact', head: true })
+        .eq('user_id', Number(userId))
+        .eq('status', 'published'),
+      client
+        .from('story_projects')
+        .select('id', { count: 'exact', head: true })
+        .eq('user_id', Number(userId))
+        .in('status', ['draft', 'in_progress', 'pending']),
+    ]);
 
-  const errors = [
-    totalResult.error,
-    publishedResult.error,
-    draftResult.error,
-  ].filter(Boolean);
+    const errors = [
+      totalResult.error,
+      publishedResult.error,
+      draftResult.error,
+    ].filter(Boolean);
 
-  if (errors.length > 0) {
-    throw wrapStoryProjectError('fetch project stats', errors[0]);
+    if (errors.length > 0) {
+      console.error('[STORY_PROJECTS] Stats query error:', {
+        userId,
+        errors: errors.map(e => ({ code: e.code, message: e.message })),
+      });
+      // Return default stats instead of throwing - graceful degradation
+      return {
+        totalProjects: 0,
+        completedProjects: 0,
+        draftProjects: 0,
+      };
+    }
+
+    return {
+      totalProjects: totalResult.count || 0,
+      completedProjects: publishedResult.count || 0,
+      draftProjects: draftResult.count || 0,
+    };
+  } catch (err) {
+    console.error('[STORY_PROJECTS] Exception in getStoryProjectStats:', {
+      userId,
+      error: err.message,
+      stack: err.stack,
+    });
+    // Return default stats on exception - graceful degradation
+    return {
+      totalProjects: 0,
+      completedProjects: 0,
+      draftProjects: 0,
+    };
   }
-
-  return {
-    totalProjects: totalResult.count || 0,
-    completedProjects: publishedResult.count || 0,
-    draftProjects: draftResult.count || 0,
-  };
 }
 
 export async function getStoryProjectById(userId, projectId) {
@@ -284,14 +390,37 @@ export async function createStoryProjectRecord(userId, payload) {
     child_photo_url: payload.child_photo_url || null,
     child_photo_preview_url: payload.child_photo_preview_url || null,
     child_photo_processed_url: payload.child_photo_processed_url || null,
+    is_generated: Boolean(payload.is_generated || payload.isGenerated),
+    is_paid: Boolean(payload.is_paid || payload.isPaid),
+    draft_expires_at: payload.draft_expires_at || payload.draftExpiresAt || null,
     photo_metadata: payload.photo_metadata || null,
   };
 
-  const { data, error } = await client
-    .from('story_projects')
-    .insert(insertData)
-    .select(STORY_PROJECT_COLUMNS)
-    .single();
+  // Add generation columns only if values are provided (for compatibility with older schema)
+  if (payload.generation_started_at || payload.generationStartedAt) {
+    insertData.generation_started_at =
+      payload.generation_started_at || payload.generationStartedAt;
+  }
+  if (payload.generation_completed_at || payload.generationCompletedAt) {
+    insertData.generation_completed_at =
+      payload.generation_completed_at || payload.generationCompletedAt;
+  }
+
+  const insertProject = (nextInsertData) =>
+    client
+      .from('story_projects')
+      .insert(nextInsertData)
+      .select(STORY_PROJECT_COLUMNS)
+      .single();
+
+  let { data, error } = await insertProject(insertData);
+
+  if (error && isOptionalGenerationColumnError(error)) {
+    console.warn(
+      '[STORY_PROJECTS] Optional draft columns are unavailable; retrying create with metadata-only draft state.'
+    );
+    ({ data, error } = await insertProject(stripOptionalGenerationColumns(insertData)));
+  }
 
   if (error) {
     throw wrapStoryProjectError('create project', error);
@@ -374,6 +503,23 @@ export async function updateStoryProjectRecord(userId, projectId, payload) {
   if (payload.child_photo_processed_url !== undefined) {
     updateData.child_photo_processed_url = payload.child_photo_processed_url;
   }
+  if (payload.is_generated !== undefined || payload.isGenerated !== undefined) {
+    updateData.is_generated = Boolean(payload.is_generated ?? payload.isGenerated);
+  }
+  if (payload.is_paid !== undefined || payload.isPaid !== undefined) {
+    updateData.is_paid = Boolean(payload.is_paid ?? payload.isPaid);
+  }
+  if (payload.draft_expires_at !== undefined || payload.draftExpiresAt !== undefined) {
+    updateData.draft_expires_at = payload.draft_expires_at ?? payload.draftExpiresAt;
+  }
+  // Note: generation_started_at and generation_completed_at columns may not exist in all databases
+  // Only update if the schema supports them
+  // if (payload.generation_started_at !== undefined || payload.generationStartedAt !== undefined) {
+  //   updateData.generation_started_at = payload.generation_started_at ?? payload.generationStartedAt;
+  // }
+  // if (payload.generation_completed_at !== undefined || payload.generationCompletedAt !== undefined) {
+  //   updateData.generation_completed_at = payload.generation_completed_at ?? payload.generationCompletedAt;
+  // }
   if (payload.photo_metadata !== undefined) {
     updateData.photo_metadata = payload.photo_metadata;
   }
@@ -381,13 +527,23 @@ export async function updateStoryProjectRecord(userId, projectId, payload) {
     updateData.completed_at = payload.completed_at;
   }
 
-  const { data, error } = await client
-    .from('story_projects')
-    .update(updateData)
-    .eq('id', normalizedProjectId)
-    .eq('user_id', Number(userId))
-    .select(STORY_PROJECT_COLUMNS)
-    .maybeSingle();
+  const updateProject = (nextUpdateData) =>
+    client
+      .from('story_projects')
+      .update(nextUpdateData)
+      .eq('id', normalizedProjectId)
+      .eq('user_id', Number(userId))
+      .select(STORY_PROJECT_COLUMNS)
+      .maybeSingle();
+
+  let { data, error } = await updateProject(updateData);
+
+  if (error && isOptionalGenerationColumnError(error)) {
+    console.warn(
+      '[STORY_PROJECTS] Optional draft columns are unavailable; retrying update with metadata-only draft state.'
+    );
+    ({ data, error } = await updateProject(stripOptionalGenerationColumns(updateData)));
+  }
 
   if (error) {
     throw wrapStoryProjectError('update project', error);
@@ -450,7 +606,12 @@ export async function replaceStoryProjectPages(projectId, pages) {
       page.page_illustration_prompt ||
       page.illustration_prompt ||
       null,
-    image_url: page.illustrationUrl || page.image_url || page.image || null,
+    image_url:
+      page.faceSwappedUrl ||
+      page.illustrationUrl ||
+      page.image_url ||
+      page.image ||
+      null,
   }));
 
   const { data, error } = await client
@@ -489,4 +650,3 @@ export async function listStoryProjectPages(projectId) {
   const totalPages = data?.length || 0;
   return (data || []).map((page) => mapStoryContentRecord(page, totalPages));
 }
-

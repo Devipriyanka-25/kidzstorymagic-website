@@ -1,6 +1,11 @@
 // Frontend Jest setup file
 require('@testing-library/jest-dom');
 
+const { TextDecoder, TextEncoder } = require('util');
+
+global.TextEncoder = global.TextEncoder || TextEncoder;
+global.TextDecoder = global.TextDecoder || TextDecoder;
+
 // Mock next/navigation
 jest.mock('next/navigation', () => ({
   useRouter() {

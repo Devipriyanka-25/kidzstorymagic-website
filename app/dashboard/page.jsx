@@ -177,7 +177,7 @@ export default function DashboardPage() {
             </select>
 
             <Link
-              href="/wizard"
+              href="/wizard?new=1"
               className="whitespace-nowrap px-6 py-3 bg-gradient-to-r from-blue-500 to-blue-600 text-white font-bold rounded-lg hover:from-blue-600 hover:to-blue-700 transition-all duration-300 transform hover:scale-105 text-center"
             >
               + Create Story
@@ -221,7 +221,7 @@ export default function DashboardPage() {
                         When you create a story in the wizard, it will automatically be saved as a draft here. You can then continue editing, regenerate the story, or checkout to purchase the final version.
                       </p>
                       <Link
-                        href="/wizard"
+                        href="/wizard?new=1"
                         className="inline-block px-6 py-3 bg-gradient-to-r from-blue-500 to-blue-600 text-white font-bold rounded-lg hover:from-blue-600 hover:to-blue-700 transition-all"
                       >
                         Create Your First Story
@@ -248,7 +248,7 @@ export default function DashboardPage() {
                       <div className="text-5xl mb-4">📚</div>
                       <p className="text-gray-600 text-lg mb-4">No published stories yet</p>
                       <Link
-                        href="/wizard"
+                        href="/wizard?new=1"
                         className="inline-block px-6 py-3 bg-gradient-to-r from-blue-500 to-blue-600 text-white font-bold rounded-lg hover:from-blue-600 hover:to-blue-700 transition-all"
                       >
                         Create Your First Story
@@ -296,7 +296,7 @@ export default function DashboardPage() {
                         <div className="text-5xl mb-4">📚</div>
                         <p className="text-gray-600 text-lg mb-4">No published stories yet</p>
                         <Link
-                          href="/wizard"
+                          href="/wizard?new=1"
                           className="inline-block px-6 py-3 bg-gradient-to-r from-blue-500 to-blue-600 text-white font-bold rounded-lg hover:from-blue-600 hover:to-blue-700 transition-all"
                         >
                           Create Your First Story

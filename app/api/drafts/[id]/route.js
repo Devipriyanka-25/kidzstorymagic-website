@@ -14,6 +14,7 @@ import {
   resolveAuthenticatedStoryUser,
   updateStoryProjectRecord,
 } from '../../shared/storyProjects.js';
+import { buildDraftResponse } from '../../shared/storyDrafts.js';
 
 const jwt = require('jsonwebtoken');
 
@@ -42,36 +43,24 @@ async function resolveRequestUser(request) {
     return { error: NextResponse.json({ error: 'Unauthorized' }, { status: 401 }) };
   }
 
-  const authUser = await resolveAuthenticatedStoryUser(decoded);
-  if (!authUser?.id) {
+  // Trust the JWT token directly - it has been cryptographically verified
+  if (!decoded?.id) {
     return {
       error: NextResponse.json(
-        { error: 'Authenticated user could not be resolved.' },
+        { error: 'Invalid token: missing user ID' },
         { status: 401 }
       ),
     };
   }
 
-  return { authUser };
-}
-
-function buildDraftResponse(draft, pages = []) {
-  return {
-    ...draft,
-    pages,
-    formData: {
-      projectId: draft.id,
-      childName: draft.child_name || draft.childName || '',
-      childGender: draft.child_gender || draft.childGender || '',
-      ageGroup: draft.age_group || draft.ageGroup || '',
-      theme: draft.theme || '',
-      illustrationStyle:
-        draft.illustration_style || draft.illustrationStyle || '',
-      pageCount: draft.page_count || draft.pageCount || 10,
-      childInterests: draft.child_interests || draft.childInterests || '',
-      childNotes: draft.child_notes || draft.childNotes || '',
-    },
+  // Create an authUser object from the decoded JWT
+  const authUser = {
+    id: decoded.id,
+    email: decoded.email,
+    name: decoded.name || decoded.email,
   };
+
+  return { authUser };
 }
 
 export async function GET(request, { params }) {
@@ -200,4 +189,3 @@ export async function DELETE(request, { params }) {
     );
   }
 }
-

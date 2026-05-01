@@ -68,7 +68,7 @@ export default function HomePage() {
                 <div className="flex flex-col sm:flex-row gap-4 pt-4">
                   <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
                     <Link
-                      href="/wizard"
+                      href="/wizard?new=1"
                       className="px-8 py-4 bg-white text-blue-600 rounded-2xl font-bold text-lg hover:bg-blue-50 transition-all duration-300 shadow-xl hover:shadow-2xl inline-block text-center"
                     >
                       ✨ Create Story Now
@@ -291,7 +291,7 @@ export default function HomePage() {
 
                 {user ? (
                   <Link
-                    href="/wizard"
+                    href="/wizard?new=1"
                     className={`w-full py-4 rounded-xl font-bold text-lg transition-all duration-300 text-center block ${
                       plan.popular
                         ? 'bg-white text-blue-600 hover:bg-blue-50'
@@ -364,7 +364,7 @@ export default function HomePage() {
           {user ? (
             <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
               <Link
-                href="/wizard"
+                href="/wizard?new=1"
                 className="inline-block px-10 py-5 bg-white text-blue-600 rounded-2xl font-black text-xl hover:bg-blue-50 transition-all duration-300 shadow-xl hover:shadow-2xl"
               >
                 ✨ Create Story Now →

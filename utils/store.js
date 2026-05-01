@@ -4,7 +4,13 @@ import { authAPI, getAuthToken } from './api';
 import { DEFAULT_EXCHANGE_RATES } from './pricing';
 import { STORAGE_KEYS } from './constants';
 
-function buildDraftSafeFormData(formData = {}) {
+let backendDraftSaveTimer = null;
+let backendDraftSaveSequence = 0;
+
+function buildDraftSafeFormData(
+  formData = {},
+  { includeImagePreviews = true } = {}
+) {
   const {
     photo,
     uploadedPhoto,
@@ -14,7 +20,7 @@ function buildDraftSafeFormData(formData = {}) {
   } = formData;
 
   // Preserve image previews for face swap (strip file objects to reduce storage)
-  const previewImages = Array.isArray(uploadedImages)
+  const previewImages = includeImagePreviews && Array.isArray(uploadedImages)
     ? uploadedImages.map(img => ({
         preview: img?.preview || img?.data || null,
         illustrationReference: img?.illustrationReference || null
@@ -62,6 +68,128 @@ function persistWizardDraft(step, formData) {
   } catch (err) {
     console.error('[DRAFT] Failed to save draft:', err);
   }
+}
+
+function persistWizardDraftToBackend(get, set, step, formData, { immediate = false } = {}) {
+  if (typeof window === 'undefined' || !getAuthToken()) {
+    return;
+  }
+
+  const runSave = async () => {
+    const token = getAuthToken();
+    if (!token) {
+      return;
+    }
+
+    const saveSequence = ++backendDraftSaveSequence;
+
+    try {
+      const response = await fetch('/api/story/save-draft', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          step,
+          formData: buildDraftSafeFormData(formData, {
+            includeImagePreviews: false,
+          }),
+        }),
+      });
+
+      if (!response.ok) {
+        const details = await response.json().catch(() => ({}));
+        throw new Error(details.error || 'Draft backend save failed');
+      }
+
+      const data = await response.json();
+      const projectId = data?.projectId || data?.draft?.id;
+
+      if (!projectId || saveSequence < backendDraftSaveSequence) {
+        return;
+      }
+
+      const currentProjectId = get().formData?.projectId;
+      if (!currentProjectId) {
+        const nextFormData = {
+          ...get().formData,
+          projectId: String(projectId),
+        };
+        set({ formData: nextFormData });
+        persistWizardDraft(get().step, nextFormData);
+      }
+    } catch (error) {
+      console.warn('[DRAFT] Backend draft save failed:', error.message);
+    }
+  };
+
+  if (backendDraftSaveTimer) {
+    window.clearTimeout(backendDraftSaveTimer);
+    backendDraftSaveTimer = null;
+  }
+
+  if (immediate) {
+    runSave();
+    return;
+  }
+
+  backendDraftSaveTimer = window.setTimeout(runSave, 800);
+}
+
+function createInitialWizardFormData() {
+  return {
+    ageGroup: '',
+    theme: '',
+    illustrationStyle: '',
+    pageCount: 10,
+    childName: '',
+    childAge: '',
+    childGender: '',
+    childInterests: '',
+    childNotes: '',
+    parentConsent: false,
+    parentEmail: '',
+    photo: null,
+    projectId: null,
+    uploadedPhoto: null,
+    customIllustrationPrompt: '',
+    uploadedImages: [],
+    selectedMilestoneId: '',
+    milestoneTitle: '',
+    milestonePromptHint: '',
+    milestoneCoverBadge: '',
+    isSeries: false,
+    seriesChapterNumber: 1,
+    seriesOriginalTheme: '',
+    seriesBundleSelected: false,
+  };
+}
+
+function normalizeDraftStep(step, { maxStep } = {}) {
+  const parsedStep = Number(step);
+  const baseStep = Number.isFinite(parsedStep)
+    ? Math.max(1, parsedStep)
+    : 1;
+
+  if (Number.isFinite(maxStep)) {
+    return Math.min(baseStep, Math.max(1, Number(maxStep)));
+  }
+
+  return baseStep;
+}
+
+function hydrateWizardFormData(formData = {}, { clearStoryPreview = false } = {}) {
+  return {
+    ...createInitialWizardFormData(),
+    ...formData,
+    photo: null,
+    uploadedPhoto: null,
+    uploadedImages: Array.isArray(formData?.uploadedImages)
+      ? formData.uploadedImages
+      : [],
+    storyPreview: clearStoryPreview ? null : formData?.storyPreview || null,
+  };
 }
 
 // Auth Store
@@ -202,38 +330,14 @@ export const useStoryStore = create((set) => ({
 // Wizard Store (for multi-step form)
 export const useWizardStore = create((set, get) => ({
   step: 1,
-  formData: {
-    ageGroup: '',
-    theme: '',
-    illustrationStyle: '',
-    pageCount: 10,
-    childName: '',
-    childAge: '',
-    childGender: '',
-    childInterests: '',
-    childNotes: '',
-    parentConsent: false,
-    parentEmail: '',
-    photo: null,
-    projectId: null,
-    uploadedPhoto: null,
-    customIllustrationPrompt: '',
-    uploadedImages: [],
-    selectedMilestoneId: '',
-    milestoneTitle: '',
-    milestonePromptHint: '',
-    milestoneCoverBadge: '',
-    isSeries: false,
-    seriesChapterNumber: 1,
-    seriesOriginalTheme: '',
-    seriesBundleSelected: false,
-  },
+  formData: createInitialWizardFormData(),
 
   setStep: (step) => {
     set({ step });
     // Save draft when step changes
     const state = get();
     persistWizardDraft(step, state.formData);
+    persistWizardDraftToBackend(get, set, step, state.formData);
   },
 
   nextStep: () => {
@@ -241,6 +345,7 @@ export const useWizardStore = create((set, get) => ({
       const newStep = state.step + 1;
       // Auto-save draft to localStorage when stepping
       persistWizardDraft(newStep, state.formData);
+      persistWizardDraftToBackend(get, set, newStep, state.formData);
       return { step: newStep };
     });
   },
@@ -250,6 +355,7 @@ export const useWizardStore = create((set, get) => ({
       const newStep = Math.max(state.step - 1, 1);
       // Auto-save draft to localStorage when stepping
       persistWizardDraft(newStep, state.formData);
+      persistWizardDraftToBackend(get, set, newStep, state.formData);
       return { step: newStep };
     });
   },
@@ -259,29 +365,60 @@ export const useWizardStore = create((set, get) => ({
       const newFormData = { ...state.formData, [field]: value };
       // Auto-save draft to localStorage
       persistWizardDraft(state.step, newFormData);
+      persistWizardDraftToBackend(get, set, state.step, newFormData);
       return { formData: newFormData };
     }),
 
   // Load draft from localStorage
-  loadDraft: () => {
+  loadDraftSnapshot: (snapshot, options = {}) => {
+    const {
+      maxStep,
+      clearStoryPreview = false,
+      expectedProjectId = '',
+    } = options;
+
+    if (!snapshot || typeof snapshot !== 'object') {
+      return false;
+    }
+
+    const sourceStep = Number(snapshot?.step);
+    const effectiveStep = normalizeDraftStep(snapshot?.step, { maxStep });
+    const draftFormData = snapshot?.formData || {};
+    const draftProjectId = String(draftFormData?.projectId || '').trim();
+    const normalizedExpectedProjectId = String(expectedProjectId || '').trim();
+
+    if (
+      normalizedExpectedProjectId &&
+      draftProjectId &&
+      draftProjectId !== normalizedExpectedProjectId
+    ) {
+      return false;
+    }
+
+    const shouldClearPreview =
+      clearStoryPreview ||
+      (Number.isFinite(maxStep) &&
+        Number.isFinite(sourceStep) &&
+        sourceStep > maxStep);
+
+    set({
+      step: effectiveStep,
+      formData: hydrateWizardFormData(draftFormData, {
+        clearStoryPreview: shouldClearPreview,
+      }),
+    });
+    console.log('[DRAFT] Hydrated draft at step:', effectiveStep);
+    return true;
+  },
+
+  // Load draft from localStorage
+  loadDraft: (options = {}) => {
     if (typeof window !== 'undefined') {
       try {
         const draft = localStorage.getItem(STORAGE_KEYS.WIZARD_DRAFT);
         if (draft) {
-          const { step, formData } = JSON.parse(draft);
-          set({
-            step,
-            formData: {
-              ...formData,
-              photo: null,
-              uploadedPhoto: null,
-              uploadedImages: Array.isArray(formData?.uploadedImages)
-                ? formData.uploadedImages
-                : [],
-            },
-          });
-          console.log('[DRAFT] Loaded draft at step:', step);
-          return true;
+          const parsedDraft = JSON.parse(draft);
+          return get().loadDraftSnapshot(parsedDraft, options);
         }
       } catch (err) {
         console.error('[DRAFT] Failed to load draft:', err);
@@ -294,6 +431,9 @@ export const useWizardStore = create((set, get) => ({
   saveDraft: () => {
     const state = get();
     persistWizardDraft(state.step, state.formData);
+    persistWizardDraftToBackend(get, set, state.step, state.formData, {
+      immediate: true,
+    });
     console.log('[DRAFT] Manually saved draft at step:', state.step);
   },
 
@@ -309,32 +449,11 @@ export const useWizardStore = create((set, get) => ({
     }
   },
 
-  resetWizard: () => set({
-    step: 1,
-    formData: {
-      ageGroup: '',
-      theme: '',
-      illustrationStyle: '',
-      pageCount: 10,
-      childName: '',
-      childGender: '',
-      childInterests: '',
-      childNotes: '',
-      photo: null,
-      projectId: null,
-      uploadedPhoto: null,
-      customIllustrationPrompt: '',
-      uploadedImages: [],
-      selectedMilestoneId: '',
-      milestoneTitle: '',
-      milestonePromptHint: '',
-      milestoneCoverBadge: '',
-      isSeries: false,
-      seriesChapterNumber: 1,
-      seriesOriginalTheme: '',
-      seriesBundleSelected: false,
-    }
-  })
+  resetWizard: () =>
+    set({
+      step: 1,
+      formData: createInitialWizardFormData(),
+    })
 }));
 
 // Currency Store

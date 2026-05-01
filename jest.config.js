@@ -18,9 +18,15 @@ const customJestConfig = {
     '!**/node_modules/**',
     '!**/.next/**',
   ],
-  testPathIgnorePatterns: ['/node_modules/', '/.next/'],
-  modulePathIgnorePatterns: ['<rootDir>/.next'],
-  coveragePathIgnorePatterns: ['/node_modules/', '/.next/'],
+  testPathIgnorePatterns: [
+    '/node_modules/',
+    '/.next/',
+    '/.next-dev/',
+    '/frontend.bak/',
+    '/backend/src/tests/',
+  ],
+  modulePathIgnorePatterns: ['<rootDir>/.next', '<rootDir>/.next-dev', '<rootDir>/frontend.bak'],
+  coveragePathIgnorePatterns: ['/node_modules/', '/.next/', '/.next-dev/', '/frontend.bak/'],
   testTimeout: 10000,
 };
 

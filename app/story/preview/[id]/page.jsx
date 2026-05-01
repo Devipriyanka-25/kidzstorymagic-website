@@ -81,7 +81,9 @@ export default function BookPreviewPage() {
   };
 
   const handleGoToCheckout = () => {
-    router.push(`/wizard?step=6&storyId=${storyId}`);
+    router.push(
+      `/wizard?step=6&resume=checkout&projectId=${encodeURIComponent(storyId)}`
+    );
   };
 
   const handleDownloadPDF = async () => {

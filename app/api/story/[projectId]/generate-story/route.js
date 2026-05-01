@@ -7,16 +7,29 @@
 import { NextResponse } from 'next/server';
 import { getTranslatedStory } from '../../../lib/storyTranslations.js';
 import { getBookTheme } from '@/utils/themes';
+import { sendPreviewReadyEmail } from '../../../../../lib/previewEmail.js';
 import {
   getStoryProjectById,
+  listStoryProjectPages,
   replaceStoryProjectPages,
   resolveAuthenticatedStoryUser,
   updateStoryProjectRecord,
 } from '../../../shared/storyProjects.js';
+import {
+  buildDraftResponse,
+  getDraftFlowMetadata,
+  mergeDraftFlowMetadata,
+} from '../../../shared/storyDrafts.js';
 const jwt = require('jsonwebtoken');
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
+
+const PREVIEW_EMAIL_REQUEST_STATUS_PENDING = 'pending';
+const PREVIEW_EMAIL_REQUEST_STATUS_SENT = 'sent';
+const PREVIEW_EMAIL_REQUEST_STATUS_FAILED = 'failed';
+const GENERATION_IN_PROGRESS_MESSAGE =
+  'Story generation is already in progress for this draft. Please wait for it to finish.';
 
 const PREMIUM_SCENE_GUIDES = {
   'animal-adventure': {
@@ -361,34 +374,36 @@ function buildIllustrationPrompt({
     : '';
 
   return [
-    `Create a full-scene premium personalized storybook illustration for ${childName}.`,
-    'Use the uploaded child reference photos only as visual guidance, then recreate the child as a premium 3D animated cartoon character instead of showing any real photo.',
-    "Preserve the child's recognizable identity closely: match the face structure, skin tone, hairline, hairstyle, eye shape and spacing, nose shape, smile shape, and overall age appearance while converting the child into a premium 3D cartoon hero.",
-    'Render the child as a joyful full-body or three-quarter-body cartoon hero inside the world, not as a close-up portrait.',
-    `Build a complete cinematic environment: ${sceneGuide.setting}.`,
-    `The child should be actively interacting with the world by ${sceneGuide.interaction}.`,
+    `Illustrate ${childName} as the child hero for this story page.`,
     `Scene title: ${safePageTitle}.`,
     `Story moment to illustrate: ${storyMoment}.`,
-    `Color direction: ${sceneGuide.palette}. Push toward extra vibrant, saturated, joyful storybook color with luminous highlights and playful contrast.`,
-    `Mood: ${ageHint}.`,
+    `Build a complete cinematic environment: ${sceneGuide.setting}.`,
+    `The child should be actively interacting with the world by ${sceneGuide.interaction}.`,
+    'Show the child as a joyful full-body or three-quarter-body storybook hero inside the world instead of a close-up portrait.',
+    `Color direction: ${sceneGuide.palette}. Keep the palette warm, soft, magical, and premium storybook-like with watercolor energy and clean details.`,
+    `Mood and reading level: ${ageHint}.`,
     milestoneInstruction,
     milestoneCoverInstruction,
     seriesInstruction,
     customSceneInstruction,
     interestInstruction,
     notesInstruction,
-    'Lighting must be bright, warm, cheerful, and child-safe. Prefer sunny daylight, pastel sky glow, rainbow bounce light, or golden sunrise light over moody, gloomy, or dark scenes.',
-    'Composition should feel like a premium vertical storybook cover or book-selection card with a full background, visible depth, and plenty of room for the environment to breathe around the child.',
-    'Keep the same child character design, costume palette, facial proportions, and overall bright 3D style consistent across every page in the book by following the selected primary reference photo carefully.',
-    'Make this feel like a polished animated feature film still for kids: colorful, magical, playful, emotionally warm, immediately welcoming, and rich with vibrant premium color.',
-    'Absolutely avoid horror vibes, eerie woods, realistic skin pores, photo textures, blue-grey darkness, thriller mood, flat vector art, split layout, or a simple headshot.',
+    'Lighting must be bright, warm, cheerful, and child-safe. Prefer sunny daylight, pastel sky glow, lantern warmth, or golden sunrise light over moody, gloomy, or dark scenes.',
+    'Composition should feel like a premium vertical storybook page with a full background, visible depth, space for the child to stand naturally, and strong magical atmosphere.',
+    'Clothing, props, and background should follow the story theme, but the child should remain the same recognizable child across every page.',
+    'Make this feel like a polished hand-painted picture-book illustration for kids: colorful, magical, emotionally warm, welcoming, and never like a glossy 3D toy render.',
   ].join(' ');
 }
 
 export async function POST(request, { params }) {
-  try {
-    const projectId = params.projectId;
+  const projectId = params.projectId;
+  const errorContext = {
+    projectId,
+    authUser: null,
+    project: null,
+  };
 
+  try {
     // Verify authentication
     const authHeader = request.headers.get('authorization');
     console.log('[GENERATE_STORY] Auth header:', authHeader ? 'Present' : 'Missing');
@@ -423,6 +438,7 @@ export async function POST(request, { params }) {
         { status: 401 }
       );
     }
+    errorContext.authUser = authUser;
 
     const body = await request.json();
     console.log('[GENERATE_STORY] Generating story for project:', projectId, 'by user:', decoded.id || decoded.email);
@@ -442,6 +458,7 @@ export async function POST(request, { params }) {
       isSeries = false,
       chapterNumber,
       originalTheme,
+      forceRegenerate = false,
     } = body;
 
     const existingProject = await getStoryProjectById(authUser.id, projectId);
@@ -451,16 +468,68 @@ export async function POST(request, { params }) {
         { status: 404 }
       );
     }
+    errorContext.project = existingProject;
 
-    console.log('[GENERATE_STORY] Story language:', storyLanguage);
-
-    // Validate required fields
+    // Validate required fields before marking the draft as generating.
     if (!childName || !ageGroup || !theme) {
       return NextResponse.json(
         { error: 'Missing required fields: childName, ageGroup, theme' },
         { status: 400 }
       );
     }
+
+    const existingPages = await listStoryProjectPages(projectId);
+    const existingDraftFlow = getDraftFlowMetadata(existingProject);
+
+    if (!forceRegenerate && existingPages.length > 0) {
+      const savedStory = buildDraftResponse(existingProject, existingPages);
+
+      return NextResponse.json(
+        {
+          success: true,
+          reused: true,
+          message: 'Saved story preview loaded without regeneration.',
+          story: {
+            ...savedStory,
+            content: existingPages
+              .map((page) => page.page_text || page.text || '')
+              .filter(Boolean)
+              .join('\n\n'),
+          },
+          projectId,
+        },
+        { status: 200 }
+      );
+    }
+
+    if (
+      !forceRegenerate &&
+      existingDraftFlow.generationStatus === 'generating'
+    ) {
+      return NextResponse.json(
+        {
+          error: GENERATION_IN_PROGRESS_MESSAGE,
+          code: 'GENERATION_IN_PROGRESS',
+        },
+        { status: 409 }
+      );
+    }
+
+    const generationStartedAt = new Date().toISOString();
+    await updateStoryProjectRecord(authUser.id, projectId, {
+      status: 'in_progress',
+      current_step: 6,
+      is_generated: false,
+      generation_started_at: generationStartedAt,
+      photo_metadata: mergeDraftFlowMetadata(existingProject, {
+        generationStatus: 'generating',
+        generationStartedAt,
+        generationError: null,
+        isGenerated: false,
+      }),
+    });
+
+    console.log('[GENERATE_STORY] Story language:', storyLanguage);
 
     const selectedBookTheme = getBookTheme(theme);
 
@@ -491,6 +560,7 @@ export async function POST(request, { params }) {
       themeMap[theme] || selectedBookTheme.storyTheme || 'adventure';
     const translatedStory = getTranslatedStory(storyLanguage, mappedTheme, childName);
     const baseStoryTitle =
+      storyLanguage === 'en' &&
       typeof selectedBookTheme.titleTemplate === 'function'
         ? selectedBookTheme.titleTemplate(childName)
         : translatedStory.title;
@@ -499,7 +569,10 @@ export async function POST(request, { params }) {
         ? `Chapter ${chapterNumber}: `
         : '';
     const storyTitle = `${chapterPrefix}${baseStoryTitle}`;
-    const pageThemeTitle = selectedBookTheme.label || translatedStory.title;
+    const pageThemeTitle =
+      storyLanguage === 'en'
+        ? selectedBookTheme.label || translatedStory.title
+        : translatedStory.title;
 
     const selectedTheme = {
       title: storyTitle,
@@ -674,6 +747,8 @@ export async function POST(request, { params }) {
       },
     };
 
+    const generationCompletedAt = new Date().toISOString();
+    const draftExpiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
     const updatedProject = await updateStoryProjectRecord(authUser.id, projectId, {
       title: generatedStory.title,
       age_group: ageGroup,
@@ -691,7 +766,28 @@ export async function POST(request, { params }) {
         existingProject.child_notes || existingProject.childNotes || null,
       status: 'draft',
       current_step: 6,
+      is_generated: true,
+      draft_expires_at: draftExpiresAt,
+      generation_completed_at: generationCompletedAt,
       preview_url: null,
+      photo_metadata: mergeDraftFlowMetadata(existingProject, {
+        generationStatus: 'completed',
+        generationCompletedAt,
+        generationError: null,
+        isGenerated: true,
+        draftExpiresAt,
+        formData: {
+          ...(existingDraftFlow.formData || {}),
+          childName,
+          childGender,
+          ageGroup,
+          theme,
+          pageCount: totalPages,
+          storyLanguage,
+          storyPreview: pagesArray,
+          projectId,
+        },
+      }),
     });
 
     const persistedPages = await replaceStoryProjectPages(projectId, pagesArray);
@@ -706,6 +802,70 @@ export async function POST(request, { params }) {
         .join('\n\n'),
     };
 
+    const latestProject = await getStoryProjectById(authUser.id, projectId);
+    const pendingPreviewEmailRequest =
+      latestProject?.photo_metadata &&
+      typeof latestProject.photo_metadata === 'object' &&
+      latestProject.photo_metadata.previewEmailRequest &&
+      latestProject.photo_metadata.previewEmailRequest.status ===
+        PREVIEW_EMAIL_REQUEST_STATUS_PENDING
+        ? latestProject.photo_metadata.previewEmailRequest
+        : null;
+
+    if (pendingPreviewEmailRequest?.recipientEmail) {
+      const syncPreviewEmailRequestStatus = async (nextRequestState) => {
+        try {
+          await updateStoryProjectRecord(authUser.id, projectId, {
+            photo_metadata: {
+              ...(latestProject.photo_metadata || {}),
+              previewEmailRequest: nextRequestState,
+            },
+          });
+        } catch (metadataError) {
+          console.error(
+            '[GENERATE_STORY] Failed to sync preview email request state:',
+            metadataError
+          );
+        }
+      };
+
+      try {
+        await sendPreviewReadyEmail({
+          childName:
+            pendingPreviewEmailRequest.childName ||
+            persistedStory.childName ||
+            childName,
+          pageCount:
+            Number(pendingPreviewEmailRequest.pageCount) || totalPages,
+          projectId,
+          recipientEmail: pendingPreviewEmailRequest.recipientEmail,
+          theme: pendingPreviewEmailRequest.theme || theme,
+          appUrl: process.env.NEXT_PUBLIC_APP_URL,
+        });
+
+        await syncPreviewEmailRequestStatus({
+          ...pendingPreviewEmailRequest,
+          status: PREVIEW_EMAIL_REQUEST_STATUS_SENT,
+          sentAt: new Date().toISOString(),
+        });
+      } catch (previewEmailError) {
+        console.error(
+          '[GENERATE_STORY] Failed to deliver pending preview email:',
+          previewEmailError
+        );
+
+        await syncPreviewEmailRequestStatus({
+          ...pendingPreviewEmailRequest,
+          status: PREVIEW_EMAIL_REQUEST_STATUS_FAILED,
+          failedAt: new Date().toISOString(),
+          error:
+            previewEmailError instanceof Error
+              ? previewEmailError.message
+              : String(previewEmailError),
+        });
+      }
+    }
+
     console.log('[GENERATE_STORY] Story generated successfully:', projectId);
 
     return NextResponse.json(
@@ -719,6 +879,23 @@ export async function POST(request, { params }) {
     );
   } catch (error) {
     console.error('[GENERATE_STORY] Error:', error.message);
+    if (errorContext.authUser?.id && errorContext.project) {
+      try {
+        await updateStoryProjectRecord(errorContext.authUser.id, errorContext.projectId, {
+          photo_metadata: mergeDraftFlowMetadata(errorContext.project, {
+            generationStatus: 'failed',
+            generationError: error.message,
+            generationFailedAt: new Date().toISOString(),
+          }),
+        });
+      } catch (metadataError) {
+        console.error(
+          '[GENERATE_STORY] Failed to persist generation failure:',
+          metadataError.message
+        );
+      }
+    }
+
     return NextResponse.json(
       {
         error: 'Failed to generate story',

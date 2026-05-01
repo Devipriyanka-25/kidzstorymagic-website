@@ -33,8 +33,10 @@ export default function Step4ChildDetails() {
     updateFormData(field, value);
   };
 
-  // Child safety info should be collected in the modal, not here
-  const isFormValid = formData.childName && formData.childGender && formData.childAge && formData.parentConsent;
+  // Validation: childName, childGender, and childAge are required
+  // parentConsent only required if child is under 13
+  const isChildUnder13 = formData.childAge && parseInt(formData.childAge, 10) < 13;
+  const isFormValid = formData.childName && formData.childGender && formData.childAge && (!isChildUnder13 || formData.parentConsent);
 
   const handleContinue = async () => {
     if (!isFormValid) return;
@@ -84,8 +86,7 @@ export default function Step4ChildDetails() {
         is_series: formData.isSeries,
       });
 
-      // Create the project now, before moving to Step 5
-      const createResponse = await storyAPI.createProject({
+      const projectPayload = {
         // camelCase - Required for middleware validation
         childName: formData.childName,
         childAge: parseInt(formData.childAge, 10),
@@ -101,13 +102,29 @@ export default function Step4ChildDetails() {
         child_interests: formData.childInterests,
         child_notes: formData.childNotes,
         title: projectTitle
-      });
+      };
 
-      const projectId = createResponse.data.project.id;
+      const createResponse = formData.projectId
+        ? await storyAPI.saveDraft({
+            projectId: formData.projectId,
+            step: 4,
+            formData: {
+              ...formData,
+              ...projectPayload,
+              storyPreview: null,
+            },
+          })
+        : await storyAPI.createProject(projectPayload);
+
+      const projectId =
+        createResponse.data.project?.id ||
+        createResponse.data.draft?.id ||
+        createResponse.data.projectId;
       console.log('[STEP4] Project created successfully:', projectId);
 
       // Store the projectId in wizard state
       updateFormData('projectId', projectId);
+      updateFormData('storyPreview', null);
 
       // Move to next step
       nextStep();
@@ -169,6 +186,32 @@ export default function Step4ChildDetails() {
         )}
 
         <form className="space-y-8 py-8">
+          {/* Child Name */}
+          <div>
+            <label className="block text-lg font-bold mb-3 text-gray-900">Child's Name *</label>
+            <input
+              type="text"
+              value={formData.childName}
+              onChange={(e) => handleInputChange('childName', e.target.value)}
+              placeholder="Your child's name"
+              className="w-full px-6 py-4 border-2 border-gray-300 rounded-xl focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-300 transition-all text-lg"
+            />
+          </div>
+
+          {/* Child Age */}
+          <div>
+            <label className="block text-lg font-bold mb-3 text-gray-900">Child's Age *</label>
+            <input
+              type="number"
+              min="1"
+              max="17"
+              value={formData.childAge}
+              onChange={(e) => handleInputChange('childAge', e.target.value)}
+              placeholder="Age (1-17)"
+              className="w-full px-6 py-4 border-2 border-gray-300 rounded-xl focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-300 transition-all text-lg"
+            />
+          </div>
+
           {/* Child Gender */}
           <div>
             <label className="block text-lg font-bold mb-4 text-gray-900">Gender *</label>
@@ -212,6 +255,26 @@ export default function Step4ChildDetails() {
               className="w-full px-6 py-4 border-2 border-gray-300 rounded-xl focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-300 transition-all text-lg font-medium resize-none"
             />
           </div>
+
+          {/* Parental Consent (if under 13) */}
+          {formData.childAge && parseInt(formData.childAge, 10) < 13 && (
+            <div className="border-2 border-amber-300 bg-amber-50 rounded-xl p-6">
+              <label className="flex items-start gap-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={formData.parentConsent}
+                  onChange={(e) => handleInputChange('parentConsent', e.target.checked)}
+                  className="w-6 h-6 cursor-pointer mt-1"
+                />
+                <div>
+                  <p className="text-lg font-bold text-amber-900">Parental Consent *</p>
+                  <p className="text-sm text-amber-800 mt-1">
+                    I confirm that I am the parent/guardian and consent to the creation of this personalized storybook.
+                  </p>
+                </div>
+              </label>
+            </div>
+          )}
         </form>
 
         <div className="pt-6 flex gap-4">

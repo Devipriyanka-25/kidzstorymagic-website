@@ -3,6 +3,8 @@
 import dynamic from 'next/dynamic';
 import { useSearchParams } from 'next/navigation';
 import { useWizardStore } from '@/utils/store';
+import { getAuthToken, storyAPI } from '@/utils/api';
+import { STORAGE_KEYS } from '@/utils/constants';
 import { useEffect, useState } from 'react';
 import LanguageSelector from '@/components/i18n/LanguageSelector';
 import AgeGateModal from '@/components/wizard/AgeGateModal';
@@ -66,14 +68,97 @@ function resolveRequestedWizardStep(value) {
   return requestedStep;
 }
 
+const MAX_STANDARD_RESUME_STEP = 5;
+const STEP_SIX_RESUME_SOURCES = new Set(['checkout', 'preview-email']);
+
+function readLocalWizardDraft() {
+  if (typeof window === 'undefined') {
+    return null;
+  }
+
+  try {
+    const storedDraft = localStorage.getItem(STORAGE_KEYS.WIZARD_DRAFT);
+    return storedDraft ? JSON.parse(storedDraft) : null;
+  } catch (error) {
+    console.error('[WIZARD] Failed to read local draft:', error);
+    return null;
+  }
+}
+
+function buildLoginRedirectUrl() {
+  if (typeof window === 'undefined') {
+    return '/auth/login';
+  }
+
+  const nextPath = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+  return `/auth/login?next=${encodeURIComponent(nextPath)}`;
+}
+
+function mergeServerDraftWithLocalDraft(serverDraft, localDraftFormData = null) {
+  const serverFormData = serverDraft?.formData || {};
+  const savedPages = Array.isArray(serverDraft?.pages)
+    ? serverDraft.pages
+    : [];
+  const uploadedImages = Array.isArray(localDraftFormData?.uploadedImages)
+    ? localDraftFormData.uploadedImages
+    : [];
+
+  return {
+    ...(localDraftFormData || {}),
+    ...serverFormData,
+    projectId:
+      serverDraft?.id ||
+      serverDraft?.projectId ||
+      serverFormData?.projectId ||
+      null,
+    uploadedImages,
+    uploadedImagesCount:
+      uploadedImages.length > 0
+        ? uploadedImages.length
+        : Number(localDraftFormData?.uploadedImagesCount) || 0,
+    needsPhotoReupload:
+      uploadedImages.length > 0
+        ? Boolean(localDraftFormData?.needsPhotoReupload ?? true)
+        : Boolean(localDraftFormData?.needsPhotoReupload),
+    storyPreview:
+      Array.isArray(serverFormData.storyPreview) &&
+      serverFormData.storyPreview.length > 0
+        ? serverFormData.storyPreview
+        : savedPages.length > 0
+          ? savedPages
+          : null,
+    isGenerated: Boolean(
+      serverDraft?.isGenerated ||
+        serverDraft?.is_generated ||
+        serverFormData?.isGenerated ||
+        savedPages.length > 0
+    ),
+    generationStatus:
+      serverDraft?.generationStatus ||
+      serverFormData?.generationStatus ||
+      (savedPages.length > 0 ? 'completed' : 'idle'),
+  };
+}
+
 export default function WizardPage() {
   const searchParams = useSearchParams();
-  const { step: currentStep, loadDraft, clearDraft, resetWizard, formData, updateFormData } = useWizardStore();
+  const {
+    step: currentStep,
+    loadDraft,
+    loadDraftSnapshot,
+    clearDraft,
+    resetWizard,
+    formData,
+    updateFormData,
+  } = useWizardStore();
   const [showDraftPrompt, setShowDraftPrompt] = useState(false);
   const [showAgeGateModal, setShowAgeGateModal] = useState(false);
   const [showSafetyModal, setShowSafetyModal] = useState(false);
   const [showAdultFormModal, setShowAdultFormModal] = useState(false);
   const [draftStep, setDraftStep] = useState(null);
+  const [draftExpired, setDraftExpired] = useState(false);
+  const [pendingServerDraft, setPendingServerDraft] = useState(null);
+  const [isInitializingWizard, setIsInitializingWizard] = useState(true);
   const [error, setError] = useState(null);
   const [languageChanged, setLanguageChanged] = useState(false);
   const [selectedAge, setSelectedAge] = useState(null);
@@ -122,40 +207,139 @@ export default function WizardPage() {
   };
 
   useEffect(() => {
-    // Check for existing draft on mount
-    if (typeof window !== 'undefined') {
+    if (typeof window === 'undefined') {
+      return undefined;
+    }
+
+    let cancelled = false;
+
+    const initializeWizard = async () => {
+      setIsInitializingWizard(true);
+      setError(null);
+
       const requestedStep = resolveRequestedWizardStep(searchParams.get('step'));
       const requestedProjectId =
         searchParams.get('projectId')?.trim() ||
         searchParams.get('project_id')?.trim() ||
         '';
+      const requestedDraftId = searchParams.get('draftId')?.trim() || '';
       const resumeSource = searchParams.get('resume')?.trim() || '';
-      const shouldAutoResumeFromCheckout =
-        resumeSource === 'checkout' ||
+      const shouldStartNew =
+        ['1', 'true', 'yes'].includes(
+          String(searchParams.get('new') || '').trim().toLowerCase()
+        ) || searchParams.get('start') === 'new';
+      const shouldResumeStepSix =
+        STEP_SIX_RESUME_SOURCES.has(resumeSource) ||
         Boolean(requestedProjectId && requestedStep === 6);
+      const localDraft = readLocalWizardDraft();
+      const localDraftProjectId = String(
+        localDraft?.formData?.projectId || ''
+      ).trim();
+      const authToken = getAuthToken();
 
       try {
-        const draft = localStorage.getItem('wizardDraft');
-        const parsedDraft = draft ? JSON.parse(draft) : null;
+        if (shouldStartNew) {
+          clearDraft();
+          resetWizard();
 
-        if (shouldAutoResumeFromCheckout) {
-          const draftProjectId = String(
-            parsedDraft?.formData?.projectId || ''
+          if (authToken) {
+            try {
+              const response = await storyAPI.saveDraft({
+                startNew: true,
+                step: 1,
+                formData: {},
+              });
+              const projectId =
+                response?.data?.projectId || response?.data?.draft?.id || null;
+
+              if (projectId) {
+                updateFormData('projectId', String(projectId));
+              }
+            } catch (startNewError) {
+              console.warn('[WIZARD] Failed to mark previous draft inactive:', startNewError);
+            }
+          }
+
+          applyQueryPrefill();
+          setShowDraftPrompt(false);
+          setDraftExpired(false);
+          setPendingServerDraft(null);
+          setShowAgeGateModal(true);
+          return;
+        }
+
+        if ((requestedDraftId || shouldResumeStepSix) && !authToken) {
+          setIsInitializingWizard(false);
+          window.location.href = buildLoginRedirectUrl();
+          return;
+        }
+
+        if (requestedDraftId) {
+          const response = await storyAPI.getDraft(requestedDraftId);
+          if (cancelled) {
+            return;
+          }
+
+          const serverDraft = response?.data?.draft;
+          if (!serverDraft) {
+            throw new Error('Draft not found.');
+          }
+
+          const serverProjectId = String(
+            serverDraft?.id ||
+              serverDraft?.projectId ||
+              serverDraft?.formData?.projectId ||
+              requestedDraftId
           ).trim();
+          const localDraftFormData =
+            localDraftProjectId &&
+            serverProjectId &&
+            localDraftProjectId === serverProjectId
+              ? localDraft?.formData || null
+              : null;
+
+          loadDraftSnapshot(
+            {
+              step: Number(
+                serverDraft?.current_step || serverDraft?.currentStep || 1
+              ),
+              formData: mergeServerDraftWithLocalDraft(
+                serverDraft,
+                localDraftFormData
+              ),
+            },
+            {
+              clearStoryPreview: false,
+              expectedProjectId: serverProjectId,
+            }
+          );
+
+          applyQueryPrefill();
+          setShowDraftPrompt(false);
+          setDraftExpired(Boolean(serverDraft.expired));
+          setPendingServerDraft(null);
+          setShowAgeGateModal(false);
+          return;
+        }
+
+        if (shouldResumeStepSix) {
           const shouldLoadSavedDraft =
-            Boolean(parsedDraft) &&
+            Boolean(localDraft) &&
             (!requestedProjectId ||
-              !draftProjectId ||
-              draftProjectId === requestedProjectId);
+              !localDraftProjectId ||
+              localDraftProjectId === requestedProjectId);
 
           if (shouldLoadSavedDraft) {
-            loadDraft();
+            loadDraft({
+              expectedProjectId: requestedProjectId || undefined,
+            });
           } else {
             useWizardStore.setState((state) => ({
               step: requestedStep || 6,
               formData: {
                 ...state.formData,
-                projectId: requestedProjectId || state.formData.projectId || null,
+                projectId:
+                  requestedProjectId || state.formData.projectId || null,
                 storyPreview:
                   requestedProjectId &&
                   String(state.formData.projectId || '').trim() !==
@@ -178,32 +362,155 @@ export default function WizardPage() {
           useWizardStore.getState().setStep(requestedStep || 6);
           applyQueryPrefill();
           setShowDraftPrompt(false);
+          setDraftExpired(false);
+          setPendingServerDraft(null);
           setShowAgeGateModal(false);
           return;
         }
 
-        if (parsedDraft) {
-          const { step } = parsedDraft;
-          setDraftStep(step);
+        if (authToken) {
+          try {
+            const latestResponse = await storyAPI.getLatestDraft();
+            if (cancelled) {
+              return;
+            }
+
+            const serverDraft = latestResponse?.data?.draft;
+            if (serverDraft && !latestResponse?.data?.expired && !serverDraft.expired) {
+              const serverProjectId = String(
+                serverDraft?.id ||
+                  serverDraft?.projectId ||
+                  serverDraft?.formData?.projectId ||
+                  ''
+              ).trim();
+              const localDraftFormData =
+                localDraftProjectId &&
+                serverProjectId &&
+                localDraftProjectId === serverProjectId
+                  ? localDraft?.formData || null
+                  : null;
+
+              loadDraftSnapshot(
+                {
+                  step: Number(
+                    serverDraft?.current_step || serverDraft?.currentStep || 1
+                  ),
+                  formData: mergeServerDraftWithLocalDraft(
+                    serverDraft,
+                    localDraftFormData
+                  ),
+                },
+                {
+                  clearStoryPreview: false,
+                  expectedProjectId: serverProjectId,
+                }
+              );
+
+              applyQueryPrefill();
+              setShowDraftPrompt(false);
+              setDraftExpired(false);
+              setPendingServerDraft(null);
+              setShowAgeGateModal(false);
+              return;
+            }
+
+            if (serverDraft && (latestResponse?.data?.expired || serverDraft.expired)) {
+              setDraftStep(
+                Number(serverDraft?.current_step || serverDraft?.currentStep || 1)
+              );
+              setDraftExpired(true);
+              setPendingServerDraft(serverDraft);
+              setShowDraftPrompt(true);
+              setShowAgeGateModal(false);
+              return;
+            }
+          } catch (latestDraftError) {
+            console.warn('[WIZARD] Latest backend draft unavailable:', latestDraftError);
+          }
+        }
+
+        if (localDraft) {
+          setDraftStep(
+            Math.min(
+              Number(localDraft?.step || 1),
+              MAX_STANDARD_RESUME_STEP
+            )
+          );
+          setDraftExpired(false);
+          setPendingServerDraft(null);
           setShowDraftPrompt(true);
+          setShowAgeGateModal(false);
         } else {
-          // No draft, reset wizard and show age gate modal
           resetWizard();
           applyQueryPrefill();
+          setShowDraftPrompt(false);
           setShowAgeGateModal(true);
         }
       } catch (err) {
-        console.error('[WIZARD] Error checking draft:', err);
-        resetWizard();
-        applyQueryPrefill();
-        setShowAgeGateModal(true);
+        console.error('[WIZARD] Error initializing wizard:', err);
+        setError(err);
+
+        const didLoadLocalDraft = localDraft
+          ? loadDraft({
+              maxStep: MAX_STANDARD_RESUME_STEP,
+              clearStoryPreview: true,
+            })
+          : false;
+
+        if (didLoadLocalDraft) {
+          setShowDraftPrompt(false);
+          setShowAgeGateModal(false);
+        } else {
+          resetWizard();
+          applyQueryPrefill();
+          setShowDraftPrompt(false);
+          setShowAgeGateModal(true);
+        }
+      } finally {
+        if (!cancelled) {
+          setIsInitializingWizard(false);
+        }
       }
-    }
-  }, [loadDraft, resetWizard, searchParams]);
+    };
+
+    initializeWizard();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [loadDraft, loadDraftSnapshot, resetWizard, searchParams]);
 
   const handleResumeDraft = () => {
-    loadDraft();
+    if (pendingServerDraft) {
+      const serverProjectId = String(
+        pendingServerDraft?.id ||
+          pendingServerDraft?.projectId ||
+          pendingServerDraft?.formData?.projectId ||
+          ''
+      ).trim();
+
+      loadDraftSnapshot(
+        {
+          step: Number(
+            pendingServerDraft?.current_step ||
+              pendingServerDraft?.currentStep ||
+              1
+          ),
+          formData: mergeServerDraftWithLocalDraft(pendingServerDraft),
+        },
+        {
+          clearStoryPreview: false,
+          expectedProjectId: serverProjectId,
+        }
+      );
+    } else {
+      loadDraft({
+        maxStep: MAX_STANDARD_RESUME_STEP,
+        clearStoryPreview: true,
+      });
+    }
     setShowDraftPrompt(false);
+    setPendingServerDraft(null);
   };
 
   const handleAgeGateComplete = (ageData) => {
@@ -237,6 +544,26 @@ export default function WizardPage() {
     resetWizard();
     applyQueryPrefill();
     setShowDraftPrompt(false);
+    setDraftExpired(false);
+    setPendingServerDraft(null);
+    if (getAuthToken()) {
+      storyAPI
+        .saveDraft({
+          startNew: true,
+          step: 1,
+          formData: {},
+        })
+        .then((response) => {
+          const projectId =
+            response?.data?.projectId || response?.data?.draft?.id || null;
+          if (projectId) {
+            updateFormData('projectId', String(projectId));
+          }
+        })
+        .catch((startNewError) => {
+          console.warn('[WIZARD] Failed to start a clean backend draft:', startNewError);
+        });
+    }
     setShowAgeGateModal(true);
   };
 
@@ -319,6 +646,22 @@ export default function WizardPage() {
 
   const Step = steps[currentStep - 1]?.component;
 
+  if (isInitializingWizard) {
+    return (
+      <main className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 py-8 flex items-center justify-center">
+        <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-md mx-auto text-center">
+          <h2 className="text-3xl font-bold text-gray-900 mb-4">
+            Opening Your Story
+          </h2>
+          <p className="text-lg text-gray-600">
+            We&apos;re restoring your saved draft and placing you in the right
+            step.
+          </p>
+        </div>
+      </main>
+    );
+  }
+
   // Show draft prompt
   if (showDraftPrompt) {
     return (
@@ -331,7 +674,9 @@ export default function WizardPage() {
             We found your draft story in progress at <span className="font-semibold text-blue-600">Step {draftStep}</span>.
           </p>
           <p className="text-gray-500 mb-8">
-            Would you like to continue where you left off?
+            {draftExpired
+              ? 'This draft is older than 24 hours, so resume may need to refresh any missing generated pages.'
+              : 'Would you like to continue where you left off?'}
           </p>
           <div className="flex gap-4">
             <button

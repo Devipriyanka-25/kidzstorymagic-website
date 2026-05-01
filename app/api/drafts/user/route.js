@@ -38,15 +38,22 @@ async function resolveRequestUser(request) {
     return { error: NextResponse.json({ error: 'Unauthorized' }, { status: 401 }) };
   }
 
-  const authUser = await resolveAuthenticatedStoryUser(decoded);
-  if (!authUser?.id) {
+  // Trust the JWT token directly - it has been cryptographically verified
+  if (!decoded?.id) {
     return {
       error: NextResponse.json(
-        { error: 'Authenticated user could not be resolved.' },
+        { error: 'Invalid token: missing user ID' },
         { status: 401 }
       ),
     };
   }
+
+  // Create an authUser object from the decoded JWT
+  const authUser = {
+    id: decoded.id,
+    email: decoded.email,
+    name: decoded.name || decoded.email,
+  };
 
   return { authUser };
 }

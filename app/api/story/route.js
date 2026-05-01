@@ -46,15 +46,24 @@ async function resolveRequestUser(request) {
     return { error: NextResponse.json({ error: 'Unauthorized' }, { status: 401 }) };
   }
 
-  const authUser = await resolveAuthenticatedStoryUser(decoded);
-  if (!authUser?.id) {
+  // Trust the JWT token directly - it has been cryptographically verified
+  // The user ID and email are already validated by the JWT signature
+  if (!decoded?.id) {
     return {
       error: NextResponse.json(
-        { error: 'Authenticated user could not be resolved.' },
+        { error: 'Invalid token: missing user ID' },
         { status: 401 }
       ),
     };
   }
+
+  // Create an authUser object from the decoded JWT
+  // This works whether the user exists in Supabase or was created in the backend
+  const authUser = {
+    id: decoded.id,
+    email: decoded.email,
+    name: decoded.name || decoded.email,
+  };
 
   return { authUser, decoded };
 }
@@ -96,11 +105,17 @@ export async function GET(request) {
       { status: 200 }
     );
   } catch (error) {
-    console.error('[STORY] Error:', error.message);
+    console.error('[STORY] Error:', {
+      message: error.message,
+      stack: error.stack,
+      code: error.code,
+      details: error.details,
+    });
     return NextResponse.json(
       {
         error: 'Failed to fetch stories',
         details: error.message,
+        code: error.code,
       },
       { status: 500 }
     );

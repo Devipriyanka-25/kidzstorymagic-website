@@ -18,6 +18,7 @@ frontend/.env.local
 dist/
 build/
 .next/
+.next-dev/
 .nuxt/
 coverage/
 
@@ -66,6 +67,8 @@ auth.json
 # Temporary
 tmp/
 temp/
+.tmp-*
+public/temp-faces/
 
 # Docker
 docker-compose.override.yml

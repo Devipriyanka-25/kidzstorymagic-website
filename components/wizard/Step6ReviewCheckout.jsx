@@ -5,7 +5,7 @@ import PDFPreviewModal from './PDFPreviewModal';
 import GiftStory from './GiftStory';
 import CharacterConsistentStoryPage from '@/components/story/CharacterConsistentStoryPage';
 import { useLanguage } from '@/hooks/useLanguage';
-import { storyAPI, paymentAPI, emailAPI } from '@/utils/api';
+import { storyAPI, paymentAPI } from '@/utils/api';
 import {
   useWizardStore,
   useCurrencyStore,
@@ -29,8 +29,11 @@ const isIllustratedStoryPage = (page) => page?.pageType === 'story';
 const PREVIEW_SUPPORT_EMAIL = 'support@kidzstorymagic.com';
 const PREVIEW_POLL_INTERVAL_MS = 3000;
 const PREVIEW_FIRST_PAGE_TIMEOUT_MS = 45000;
+const PREVIEW_RESTORE_TIMEOUT_MS = 12000;
 const MAX_POLL_RETRIES = 8;
 const FREE_PREVIEW_PAGE_LIMIT = 3;
+const PREVIEW_EMAIL_WAIT_MESSAGE =
+  'Your story is still being created. Please wait until generation is complete before sending it to your email.';
 const PREVIEW_QUOTES = [
   {
     quote:
@@ -646,6 +649,7 @@ export default function Step6ReviewCheckout() {
   const [quoteIndex, setQuoteIndex] = useState(0);
   const isMountedRef = useRef(true);
   const generationSessionRef = useRef(0);
+  const [previewRestoreRetryNonce, setPreviewRestoreRetryNonce] = useState(0);
   const completedPreviewRestoreProjectsRef = useRef(new Set());
   const activePreviewRestoreProjectIdRef = useRef(null);
   const pendingFaceSwapQueueRef = useRef([]);
@@ -772,8 +776,10 @@ export default function Step6ReviewCheckout() {
     }
 
     let cancelled = false;
+    let restoreTimedOut = false;
     activePreviewRestoreProjectIdRef.current = projectId;
     setIsRestoringSavedPreview(true);
+    setError('');
     setPreviewPrepProgress(22);
     setPreviewPrepTitle('Reopening your saved book preview');
     setPreviewPrepDetail(
@@ -783,6 +789,21 @@ export default function Step6ReviewCheckout() {
     setPreviewEmailStatus('idle');
     setPreviewEmailFeedback('');
     setPreviewEmailSentTo('');
+    const restoreTimeoutId = window.setTimeout(() => {
+      restoreTimedOut = true;
+      completedPreviewRestoreProjectsRef.current.add(projectId);
+
+      if (activePreviewRestoreProjectIdRef.current === projectId) {
+        activePreviewRestoreProjectIdRef.current = null;
+      }
+
+      if (!cancelled) {
+        setIsRestoringSavedPreview(false);
+        setError(
+          'Reopening the saved preview is taking longer than usual. You can try reopening it again or tap Preview Story to continue.'
+        );
+      }
+    }, PREVIEW_RESTORE_TIMEOUT_MS);
 
     const restoreSavedPreview = async () => {
       try {
@@ -790,7 +811,11 @@ export default function Step6ReviewCheckout() {
         const savedStory = response?.data?.story;
         const savedPages = Array.isArray(savedStory?.pages) ? savedStory.pages : [];
 
-        if (cancelled || savedPages.length === 0) {
+        if (cancelled || restoreTimedOut) {
+          return;
+        }
+
+        if (savedPages.length === 0) {
           completedPreviewRestoreProjectsRef.current.add(projectId);
           return;
         }
@@ -833,8 +858,11 @@ export default function Step6ReviewCheckout() {
         useWizardStore.getState().saveDraft();
         completedPreviewRestoreProjectsRef.current.add(projectId);
       } catch (restoreError) {
-        if (!cancelled) {
+        if (!cancelled && !restoreTimedOut) {
           completedPreviewRestoreProjectsRef.current.add(projectId);
+          setError(
+            'We could not reopen the saved preview right now. You can try reopening it again or tap Preview Story to continue.'
+          );
         }
 
         console.warn('[PREVIEW_RESTORE_ERROR]', {
@@ -845,11 +873,13 @@ export default function Step6ReviewCheckout() {
               : String(restoreError),
         });
       } finally {
+        window.clearTimeout(restoreTimeoutId);
+
         if (activePreviewRestoreProjectIdRef.current === projectId) {
           activePreviewRestoreProjectIdRef.current = null;
         }
 
-        if (!cancelled) {
+        if (!cancelled && !restoreTimedOut) {
           setIsRestoringSavedPreview(false);
         }
       }
@@ -859,10 +889,10 @@ export default function Step6ReviewCheckout() {
 
     return () => {
       cancelled = true;
+      window.clearTimeout(restoreTimeoutId);
       if (activePreviewRestoreProjectIdRef.current === projectId) {
         activePreviewRestoreProjectIdRef.current = null;
       }
-      completedPreviewRestoreProjectsRef.current.delete(projectId);
     };
   }, [
     formData?.storyPreview,
@@ -877,6 +907,7 @@ export default function Step6ReviewCheckout() {
     formData.theme,
     formData.ageGroup,
     isRestoringSavedPreview,
+    previewRestoreRetryNonce,
     shouldGateIllustrations,
     storyPreview,
   ]);
@@ -1114,6 +1145,12 @@ export default function Step6ReviewCheckout() {
         isPageIllustrationReady(page, pageIndex)
       )
     : false;
+  const isPreviewEmailReady =
+    Boolean(formData.projectId) &&
+    Array.isArray(storyPreview) &&
+    allIllustratedPagesReady &&
+    !loading &&
+    !isRestoringSavedPreview;
   const coverPreviewArt = useMemo(() => {
     if (Array.isArray(storyPreview)) {
       const firstReadyStoryPage = storyPreview.find(
@@ -1260,6 +1297,27 @@ export default function Step6ReviewCheckout() {
     );
   };
 
+  const handleRetrySavedPreviewRestore = () => {
+    const projectId = String(formData.projectId || '').trim();
+    if (!projectId) {
+      return;
+    }
+
+    completedPreviewRestoreProjectsRef.current.delete(projectId);
+    activePreviewRestoreProjectIdRef.current = null;
+    setError('');
+    setShowEmailFallback(false);
+    setPreviewEmailStatus('idle');
+    setPreviewEmailFeedback('');
+    setPreviewEmailSentTo('');
+    setPreviewPrepProgress(22);
+    setPreviewPrepTitle('Reopening your saved book preview');
+    setPreviewPrepDetail(
+      'We are restoring your saved preview so you can continue without using another generation credit.'
+    );
+    setPreviewRestoreRetryNonce((currentValue) => currentValue + 1);
+  };
+
   const handleIllustrationReady = (pageIndex, imageUrl) => {
     setStoryPreview((currentPages) => {
       if (!Array.isArray(currentPages)) {
@@ -1313,9 +1371,18 @@ export default function Step6ReviewCheckout() {
     return -1;
   };
 
-  const handleGenerateStory = async (languageOverride = currentLanguage) => {
+  const handleGenerateStory = async (
+    languageOverride = currentLanguage,
+    { forceRegenerate = false } = {}
+  ) => {
     const resolvedLanguage =
       typeof languageOverride === 'string' ? languageOverride : currentLanguage;
+
+    if (storyPreview && !forceRegenerate) {
+      setPreviewEmailFeedback('');
+      return;
+    }
+
     generationSessionRef.current += 1;
 
     setLoading(true);
@@ -1378,7 +1445,8 @@ export default function Step6ReviewCheckout() {
         formData.projectId,
         customPrompt,
         resolvedLanguage || formData.storyLanguage || 'en',
-        storyData
+        storyData,
+        { forceRegenerate }
       );
 
       const pages =
@@ -1412,6 +1480,12 @@ export default function Step6ReviewCheckout() {
   };
 
   const handleSendPreviewEmail = async () => {
+    if (!isPreviewEmailReady) {
+      setPreviewEmailStatus('error');
+      setPreviewEmailFeedback(PREVIEW_EMAIL_WAIT_MESSAGE);
+      return;
+    }
+
     if (!previewEmailRecipient) {
       setPreviewEmailStatus('error');
       setPreviewEmailFeedback(
@@ -1424,23 +1498,34 @@ export default function Step6ReviewCheckout() {
     setPreviewEmailFeedback('');
 
     try {
-      const previewUrl =
-        typeof window !== 'undefined' ? window.location.href : undefined;
-      const response = await emailAPI.requestPreviewEmail({
+      useWizardStore.getState().saveDraft();
+      await storyAPI.saveDraft({
+        projectId: formData.projectId,
+        step: 6,
+        formData: {
+          ...formData,
+          storyPreview,
+        },
+      });
+
+      const response = await storyAPI.sendPreviewEmail({
         childName: formData.childName,
         pageCount: formData.pageCount,
         projectId: formData.projectId,
-        previewUrl,
         recipientEmail: previewEmailRecipient,
         theme: selectedThemeLabel,
       });
 
       const sentRecipient =
         response?.data?.recipientEmail || previewEmailRecipient;
+      const isQueued = Boolean(response?.data?.queued);
       setPreviewEmailSentTo(sentRecipient);
-      setPreviewEmailStatus('sent');
+      setPreviewEmailStatus(isQueued ? 'queued' : 'sent');
       setPreviewEmailFeedback(
-        `We emailed the preview link to ${sentRecipient}. You can reopen this project later from that email.`
+        response?.data?.message ||
+          (isQueued
+            ? `We are still finishing the story. We will email ${sentRecipient} as soon as the saved preview is ready.`
+            : `We emailed the secure preview link to ${sentRecipient}. You can reopen this project later from that email.`)
       );
     } catch (requestError) {
       const message =
@@ -1647,7 +1732,7 @@ export default function Step6ReviewCheckout() {
       return;
     }
 
-    const maxProgress = isPreparingInitialPreview ? 88 : 34;
+    const maxProgress = isPreparingInitialPreview ? 88 : 64;
     const progressInterval = window.setInterval(() => {
       setPreviewPrepProgress((currentProgress) =>
         Math.min(maxProgress, currentProgress + 2)
@@ -1684,7 +1769,10 @@ export default function Step6ReviewCheckout() {
         event?.detail?.language || formData.storyLanguage || currentLanguage;
 
       if (storyPreview) {
-        handleGenerateStory(nextLanguage);
+        setPreviewEmailStatus('idle');
+        setPreviewEmailFeedback(
+          'Language updated for future edits. Use Regenerate Preview if you want to rebuild this saved story in the new language.'
+        );
       }
     };
 
@@ -1877,17 +1965,30 @@ export default function Step6ReviewCheckout() {
 
         {!storyPreview && !showPreviewPreparationScreen && (
           <div className="text-center">
-            <button
-              onClick={() => handleGenerateStory()}
-              disabled={loading}
-              className="inline-block rounded-full px-12 py-4 text-lg font-bold text-white transition-all duration-300 hover:scale-105 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
-              style={{
-                background: currentTheme.gradient,
-                boxShadow: `0 8px 20px ${currentTheme.primary}40`,
-              }}
-            >
-              {loading ? 'Generating your story...' : 'Preview Story'}
-            </button>
+            <div className="flex flex-wrap justify-center gap-3">
+              {formData.projectId ? (
+                <button
+                  type="button"
+                  onClick={handleRetrySavedPreviewRestore}
+                  disabled={loading}
+                  className="inline-block rounded-full border-2 border-slate-900 px-8 py-4 text-lg font-bold text-slate-900 transition-all duration-300 hover:scale-105 hover:bg-slate-100 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  Reopen Saved Preview
+                </button>
+              ) : null}
+
+              <button
+                onClick={() => handleGenerateStory()}
+                disabled={loading}
+                className="inline-block rounded-full px-12 py-4 text-lg font-bold text-white transition-all duration-300 hover:scale-105 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
+                style={{
+                  background: currentTheme.gradient,
+                  boxShadow: `0 8px 20px ${currentTheme.primary}40`,
+                }}
+              >
+                {loading ? 'Generating your story...' : 'Preview Story'}
+              </button>
+            </div>
             <p className="mt-4 text-sm text-gray-600">
               Saved previews load automatically when you return from payment without regenerating.
             </p>
@@ -1968,16 +2069,25 @@ export default function Step6ReviewCheckout() {
                   type="button"
                   onClick={handleSendPreviewEmail}
                   disabled={
-                    previewEmailStatus === 'sending' || !previewEmailRecipient
+                    previewEmailStatus === 'sending' ||
+                    !previewEmailRecipient ||
+                    !isPreviewEmailReady
                   }
                   className="mt-4 rounded-xl bg-blue-600 px-6 py-3 font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {previewEmailStatus === 'sending'
                     ? 'Sending Preview Email...'
+                    : previewEmailStatus === 'queued'
+                      ? 'Preview Email Scheduled'
                     : previewEmailStatus === 'sent'
                       ? 'Preview Email Sent'
                       : 'Email Me The Preview Instead'}
                 </button>
+                {!isPreviewEmailReady && (
+                  <p className="mt-3 text-sm text-amber-700">
+                    {PREVIEW_EMAIL_WAIT_MESSAGE}
+                  </p>
+                )}
                 {previewEmailFeedback && (
                   <p
                     className={`mt-3 text-sm ${
@@ -1989,9 +2099,13 @@ export default function Step6ReviewCheckout() {
                     {previewEmailFeedback}
                   </p>
                 )}
-                {previewEmailStatus === 'sent' && previewEmailSentTo && (
+                {(previewEmailStatus === 'sent' ||
+                  previewEmailStatus === 'queued') &&
+                  previewEmailSentTo && (
                   <p className="mt-2 text-xs text-slate-500">
-                    Delivery sent to {previewEmailSentTo}
+                    {previewEmailStatus === 'queued'
+                      ? `We will send it to ${previewEmailSentTo}`
+                      : `Delivery sent to ${previewEmailSentTo}`}
                   </p>
                 )}
                 {previewEmailHelpAvailable && (
@@ -2411,7 +2525,11 @@ export default function Step6ReviewCheckout() {
                       <div className="flex items-center gap-3">
                         <button
                           type="button"
-                          onClick={() => handleGenerateStory()}
+                          onClick={() =>
+                            handleGenerateStory(currentLanguage, {
+                              forceRegenerate: true,
+                            })
+                          }
                           disabled={loading || !selectedFaceReferenceImage}
                           className="flex-1 rounded-lg px-4 py-3 font-bold text-white transition-all duration-300 hover:scale-105 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
                           style={{
@@ -2487,6 +2605,27 @@ export default function Step6ReviewCheckout() {
                     </button>
 
                     <button
+                      type="button"
+                      onClick={handleSendPreviewEmail}
+                      disabled={
+                        previewEmailStatus === 'sending' ||
+                        !previewEmailRecipient ||
+                        !isPreviewEmailReady
+                      }
+                      className="rounded-full border-2 px-6 py-3 font-bold transition-all duration-300 hover:bg-blue-50 disabled:cursor-not-allowed disabled:opacity-50"
+                      style={{
+                        borderColor: '#2563EB',
+                        color: '#1D4ED8',
+                      }}
+                    >
+                      {previewEmailStatus === 'sending'
+                        ? 'Sending Email...'
+                        : previewEmailStatus === 'sent'
+                          ? 'Email Sent'
+                          : 'Send to Email'}
+                    </button>
+
+                    <button
                       onClick={handleCheckout}
                       disabled={loading || !allIllustratedPagesReady}
                       className="rounded-full px-8 py-3 font-bold text-white transition-all duration-300 hover:scale-105 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
@@ -2507,6 +2646,24 @@ export default function Step6ReviewCheckout() {
                       {illustrationsRemainingCount > 0
                         ? ` ${illustrationsRemainingCount} illustrated page${illustrationsRemainingCount === 1 ? '' : 's'} remaining.`
                         : ''}
+                    </p>
+                  )}
+
+                  {!isPreviewEmailReady && (
+                    <p className="mt-3 text-center text-sm text-amber-700">
+                      {PREVIEW_EMAIL_WAIT_MESSAGE}
+                    </p>
+                  )}
+
+                  {previewEmailFeedback && !showPreviewPreparationScreen && (
+                    <p
+                      className={`mt-3 text-center text-sm ${
+                        previewEmailStatus === 'error'
+                          ? 'text-red-600'
+                          : 'text-emerald-700'
+                      }`}
+                    >
+                      {previewEmailFeedback}
                     </p>
                   )}
 

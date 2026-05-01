@@ -61,6 +61,25 @@ export async function POST(request) {
       originalTheme,
     } = body;
 
+    if (projectId) {
+      const persistentGenerationUrl = new URL(
+        `/api/story/${encodeURIComponent(projectId)}/generate-story`,
+        request.url
+      );
+      const response = await fetch(persistentGenerationUrl.toString(), {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(authHeader ? { Authorization: authHeader } : {}),
+        },
+        body: JSON.stringify(body),
+        cache: 'no-store',
+      });
+      const data = await response.json().catch(() => ({}));
+
+      return NextResponse.json(data, { status: response.status });
+    }
+
     // Validate input
     if (!childName || !theme) {
       return NextResponse.json(

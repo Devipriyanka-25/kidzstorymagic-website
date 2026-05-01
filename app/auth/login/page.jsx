@@ -3,13 +3,32 @@
 import { useState } from 'react';
 import Image from 'next/image';
 import { useAuthStore } from '@/utils/store';
+import { storyAPI } from '@/utils/api';
 import { validateEmail } from '@/utils/helpers';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
+
+function resolveSafeRedirectTarget(value, fallbackPath) {
+  const normalizedValue = String(value || '').trim();
+  if (
+    normalizedValue &&
+    normalizedValue.startsWith('/') &&
+    !normalizedValue.startsWith('//') &&
+    !normalizedValue.startsWith('/auth/')
+  ) {
+    return normalizedValue;
+  }
+
+  return fallbackPath;
+}
 
 export default function LoginPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { login } = useAuthStore();
+  const signupHref = searchParams.get('next')
+    ? `/auth/signup?next=${encodeURIComponent(searchParams.get('next'))}`
+    : '/auth/signup';
   
   // Form state
   const [formData, setFormData] = useState({
@@ -65,13 +84,46 @@ export default function LoginPage() {
     setLoading(true);
     try {
       // Login with email and password
-      await login({ 
-        email: formData.email, 
+      const response = await login({
+        email: formData.email,
         password: formData.password,
       });
-      
-      // Redirect to dashboard
-      router.push('/dashboard');
+
+      console.log('[LOGIN_REDIRECT] Response received:', response);
+      console.log('[LOGIN_REDIRECT] User object:', response.user);
+      console.log('[LOGIN_REDIRECT] User role:', response.user?.role);
+
+      // Redirect based on user role
+      const userRole = response.user?.role || 'user';
+      console.log('[LOGIN_REDIRECT] Determined role:', userRole);
+      const fallbackPath =
+        userRole === 'admin' ? '/admin-dashboard' : '/dashboard';
+      const requestedNext = searchParams.get('next');
+      let redirectTarget = resolveSafeRedirectTarget(
+        requestedNext,
+        fallbackPath
+      );
+
+      if (!requestedNext && userRole !== 'admin') {
+        try {
+          const latestDraftResponse = await storyAPI.getLatestDraft();
+          const latestDraft = latestDraftResponse?.data?.draft;
+          if (
+            latestDraft &&
+            !latestDraftResponse?.data?.expired &&
+            !latestDraft.expired
+          ) {
+            redirectTarget = `/wizard?draftId=${encodeURIComponent(
+              latestDraft.id
+            )}&autoResume=1`;
+          }
+        } catch (draftError) {
+          console.warn('[LOGIN_REDIRECT] Latest draft lookup skipped:', draftError);
+        }
+      }
+
+      console.log('[LOGIN_REDIRECT] Redirecting to:', redirectTarget);
+      router.push(redirectTarget);
     } catch (error) {
       setGeneralError(error.message || 'Login failed');
     } finally {
@@ -208,7 +260,7 @@ export default function LoginPage() {
             {/* Sign Up Link */}
             <p className="text-center text-sm text-gray-600 mt-4">
               Don't have an account?{' '}
-              <Link href="/auth/signup" className="text-blue-600 font-semibold hover:underline">
+              <Link href={signupHref} className="text-blue-600 font-semibold hover:underline">
                 Sign up here
               </Link>
             </p>

@@ -18,6 +18,19 @@ function getAPIBaseURL() {
   return '/api';
 }
 
+function buildLoginRedirectUrl() {
+  if (typeof window === 'undefined') {
+    return '/auth/login';
+  }
+
+  const nextPath = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+  if (!nextPath || nextPath.startsWith('/auth/login')) {
+    return '/auth/login';
+  }
+
+  return `/auth/login?next=${encodeURIComponent(nextPath)}`;
+}
+
 // Create API client dynamically at runtime
 function createAPIClient() {
   const baseURL = getAPIBaseURL();
@@ -72,7 +85,7 @@ function createAPIClient() {
       if (error.response?.status === 401) {
         if (typeof window !== 'undefined') {
           localStorage.removeItem('authToken');
-          window.location.href = '/auth/login';
+          window.location.href = buildLoginRedirectUrl();
         }
       }
       
@@ -130,13 +143,20 @@ export const storyAPI = {
       1000
     );
   },
-  
-  generateStory: (projectId, customPrompt = null, storyLanguage = 'en', storyData = {}) => 
+
+  generateStory: (
+    projectId,
+    customPrompt = null,
+    storyLanguage = 'en',
+    storyData = {},
+    options = {}
+  ) =>
     retryWithBackoff(
-      () => createAPIClient().post(`/story/${projectId}/generate-story`, { 
+      () => createAPIClient().post(`/story/${projectId}/generate-story`, {
         ...storyData,
-        customPrompt, 
-        storyLanguage 
+        customPrompt,
+        storyLanguage,
+        forceRegenerate: Boolean(options.forceRegenerate),
       }, {
         timeout: 120000
       }),
@@ -158,6 +178,15 @@ export const storyAPI = {
   
   saveDraft: (payload) => 
     createAPIClient().post('/story/save-draft', payload),
+
+  getLatestDraft: () =>
+    createAPIClient().get('/story/latest-draft'),
+
+  sendPreviewEmail: (payload) =>
+    createAPIClient().post('/story/send-email', payload),
+
+  getMagicPreview: (token) =>
+    createAPIClient().get('/story/preview', { params: { token } }),
   
   regenerateStory: (storyId, options) => 
     retryWithBackoff(
@@ -218,6 +247,9 @@ export const paymentAPI = {
   
   getUserOrders: () => 
     createAPIClient().get('/payment/user/orders'),
+
+  getAllOrders: () =>
+    createAPIClient().get('/payment/admin/orders'),
   
   getPDF: (projectId) => 
     createAPIClient().get(`/payment/pdf/${projectId}`, {
