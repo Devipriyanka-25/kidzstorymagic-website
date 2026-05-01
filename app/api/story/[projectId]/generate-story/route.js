@@ -994,3 +994,6 @@ export async function POST(request, { params }) {
         details: error.message,
       },
       { status: 500 }
+    );
+  }
+}
