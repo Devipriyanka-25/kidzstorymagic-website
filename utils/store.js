@@ -20,11 +20,22 @@ function buildDraftSafeFormData(
   } = formData;
 
   // Preserve image previews for face swap (strip file objects to reduce storage)
-  const previewImages = includeImagePreviews && Array.isArray(uploadedImages)
-    ? uploadedImages.map(img => ({
-        preview: img?.preview || img?.data || null,
-        illustrationReference: img?.illustrationReference || null
-      })).filter(img => img.preview)
+  const previewImages = Array.isArray(uploadedImages)
+    ? uploadedImages
+        .map(img => {
+          const illustrationReference = img?.illustrationReference || null;
+          const preview = includeImagePreviews
+            ? img?.preview || img?.data || illustrationReference
+            : illustrationReference;
+
+          return {
+            id: img?.id || null,
+            name: img?.name || 'Uploaded photo',
+            preview: preview || null,
+            illustrationReference,
+          };
+        })
+        .filter(img => img.preview || img.illustrationReference)
     : [];
 
   // Preserve story preview to avoid regeneration on return from payment

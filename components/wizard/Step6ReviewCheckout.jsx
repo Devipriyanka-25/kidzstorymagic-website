@@ -662,6 +662,7 @@ export default function Step6ReviewCheckout() {
   const activePreviewRestoreProjectIdRef = useRef(null);
   const pendingFaceSwapQueueRef = useRef([]);
   const activeFaceSwapTaskRef = useRef(null);
+  const hasOpenedFirstIllustratedPageRef = useRef(false);
   const [giftData, setGiftData] = useState({
     isGift: false,
     recipientName: '',
@@ -1190,6 +1191,26 @@ export default function Step6ReviewCheckout() {
     const candidate = formData.parentEmail || authUser?.email || '';
     return String(candidate || '').trim();
   }, [authUser?.email, formData.parentEmail]);
+
+  useEffect(() => {
+    if (
+      hasOpenedFirstIllustratedPageRef.current ||
+      !shouldShowStoryPreview ||
+      firstIllustratedPageIndex <= 0 ||
+      !firstIllustratedPageReady ||
+      currentPage !== 0
+    ) {
+      return;
+    }
+
+    hasOpenedFirstIllustratedPageRef.current = true;
+    setCurrentPage(firstIllustratedPageIndex);
+  }, [
+    currentPage,
+    firstIllustratedPageIndex,
+    firstIllustratedPageReady,
+    shouldShowStoryPreview,
+  ]);
   const supportMailtoLink = useMemo(() => {
     const body = [
       'Hi Kidz Story Magic team,',

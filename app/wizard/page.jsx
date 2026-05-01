@@ -99,9 +99,14 @@ function mergeServerDraftWithLocalDraft(serverDraft, localDraftFormData = null) 
   const savedPages = Array.isArray(serverDraft?.pages)
     ? serverDraft.pages
     : [];
-  const uploadedImages = Array.isArray(localDraftFormData?.uploadedImages)
+  const localUploadedImages = Array.isArray(localDraftFormData?.uploadedImages)
     ? localDraftFormData.uploadedImages
     : [];
+  const serverUploadedImages = Array.isArray(serverFormData?.uploadedImages)
+    ? serverFormData.uploadedImages
+    : [];
+  const uploadedImages =
+    localUploadedImages.length > 0 ? localUploadedImages : serverUploadedImages;
 
   return {
     ...(localDraftFormData || {}),
@@ -118,7 +123,11 @@ function mergeServerDraftWithLocalDraft(serverDraft, localDraftFormData = null) 
         : Number(localDraftFormData?.uploadedImagesCount) || 0,
     needsPhotoReupload:
       uploadedImages.length > 0
-        ? Boolean(localDraftFormData?.needsPhotoReupload ?? true)
+        ? Boolean(
+            localDraftFormData?.needsPhotoReupload ??
+              serverFormData?.needsPhotoReupload ??
+              false
+          )
         : Boolean(localDraftFormData?.needsPhotoReupload),
     storyPreview:
       Array.isArray(serverFormData.storyPreview) &&
