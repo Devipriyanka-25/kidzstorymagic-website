@@ -118,16 +118,15 @@ export default function Step5PhotoUpload() {
           try {
             console.log(`[STEP5] Uploading image ${i + 1}/${uploadedImages.length}...`);
             
-            // Create FormData for direct backend upload
+            // Create FormData for upload
             const formDataToSend = new FormData();
             formDataToSend.append('photo', image.file);
 
             // Get auth token
             const token = getAuthToken();
             
-            // Send directly to backend (bypassing Next.js proxy)
-            const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:5000';
-            const response = await fetch(`${backendUrl}/story/${projectId}/upload-photo`, {
+            // Send to Next.js API route (works in both local and production)
+            const response = await fetch(`/api/story/${projectId}/upload-photo`, {
               method: 'POST',
               headers: token ? {
                 'Authorization': `Bearer ${token}`
