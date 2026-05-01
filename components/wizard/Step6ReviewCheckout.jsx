@@ -34,8 +34,8 @@ const getSavedPageImageUrl = (page) =>
   null;
 const PREVIEW_SUPPORT_EMAIL = 'support@kidzstorymagic.com';
 const PREVIEW_POLL_INTERVAL_MS = 3000;
-const PREVIEW_FIRST_PAGE_TIMEOUT_MS = 45000;
-const PREVIEW_RESTORE_TIMEOUT_MS = 12000;
+const PREVIEW_FIRST_PAGE_TIMEOUT_MS = 90000;
+const PREVIEW_RESTORE_TIMEOUT_MS = 30000;
 const MAX_POLL_RETRIES = 8;
 const FREE_PREVIEW_PAGE_LIMIT = 3;
 const PREVIEW_EMAIL_WAIT_MESSAGE =
@@ -1416,6 +1416,14 @@ export default function Step6ReviewCheckout() {
       'We are restoring your saved preview so you can continue without using another generation credit.'
     );
     setPreviewRestoreRetryNonce((currentValue) => currentValue + 1);
+  };
+
+  const handlePreviewPrepTimeout = () => {
+    console.warn('[PREVIEW_PREP_TIMEOUT] Preview preparation took too long');
+    setError(
+      'Preview generation is taking longer than expected. You can try clicking "Back" and returning, or continue to checkout with the current preview.'
+    );
+    setPreviewPrepProgress(100);
   };
 
   const handleIllustrationReady = (pageIndex, imageUrl) => {
