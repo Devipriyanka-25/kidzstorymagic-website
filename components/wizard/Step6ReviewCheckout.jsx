@@ -789,12 +789,12 @@ export default function Step6ReviewCheckout() {
 
     const RESTORE_TIMEOUT_MS = 10000;
     const abortController = new AbortController();
-    let timeoutHandle = null;
+    const timeoutHandleRef = { current: null };
 
     const restoreSavedPreview = async () => {
       try {
         const timeoutPromise = new Promise((_, reject) => {
-          timeoutHandle = setTimeout(() => {
+          timeoutHandleRef.current = setTimeout(() => {
             abortController.abort();
             reject(new DOMException('Restore timed out', 'TimeoutError'));
           }, RESTORE_TIMEOUT_MS);
@@ -803,8 +803,8 @@ export default function Step6ReviewCheckout() {
         const fetchPromise = storyAPI.getProject(projectId, { signal: abortController.signal });
         const response = await Promise.race([fetchPromise, timeoutPromise]);
 
-        clearTimeout(timeoutHandle);
-        timeoutHandle = null;
+        clearTimeout(timeoutHandleRef.current);
+        timeoutHandleRef.current = null;
 
         const savedStory = response?.data?.story;
         const savedPages = Array.isArray(savedStory?.pages) ? savedStory.pages : [];
@@ -866,8 +866,8 @@ export default function Step6ReviewCheckout() {
         useWizardStore.getState().saveDraft();
         completedPreviewRestoreProjectsRef.current.add(projectId);
       } catch (caughtRestoreError) {
-        clearTimeout(timeoutHandle);
-        timeoutHandle = null;
+        clearTimeout(timeoutHandleRef.current);
+        timeoutHandleRef.current = null;
 
         if (cancelled) {
           return;
@@ -899,9 +899,7 @@ export default function Step6ReviewCheckout() {
           "We couldn't reopen your saved preview. Please generate a fresh preview or go back and try again."
         );
       } finally {
-        if (timeoutHandle !== null) {
-          clearTimeout(timeoutHandle);
-        }
+        clearTimeout(timeoutHandleRef.current);
         if (activePreviewRestoreProjectIdRef.current === projectId) {
           activePreviewRestoreProjectIdRef.current = null;
         }
@@ -916,7 +914,7 @@ export default function Step6ReviewCheckout() {
 
     return () => {
       cancelled = true;
-      clearTimeout(timeoutHandle);
+      clearTimeout(timeoutHandleRef.current);
       abortController.abort();
       if (activePreviewRestoreProjectIdRef.current === projectId) {
         activePreviewRestoreProjectIdRef.current = null;
