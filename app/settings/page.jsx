@@ -97,7 +97,7 @@ export default function SettingsPage() {
   const handleLogout = () => {
     if (window.confirm('Are you sure you want to log out?')) {
       logout();
-      router.push('/');
+      router.replace('/auth/login?next=%2Fdashboard');
     }
   };
 

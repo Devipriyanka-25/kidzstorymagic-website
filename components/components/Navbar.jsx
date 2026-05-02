@@ -4,11 +4,18 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { useAuthStore } from '@/utils/store';
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 
 export default function Navbar() {
+  const router = useRouter();
   const { user, logout } = useAuthStore();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const handleLogout = () => {
+    logout();
+    setMobileMenuOpen(false);
+    router.replace('/auth/login?next=%2Fdashboard');
+  };
 
   return (
     <motion.header
@@ -57,7 +64,7 @@ export default function Navbar() {
                 <motion.button
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
-                  onClick={logout}
+                  onClick={handleLogout}
                   className="px-4 py-2 text-gray-700 hover:text-red-600 font-semibold transition-colors"
                 >
                   Sign Out
@@ -112,7 +119,7 @@ export default function Navbar() {
                 </Link>
                 <span className="text-sm text-gray-600 py-2">👋 {user.name}</span>
                 <button
-                  onClick={logout}
+                  onClick={handleLogout}
                   className="text-left text-gray-700 hover:text-red-600 font-semibold py-2"
                 >
                   Sign Out

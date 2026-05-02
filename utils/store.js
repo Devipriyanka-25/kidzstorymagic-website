@@ -7,6 +7,30 @@ import { STORAGE_KEYS } from './constants';
 let backendDraftSaveTimer = null;
 let backendDraftSaveSequence = 0;
 
+function clearPendingBackendDraftSave() {
+  if (backendDraftSaveTimer && typeof window !== 'undefined') {
+    window.clearTimeout(backendDraftSaveTimer);
+  }
+
+  backendDraftSaveTimer = null;
+  backendDraftSaveSequence += 1;
+}
+
+function clearClientSessionStorage() {
+  if (typeof window === 'undefined') {
+    return;
+  }
+
+  try {
+    localStorage.removeItem(STORAGE_KEYS.AUTH_TOKEN);
+    localStorage.removeItem(STORAGE_KEYS.USER);
+    localStorage.removeItem(STORAGE_KEYS.WIZARD_DRAFT);
+    localStorage.removeItem(STORAGE_KEYS.WIZARD_FORM);
+  } catch (err) {
+    console.error('[AUTH] Failed to clear client session storage:', err);
+  }
+}
+
 function buildDraftSafeFormData(
   formData = {},
   { includeImagePreviews = true } = {}
@@ -227,7 +251,7 @@ export const useAuthStore = create((set) => ({
           });
         } catch (err) {
           console.log('[INITAUTH] Token verification failed:', err.message);
-          localStorage.removeItem('authToken');
+          clearClientSessionStorage();
           set({ isAuthenticated: false, isInitializing: false });
         }
       } else {
@@ -289,7 +313,13 @@ export const useAuthStore = create((set) => ({
 
   // Logout
   logout: () => {
-    localStorage.removeItem('authToken');
+    clearPendingBackendDraftSave();
+    clearClientSessionStorage();
+    try {
+      useWizardStore.getState().resetWizard();
+    } catch (err) {
+      console.warn('[AUTH] Failed to reset wizard during logout:', err);
+    }
     set({ user: null, isAuthenticated: false });
   },
 
@@ -511,6 +541,7 @@ export const useWizardStore = create((set, get) => ({
 
   // Clear draft
   clearDraft: () => {
+    clearPendingBackendDraftSave();
     if (typeof window !== 'undefined') {
       try {
         localStorage.removeItem(STORAGE_KEYS.WIZARD_DRAFT);
@@ -525,6 +556,10 @@ export const useWizardStore = create((set, get) => ({
     set({
       step: 1,
       formData: createInitialWizardFormData(),
+      selectedPhotoIndex: -1,
+      lastGeneratedPhotoIndex: -1,
+      photoIllustrationCache: {},
+      generationInProgress: false,
     })
 }));
 

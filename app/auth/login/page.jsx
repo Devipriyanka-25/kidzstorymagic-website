@@ -3,7 +3,6 @@
 import { useState } from 'react';
 import Image from 'next/image';
 import { useAuthStore } from '@/utils/store';
-import { storyAPI } from '@/utils/api';
 import { validateEmail } from '@/utils/helpers';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -103,24 +102,6 @@ export default function LoginPage() {
         requestedNext,
         fallbackPath
       );
-
-      if (!requestedNext && userRole !== 'admin') {
-        try {
-          const latestDraftResponse = await storyAPI.getLatestDraft();
-          const latestDraft = latestDraftResponse?.data?.draft;
-          if (
-            latestDraft &&
-            !latestDraftResponse?.data?.expired &&
-            !latestDraft.expired
-          ) {
-            redirectTarget = `/wizard?draftId=${encodeURIComponent(
-              latestDraft.id
-            )}&autoResume=1`;
-          }
-        } catch (draftError) {
-          console.warn('[LOGIN_REDIRECT] Latest draft lookup skipped:', draftError);
-        }
-      }
 
       console.log('[LOGIN_REDIRECT] Redirecting to:', redirectTarget);
       router.push(redirectTarget);

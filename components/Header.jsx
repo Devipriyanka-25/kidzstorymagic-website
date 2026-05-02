@@ -3,11 +3,18 @@
 import { useAuthStore } from '@/utils/store';
 import Link from 'next/link';
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import LanguageSelector from './i18n/LanguageSelector';
 
 export default function Header() {
+  const router = useRouter();
   const { user, logout } = useAuthStore();
   const [menuOpen, setMenuOpen] = useState(false);
+  const handleLogout = () => {
+    logout();
+    setMenuOpen(false);
+    router.replace('/auth/login?next=%2Fdashboard');
+  };
 
   return (
     <header className="bg-white shadow-sm">
@@ -33,7 +40,7 @@ export default function Header() {
                   Hello, {user.name}!
                 </span>
                 <button
-                  onClick={logout}
+                  onClick={handleLogout}
                   className="px-4 py-2 text-gray-700 hover:text-red-600 transition-colors"
                 >
                   Sign Out
@@ -85,8 +92,7 @@ export default function Header() {
                 </span>
                 <button
                   onClick={() => {
-                    logout();
-                    setMenuOpen(false);
+                    handleLogout();
                   }}
                   className="text-left text-gray-700 hover:text-red-600"
                 >

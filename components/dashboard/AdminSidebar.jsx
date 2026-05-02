@@ -14,12 +14,12 @@ export default function AdminSidebar({ user }) {
     try {
       // Clear auth state
       authLogout();
-      // Redirect to login page
-      router.push('/auth/login');
+      // Redirect away from protected state and return to the dashboard after login.
+      router.replace('/auth/login?next=%2Fdashboard');
     } catch (error) {
       console.error('Logout error:', error);
       // Force redirect even if error
-      router.push('/auth/login');
+      router.replace('/auth/login?next=%2Fdashboard');
     }
   };
 
