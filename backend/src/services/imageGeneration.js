@@ -3,6 +3,7 @@
 const config = require('../config/config');
 const DemoImageProvider = require('./demoImageProvider');
 const FaceSwapService = require('./faceSwapService');
+const { STORYBOOK_NEGATIVE_PROMPT } = require('../utils/storyRenderer');
 
 // Import required libraries (add to package.json)
 // If using DALL-E: npm install openai
@@ -322,7 +323,7 @@ class ImageGenerationService {
         {
           input: {
             prompt: prompt,
-            negative_prompt: 'ugly, distorted, blurry'
+            negative_prompt: STORYBOOK_NEGATIVE_PROMPT
           }
         }
       );

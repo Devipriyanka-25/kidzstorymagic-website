@@ -4,6 +4,10 @@ const path = require('path');
 const pool = require('../config/database');
 const StoryGenerationService = require('../services/story-generation.service');
 
+// Single source of truth for the 2D storybook negative prompt used across all image generation paths
+const STORYBOOK_NEGATIVE_PROMPT =
+  "generic child, different face, different skin tone, changed hair type, changed hair color, older child, adult face, distorted face, extra fingers, bad anatomy, face mismatch, random character, real photo, photorealistic, realistic photo, DSLR photo, copied photo background, copied original clothing, copied shirt graphic, shirt text, logos, letters on clothing, misspelled text, watermark, selfie, close-up portrait, cropped head, floating head, split layout, collage, flat vector, anime, 3D Pixar, plastic doll face, pasted photo face, face pasted onto cartoon body, realistic face swap, blurry, washed out, pale colors, low contrast, muddy watercolor, gloomy lighting, horror mood, 3D render, semi-realistic, photorealistic render, CGI, hyperreal skin";
+
 class StoryRenderer {
   /**
    * Load and parse story template
@@ -106,8 +110,8 @@ class StoryRenderer {
   static generateImagePrompt(pageNumber, storyText, childData, theme, customPrompt = null, storyLanguage = 'en') {
     const { child_name, child_gender } = childData;
     
-    // Base art style for all images
-    const baseStyle = "A high-quality 3D digital illustration in a whimsical animation style, soft cinematic lighting, vibrant colors, expressive facial features, smooth textures, semi-realistic children's book aesthetic";
+    // Base art style for all images — 2D storybook illustration, not 3D / semi-realistic
+    const baseStyle = "A premium 2D illustrated children's picture-book scene, hand-painted digital storybook style, expressive slightly enlarged eyes, warm smooth skin tones, painterly brushwork, rich saturated colors, clean outlines, glowing magical background";
     
     // Character traits based on gender
     const pronouns = child_gender === 'male' ? 'boy' : 'girl';
@@ -326,5 +330,9 @@ class StoryRenderer {
     }
   }
 }
+
+// Attach the negative prompt as a static property so callers can access it
+// via `StoryRenderer.STORYBOOK_NEGATIVE_PROMPT` or destructuring require.
+StoryRenderer.STORYBOOK_NEGATIVE_PROMPT = STORYBOOK_NEGATIVE_PROMPT;
 
 module.exports = StoryRenderer;
