@@ -1488,13 +1488,19 @@ export default function Step6ReviewCheckout() {
     const resolvedLanguage =
       typeof languageOverride === 'string' ? languageOverride : currentLanguage;
 
-    if (storyPreview && !forceRegenerate) {
+    // Check if photo selection changed
+    const photoChanged = selectedPhotoIndex !== lastGeneratedPhotoIndex;
+    const shouldReallyRegenerate = forceRegenerate || photoChanged;
+
+    // If we have a preview and photo hasn't changed, just return (use cache)
+    if (storyPreview && !shouldReallyRegenerate) {
+      console.log('[GENERATE_STORY] Using cached preview - photo selection unchanged');
       setPreviewEmailFeedback('');
       return;
     }
 
     generationSessionRef.current += 1;
-    isRegeneratingRef.current = forceRegenerate;
+    isRegeneratingRef.current = shouldReallyRegenerate;
 
     setLoading(true);
     setError('');
@@ -1506,8 +1512,9 @@ export default function Step6ReviewCheckout() {
     setCurrentPage(0);
     setPreviewPrepProgress(14);
     
-    // Show different messages for manual regenerate vs initial creation
-    if (forceRegenerate) {
+    // Show different messages based on what triggered regeneration
+    const isManualRegenerate = forceRegenerate || photoChanged;
+    if (isManualRegenerate) {
       setPreviewPrepTitle(
         `Regenerating ${formData.childName || 'your child'}'s entire book preview`
       );
@@ -1571,7 +1578,7 @@ export default function Step6ReviewCheckout() {
         customPrompt,
         resolvedLanguage || formData.storyLanguage || 'en',
         storyData,
-        { forceRegenerate }
+        { forceRegenerate: shouldReallyRegenerate, selectedPhotoIndex }
       );
 
       const pages =
@@ -1583,6 +1590,12 @@ export default function Step6ReviewCheckout() {
       setPageGenerationStates(
         buildInitialPageGenerationStates(nextPages, shouldGateIllustrations)
       );
+
+      // Track which photo was used to generate this preview
+      useWizardStore.setState((state) => ({
+        lastGeneratedPhotoIndex: selectedPhotoIndex,
+      }));
+      console.log('[GENERATE_STORY] Successfully generated with photo index:', selectedPhotoIndex);
 
       setPreviewPrepProgress(42);
       setPreviewPrepDetail(
@@ -1971,11 +1984,14 @@ export default function Step6ReviewCheckout() {
     }
   };
 
-  const handleSelectFaceImage = (photo) => {
+  const handleSelectFaceImage = (photo, photoIndex) => {
+    // Track which photo was selected
+    setSelectedPhotoIndex(photoIndex ?? -1);
     setSelectedFaceImage(photo?.preview || null);
     setSelectedFaceReferenceImage(
       photo?.illustrationReference || photo?.preview || null
     );
+    console.log('[PHOTO_SELECTED] Photo index:', photoIndex, 'Last generated:', lastGeneratedPhotoIndex);
   };
 
   useEffect(() => {
@@ -2737,7 +2753,7 @@ export default function Step6ReviewCheckout() {
                           {formData.uploadedImages.map((photo, idx) => (
                             <button
                               key={idx}
-                              onClick={() => handleSelectFaceImage(photo)}
+                              onClick={() => handleSelectFaceImage(photo, idx)}
                               className={`h-20 w-20 flex-shrink-0 overflow-hidden rounded-lg border-2 transition-all duration-300 ${
                                 selectedFaceImage === photo.preview
                                   ? 'scale-110 ring-2'
