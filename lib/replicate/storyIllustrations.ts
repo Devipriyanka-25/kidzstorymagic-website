@@ -36,7 +36,7 @@ const FLUX_STORYBOOK_MODEL_PREFIX = "black-forest-labs/flux-2-";
 const KONTEXT_STORYBOOK_MODEL_PREFIX = "black-forest-labs/flux-kontext-";
 
 export const DEFAULT_STORYBOOK_NEGATIVE_PROMPT =
-  "generic child, different face, different skin tone, changed hair type, changed hair color, older child, adult face, distorted face, extra fingers, bad anatomy, face mismatch, random character, real photo, photorealistic, realistic photo, DSLR photo, copied photo background, copied original clothing, copied shirt graphic, copied plaid pants, shirt text, logos, letters on clothing, misspelled text, watermark, selfie, close-up portrait, cropped head, floating head, split layout, collage, flat vector, anime, 3D Pixar, plastic doll face, pasted photo face, face pasted onto cartoon body, realistic face swap, blurry, washed out, pale colors, low contrast, muddy watercolor, gloomy lighting, horror mood";
+  "generic child, different child, different face, different facial features, different skin tone, changed hair type, changed hair color, aged child, older child, younger child, adult face, distorted face, asymmetrical face, extra fingers, bad anatomy, face mismatch, random character, unrecognizable child, real photograph, photorealistic, realistic photo, DSLR photo, photographic, copied background, furniture, copied original clothing, copied exact outfit, copied shirt color, copied shirt graphic, copied pants, copied plaid, shirt text, logos, letters, misspelled text, watermark, selfie, close-up portrait only, cropped head, floating head, split layout, collage, flat vector style, anime style, 3D Pixar, plastic doll face, unrealistic face, pasted photo, face pasted onto body, realistic face swap, blurry, low resolution, washed out, pale colors, low contrast, muddy, desaturated, gloomy lighting, horror, scary, dark mood, nighttime only"
 
 export type StoryPageGenerationInput = {
   prompt: string;
@@ -249,19 +249,21 @@ export function buildStorybookPrompt(
     buildPositiveAvoidanceInstructions(negativePrompt);
 
   return [
-    "Create a premium 2D illustrated children's picture-book page of the SAME child from the uploaded reference photo.",
-    "Use the uploaded child photo as an IDENTITY REFERENCE ONLY, like a character designer would: preserve face shape, skin tone, hair style, hair texture, hair color, eyes, eyebrows, nose, cheeks, mouth shape, age, and gentle expression.",
-    "Do not copy the original photo background, furniture, pose, lighting, cup, real-world setting, shirt color, shirt text, logos, crown graphics, plaid pants, or exact clothing. Deliberately redesign the outfit into clean story-appropriate clothes with no readable text.",
-    "The child must look like a hand-painted illustrated character based on the real child, not photorealistic, not a photoreal edit, not a filtered photo, not a pasted face, and not a generic cartoon.",
-    "Target visual style: premium personalized storybook illustration similar to high-end kids book apps: expressive slightly enlarged eyes, crisp recognizable face, warm smooth skin tones, detailed soft hair, painterly brushwork, glowing magical background, rich saturated colors, clean outlines, floral or fantasy bokeh, and a finished storybook-cover polish.",
-    "Face priority: make the child's face larger, clearer, more expressive, and sharper than the background, while keeping the full scene magical, clean, bright, and kid-friendly.",
-    "Use an appealing natural smile when appropriate, but keep the child's core facial identity from the reference photo. Avoid changing the child into a different person.",
-    "Show the child as a full-body or three-quarter-body illustrated hero inside a complete magical scene, with a readable face and natural body proportions, not as a close-up portrait or floating head.",
+    "CRITICAL: Create a premium 2D illustrated children's picture-book page featuring the EXACT SAME CHILD from the uploaded reference photo - same face, same identity, same person throughout.",
+    "IDENTITY PRIORITY: Use the uploaded child photo as a precise FACIAL IDENTITY REFERENCE. Preserve every distinctive feature: face shape, cheekbones, jawline, skin tone, facial proportions, hair style, hair texture, hair color and highlights, eye shape, eye color, eyebrow style, nose shape, mouth shape, lip color, freckles if present, age appearance, natural expression, and personality in the face.",
+    "FACE MATCHING: The illustrated child's face MUST be immediately recognizable as the SAME CHILD from the photo. This is the top priority. The face should look like a hand-painted illustration of the real child, not a generic cartoon, not a different child, not a simplified version.",
+    "OUTFIT REDESIGN: Do NOT copy the original photo background, furniture, pose, lighting, exact clothing, shirt color, shirt text, logos, graphics, plaid patterns, pants, or real-world setting. Deliberately redesign the outfit into clean, fresh, story-appropriate illustrated clothes with absolutely no readable text or logos.",
+    "ILLUSTRATION STYLE: Premium hand-painted digital storybook illustration matching high-end personalized kids book apps: crisp, highly recognizable face, expressive slightly enlarged eyes with clear catchlights, warm natural skin tones with subtle shading, detailed soft hair with individual texture, clean painterly edges, soft shadows for depth, glowing magical background with rich bokeh, saturated jewel-tone colors, and a polished storybook-cover finish.",
+    "FACE PROMINENCE: Make the child's face 2-3x larger and clearer than background elements while keeping the full scene magical and compositionally balanced. The face should be the visual anchor of the page with sharp focus and expressive emotion.",
+    "BODY PLACEMENT: Show the child as a full-body or three-quarter-body illustrated hero inside a complete magical scene with visible face, natural body proportions, and natural positioning - never as a close-up portrait, floating head, cropped view, or generic silhouette.",
+    "EMOTIONAL AUTHENTICITY: Capture the child's natural personality and expression from the reference photo. Use genuine smiles when appropriate, but maintain the child's true face. Avoid changing the child into a different person or generic character.",
+    "CHARACTER CONSISTENCY: The illustrated child MUST remain the SAME recognizable child across every page. Do not alter gender, age, skin tone, hair type, hair color, facial structure, or distinctive features.",
     `Scene direction: ${normalizedScenePrompt}`,
-    "Keep the child recognizable across every page. Do not change gender, age, skin tone, hair type, hair color, or facial structure.",
-    "Preserve identity first, then adapt clothing, pose, and background to the story moment. Clothing must be simple, clean, story-appropriate, and contain no readable text or logo-like marks.",
-    "If the reference photo has a graphic T-shirt, text, logo, pattern, or distinctive real-world outfit, replace it with a new plain illustrated outfit that fits the story world.",
-    "Final image should feel like a polished illustrated storybook page, not a realistic jungle photo, not a school photo, not a photo composite.",
+    "IDENTITY OVER EVERYTHING: Make sure every viewer would say 'that's clearly the same child from the photo.' The illustration should look like a professional character design of the real child placed into the story world.",
+    "ZERO PHOTO COPYING: Do not reproduce or copy: original background, room furniture, cup, chair, real photo pose, real photo lighting, original clothing details, shirt graphics, patterns, text, logos, plaid pants pattern, or any real-world setting details.",
+    "CLOTHING DETAILS: New illustrated outfit should be simple, clean, story-appropriate, and contain zero readable text, zero logos, zero copied patterns, and zero details from the original photo's clothing.",
+    "COLOR AND LIGHTING: Use rich, saturated, bright, magical colors with warm light. Prefer golden sunrise glow, bright daylight, pastel sky glow, or warm fantasy lighting. Keep the palette clean and kid-friendly, never washed out, pale, or muddy.",
+    "FINAL QUALITY: This must feel like a polished professional storybook illustration for premium kids books, never like a filtered photo, photo composite, photo edit, pasted image, or realistic photo.",
     avoidanceInstruction,
   ]
     .filter(Boolean)

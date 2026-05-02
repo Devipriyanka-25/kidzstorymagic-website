@@ -36,7 +36,7 @@ const PREMIUM_SCENE_GUIDES = {
     setting:
       'a bright sunrise adventure world with open skies, storybook mountains, golden grass, floating birds, and friendly safari-style animal companions',
     interaction:
-      'exploring with a brave smile, pointing toward the next discovery, or walking beside a gentle animal friend as the clear hero',
+      'exploring with a brave smile and visible face, pointing toward the next discovery with clear identity showing, or walking beside a gentle animal friend as the clear hero with face prominently framed',
     palette:
       'sunrise gold, clear sky blue, warm sand, leafy green, and soft coral accents',
   },
@@ -44,7 +44,7 @@ const PREMIUM_SCENE_GUIDES = {
     setting:
       'a playful prehistoric valley with colorful dinosaurs, bright plants, soft clouds, glowing sunshine, and a wide cheerful landscape',
     interaction:
-      'riding or standing beside a friendly dinosaur, waving with excitement, or leading dinosaur friends through a joyful adventure',
+      'riding or standing beside a friendly dinosaur with clear face visible and expressive, waving with excitement and recognizable joy, or leading dinosaur friends with the child prominently positioned and identifiable',
     palette:
       'vivid red, tropical green, sunny yellow, bright cyan, and warm orange',
   },
@@ -52,7 +52,7 @@ const PREMIUM_SCENE_GUIDES = {
     setting:
       'a cozy toy garage attic with warm amber light, wooden rafters, playful little cars, soft window glow, and child-safe workshop wonder',
     interaction:
-      'helping a toy car, pointing up at a skylight surprise, or proudly exploring the garage as the main character',
+      'helping a toy car with visible enthusiasm and clear facial expression, pointing up at a skylight surprise with the child prominently framed, or proudly exploring the garage as the main identifiable character',
     palette:
       'golden amber, honey yellow, warm brown, soft blue, and creamy highlights',
   },
@@ -60,7 +60,7 @@ const PREMIUM_SCENE_GUIDES = {
     setting:
       'a bright pastel cloud kingdom with rainbow light, sparkling flower clouds, a friendly white unicorn, and a glowing castle in the distance',
     interaction:
-      'walking beside a unicorn, twirling with magical joy, or holding out a glowing hand as pastel sparkles float around the child',
+      'walking beside a unicorn with clear face visible and smiling, twirling with magical joy and distinctive features showing, or holding out a glowing hand with the child prominently positioned and easily recognizable',
     palette:
       'pearl white, blush pink, lavender, pastel rainbow, and sunrise gold',
   },
@@ -236,7 +236,7 @@ const PREMIUM_SCENE_GUIDES = {
     setting:
       'a joyful family event scene with floral decor, celebration tables, string lights, a welcoming garden or hall backdrop, and keepsake-book warmth',
     interaction:
-      'sharing a family milestone, smiling with pride, or leading a warm event moment surrounded by celebration details',
+      'sharing a family milestone with visible emotion and clear facial connection, smiling with pride as the prominently positioned main character, or leading a warm event moment with distinctive features and easily recognizable joy',
     palette:
       'rose pink, coral, butter gold, cream, and joyful light',
   },
@@ -244,7 +244,7 @@ const PREMIUM_SCENE_GUIDES = {
     setting:
       'a premium birthday party world with balloons, candles, gifts, confetti, bright stage decor, and a vivid party backdrop',
     interaction:
-      'making a birthday wish, opening gifts, or enjoying a cheerful spotlight moment at the center of the party',
+      'making a birthday wish with visible excitement and clear facial joy, opening gifts as the prominently positioned hero, or enjoying a cheerful spotlight moment as the easily identifiable main character with distinctive features showing',
     palette:
       'orange, sky blue, candy pink, yellow, and vibrant celebratory glow',
   },
@@ -252,7 +252,7 @@ const PREMIUM_SCENE_GUIDES = {
     setting:
       'a polished family gathering or community celebration with bunting, lights, flowers, rich decor, and a bright welcoming event environment',
     interaction:
-      'welcoming everyone, sharing a festive smile, or leading a meaningful gathering with warmth and grace',
+      'welcoming everyone with visible warmth and clear facial connection, sharing a festive smile as the main identifiable character, or leading a meaningful gathering with distinctive features prominently showing',
     palette:
       'teal, marigold, cream, berry pink, and soft golden light',
   },
@@ -260,7 +260,7 @@ const PREMIUM_SCENE_GUIDES = {
     setting:
       'a premium tribute scene with elegant backdrop color, decorative flourishes, warm spotlighting, and meaningful keepsake-book charm',
     interaction:
-      'standing proudly, sharing a loving glance, or holding a symbolic gift in a heartfelt celebratory moment',
+      'standing proudly with clear facial confidence and distinctive features showing, sharing a loving glance as the prominently positioned main character, or holding a symbolic gift with easily recognizable emotional warmth',
     palette:
       'crimson, rose, gold, ivory, and rich warm highlights',
   },
@@ -423,28 +423,30 @@ function buildIllustrationPrompt({
     : '';
 
   return [
-    `Illustrate ${childName} as the child hero for this story page.`,
+    `HERO CHARACTER: Illustrate ${childName} as the main illustrated hero character. The child's face must be immediately recognizable as the same person from the uploaded reference photo - same facial features, same identity, same person.`,
+    `CRITICAL IDENTITY MATCH: The face MUST look like a hand-painted illustration of the real child from the photo, not a generic character, not a different child. Preserve facial proportions, eye shape, nose shape, mouth shape, cheekbones, skin tone, hair style, hair texture, and unique features.`,
     `Scene title: ${safePageTitle}.`,
     `Story moment to illustrate: ${storyMoment}.`,
     `Build a complete cinematic environment: ${sceneGuide.setting}.`,
     `The child should be actively interacting with the world by ${sceneGuide.interaction}.`,
-    'Use the uploaded photo only for the child identity, not for copying the original photo pose, room, furniture, cup, shirt color, shirt text, logo, graphic, plaid pants, or clothing.',
-    'Show the child as a joyful full-body or three-quarter-body 2D illustrated hero inside the world instead of a close-up portrait, photo edit, or pasted face.',
-    'Use a premium hand-painted digital storybook style like high-end personalized kids book apps: crisp recognizable face, expressive slightly enlarged eyes, natural warm skin, bright catchlights, detailed soft hair, clean painterly edges, and a glowing magical bokeh background.',
-    'The face should be clear, charming, and more detailed than the background while still feeling fully illustrated, not photorealistic.',
-    `Color direction: ${sceneGuide.palette}. Keep the palette rich, saturated, bright, magical, and premium storybook-like with clean details, not washed out or pale.`,
+    `PHOTO IDENTITY ONLY: Use the uploaded photo ONLY for the child's facial identity reference. Do NOT copy the original photo's background, furniture, pose, real-world lighting, cup, room details, exact shirt color, shirt text, logo, graphic, plaid pants, or clothing style.`,
+    `ILLUSTRATION FORMAT: Show the child as a joyful full-body or three-quarter-body 2D illustrated hero inside the complete magical world - never as a close-up portrait, floating head, photo edit, pasted face, or realistic composite.`,
+    `PREMIUM STYLE: Premium hand-painted digital storybook style matching high-end personalized kids book apps: crisp and highly recognizable face, expressive and detailed eyes with visible light reflections, warm and natural skin tones with subtle color variation, detailed soft hair with texture and shine, clean painterly edges, soft shadows for dimension, and magical bokeh background.`,
+    `FACE EXCELLENCE: The face should be clear, charming, detailed, and MORE prominent and focused than the background. The face is the visual center of the illustration. Make the child's eyes expressive and engaging.`,
+    `Color direction: ${sceneGuide.palette}. Keep the palette rich, saturated, bright, magical, and premium storybook-like with clean details and vibrant tones.`,
     `Mood and reading level: ${ageHint}.`,
+    `CLOTHING & OUTFIT: Redesign clothing into fresh, illustrated, story-appropriate clothes with NO readable text, NO logos, NO copied patterns, NO graphic details from the original photo. The outfit should feel new but age-appropriate.`,
+    `BODY & PROPS: Natural body proportions, visible hands if needed, natural positioning within the scene. The child should appear to belong in this magical world naturally.`,
+    `LIGHTING: Bright, warm, cheerful, and child-safe lighting. Prefer golden sunrise glow, bright daylight, warm sunset, sparkly magical light, or fairytale lantern warmth over any dark, moody, or gloomy scenes.`,
+    `COMPOSITION: Premium 4:3 storybook page composition with full background, visible depth, space for the child to move or interact naturally, strong magical atmosphere, and clear focal point on the child.`,
+    `CHARACTER RECOGNITION: Make the illustrated child recognizable as the SAME PERSON across every page. Zero change in identity, zero change in facial appearance, zero change in core features.`,
     milestoneInstruction,
     milestoneCoverInstruction,
     seriesInstruction,
     customSceneInstruction,
     interestInstruction,
     notesInstruction,
-    'Lighting must be bright, warm, cheerful, and child-safe. Prefer golden sunrise glow, floral garden bokeh, sunny daylight, pastel sky glow, or lantern warmth over moody, gloomy, or dark scenes.',
-    'Composition should feel like a premium 4:3 storybook page with a full background, visible depth, space for the child to sit, stand, or interact naturally, and strong magical atmosphere.',
-    'Clothing, props, and background should follow the story theme, but the child should remain the same recognizable child across every page.',
-    'Clothing should be redesigned into clean story-appropriate illustrated clothing with no readable text, logos, crown graphics, or copied patterns. Do not reproduce lettering or outfit details from the uploaded photo.',
-    'Make this feel like a polished personalized picture-book illustration for kids: colorful, magical, emotionally warm, welcoming, and never like a faded filter over the original photo or a realistic photo composite.',
+    `FINAL QUALITY: This must look like a polished professional personalized picture-book illustration made for premium children's books - colorful, magical, emotionally warm, welcoming, highly detailed face, and absolutely NOT like a faded photo filter, realistic photo composite, or photo edit.`,
   ].join(' ');
 }
 
