@@ -423,11 +423,11 @@ function buildIllustrationPrompt({
     : '';
 
   return [
-    `ABSOLUTE PRIORITY - FACE IDENTITY for ${childName}: The uploaded reference image defines the EXACT FACE this child must have. This is THE MOST IMPORTANT directive. Use the face from the reference photo as the absolute template for every illustration - same child identity, same recognizable person, same distinctive facial features.`,
+    `FORMAT: CARTOON ILLUSTRATION ONLY for ${childName} - This MUST be rendered as a beautiful 2D hand-drawn or hand-painted cartoon illustration, NEVER photorealistic, NEVER a photo, NEVER a filtered/edited real photo. Style: premium children's storybook with soft colors, smooth lines, painted texture, expressive cartoon features. The output must LOOK LIKE A CARTOON, not realistic.`,
+    `ABSOLUTE PRIORITY - FACE IDENTITY: The uploaded reference image defines the EXACT FACE this child must have. Use the face from the reference photo as the absolute template for every illustration - same child identity, same recognizable person, same distinctive facial features.`,
     `FACE STRUCTURE: Preserve exactly from reference photo: face shape, cheekbones, jawline, chin, forehead, ALL facial proportions, eye position and shape, eye color, eyebrow placement and shape, nose shape and size, mouth shape, lip fullness, skin tone, age appearance, any distinctive marks.`,
     `HAIR EXACT MATCH: Keep exactly: hair color and highlights, hair style and cut, hair texture (straight/curly/wavy), part position, hair length, any unique hair characteristics from reference image.`,
-    `FACE MUST BE INSTANTLY RECOGNIZABLE: Every person viewing this should immediately recognize 'this is the same child as in the reference photo.' The face should be 2-3x more prominent than the background. The face is the absolute visual priority.`,
-    `CARTOON ILLUSTRATION NOT PHOTO: Beautiful 2D hand-painted cartoon, NOT realistic or photo-like. Premium storybook style: crisp lines, soft colors, expressive eyes with light, warm skin tones, smooth features, painterly finish.`,
+    `CARTOON FACE RENDERING: This child's face must be rendered in beautiful cartoon illustration style - expressive eyes with light reflections, smooth skin tones, soft shading, painted texture, warm and inviting. Every person should immediately recognize 'this is the same child from the photo, illustrated in storybook style.' The face is 2-3x more prominent than the background.`,
     `Scene title: ${safePageTitle}.`,
     `Story moment to illustrate: ${storyMoment}.`,
     `Build a complete cinematic environment: ${sceneGuide.setting}.`,
