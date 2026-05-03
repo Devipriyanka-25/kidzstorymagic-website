@@ -60,10 +60,11 @@ export async function POST(request) {
     );
   }
 
-  // Collect all uploaded photos (field name "photos" or "photo[N]")
+  // Collect all uploaded photos (field name "photos", "photo", or "photo[N]")
+  const PHOTO_FIELD_PATTERN = /^photos?(\[\d+\])?$/;
   const photoFiles = [];
   for (const [key, value] of formData.entries()) {
-    if ((key === 'photos' || key.startsWith('photo')) && value instanceof Blob) {
+    if (PHOTO_FIELD_PATTERN.test(key) && value instanceof Blob) {
       photoFiles.push(value);
     }
   }

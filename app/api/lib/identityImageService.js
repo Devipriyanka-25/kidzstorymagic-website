@@ -33,7 +33,10 @@ const INSTANTID_MODEL_NAME = 'instant-id';
 const IPADAPTER_MODEL_OWNER = 'lucataco';
 const IPADAPTER_MODEL_NAME = 'ip-adapter-faceid-portrait';
 
-// Default poll settings shared across models.
+// PhotoMaker style_strength_ratio bounds and default
+const MIN_STYLE_STRENGTH = 15;
+const MAX_STYLE_STRENGTH = 50;
+const DEFAULT_STYLE_STRENGTH = 35;
 // With a 5-second interval and 60 max attempts this allows up to 5 minutes
 // of polling per prediction – matching the typical Replicate generation time
 // for identity models (1–4 minutes).  Adjust via callers if needed.
@@ -53,7 +56,11 @@ async function pollPredictionToCompletion(replicate, predictionId) {
     await new Promise((resolve) => setTimeout(resolve, DEFAULT_POLL_INTERVAL_MS));
     prediction = await replicate.predictions.get(predictionId);
     attempts += 1;
-    console.log(`[IDENTITY_MODEL] Poll attempt ${attempts}/${DEFAULT_MAX_POLL_ATTEMPTS} – status: ${prediction.status}`);
+
+    // Log only every 10 attempts (~ every 50 s) to reduce log volume
+    if (attempts % 10 === 0 || prediction.status !== 'processing') {
+      console.log(`[IDENTITY_MODEL] Poll attempt ${attempts}/${DEFAULT_MAX_POLL_ATTEMPTS} – status: ${prediction.status}`);
+    }
   }
 
   if (prediction.status === 'failed') {
@@ -111,7 +118,7 @@ export async function generateWithPhotoMaker(params) {
     prompt,
     negative_prompt: negativePrompt,
     input_image: referenceImageUrls[0],
-    style_strength_ratio: Math.min(50, Math.max(15, Number(styleStrength) || 35)),
+    style_strength_ratio: Math.min(MAX_STYLE_STRENGTH, Math.max(MIN_STYLE_STRENGTH, Number(styleStrength) || DEFAULT_STYLE_STRENGTH)),
     num_outputs: 1,
     style: 'Photographic',
   };

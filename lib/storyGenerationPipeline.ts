@@ -263,17 +263,24 @@ export async function generateStoryWithFaceSwap(
     if (shouldApplyFaceSwap) {
       const photoUrl =
         request.childPhotoUrl ||
-        (request.referenceImageUrls && request.referenceImageUrls[0])!;
+        (request.referenceImageUrls && request.referenceImageUrls[0]) ||
+        '';
 
-      console.log('[FALLBACK_FACE_SWAP_USED] true');
-      const faceSwappedPages = await applyFaceSwapToPages(
-        illustratedPages,
-        photoUrl,
-        request.projectId,
-        request.baseUrl
-      );
-      story.pages = faceSwappedPages;
-      console.log('[PIPELINE] ✓ Face swap applied to all pages');
+      if (!photoUrl) {
+        console.warn('[PIPELINE] ⚠ shouldApplyFaceSwap=true but no photo URL found; skipping face swap');
+        console.log('[FALLBACK_FACE_SWAP_USED] false');
+        story.pages = illustratedPages;
+      } else {
+        console.log('[FALLBACK_FACE_SWAP_USED] true');
+        const faceSwappedPages = await applyFaceSwapToPages(
+          illustratedPages,
+          photoUrl,
+          request.projectId,
+          request.baseUrl
+        );
+        story.pages = faceSwappedPages;
+        console.log('[PIPELINE] ✓ Face swap applied to all pages');
+      }
     } else {
       if (!enableFaceSwapFallback || imageProvider === 'REPLICATE_IDENTITY') {
         console.log('[FALLBACK_FACE_SWAP_USED] false');
