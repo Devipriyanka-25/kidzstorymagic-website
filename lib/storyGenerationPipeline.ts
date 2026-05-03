@@ -1,13 +1,47 @@
 /**
- * Story Generation Pipeline with Face Swap Integration
- * 
- * Pipeline Flow:
- * 1. Child photo uploaded → Stored in user session
- * 2. Generate cartoon scene with Stable Diffusion → Creates initial illustration
- * 3. Run face swap → Embeds child's face onto cartoon character
- * 4. Compose final image with story text → Adds narrative elements
- * 5. Show in preview → Display personalized result
+ * Story Generation Pipeline with Identity-Consistent Generation
+ *
+ * Pipeline Flow (Phase 1 / Phase 3):
+ * 1. Child photos uploaded → Validated → Child identity profile created
+ * 2. Consistency lock created (story-level style/identity lock)
+ * 3. If IMAGE_PROVIDER=REPLICATE_IDENTITY → identity generation (primary)
+ *    else → generate cartoon scene with Stable Diffusion (legacy)
+ * 4. If identity generation fails and ENABLE_FACE_SWAP_FALLBACK=true → face swap (fallback)
+ * 5. Compose final image with story text → Adds narrative elements
+ * 6. Quality check per page → Regenerate up to 2× on failure
+ * 7. Show in preview → Display personalized result
+ *
+ * Phase 2/3 TODOs are marked inline.
  */
+
+// ─── Types ────────────────────────────────────────────────────────────────────
+
+export interface ChildIdentityProfile {
+  childName: string | null;
+  approximateAge: number | null;
+  gender: string | null;
+  hairstyle: string | null;
+  hairColor: string | null;
+  skinTone: string | null;
+  faceShape: string | null;
+  eyeColor: string | null;
+  outfitPreference: string | null;
+  referencePhotoCount: number;
+  referencePhotoStats?: Array<{ index: number; width: number; height: number; sharpness: number }>;
+  profileCreatedAt?: string;
+  visualAttributesExtracted?: boolean;
+}
+
+export interface ConsistencyLock {
+  characterProfile: ChildIdentityProfile | null;
+  illustrationStyle: string;
+  outfitPalette: string[];
+  referenceImageIds: string[];
+  seed: number | null;
+  modelProvider: string;
+  modelVersion: string;
+  createdAt?: string;
+}
 
 export interface StoryGenerationRequest {
   baseUrl?: string;
@@ -15,7 +49,10 @@ export interface StoryGenerationRequest {
   childName: string;
   childAge: number;
   theme: string;
-  childPhotoUrl?: string; // URL of uploaded child photo
+  /** Single child photo URL (legacy face-swap flow) */
+  childPhotoUrl?: string;
+  /** Multiple reference photo URLs (identity generation flow) */
+  referenceImageUrls?: string[];
   enableFaceSwap: boolean;
   pageCount: number;
   milestoneTitle?: string;
@@ -24,6 +61,10 @@ export interface StoryGenerationRequest {
   isSeries?: boolean;
   chapterNumber?: number;
   originalTheme?: string;
+  /** Phase 1: Child identity profile from /api/photos/validate-identity */
+  childIdentityProfile?: ChildIdentityProfile;
+  /** Phase 1: Story-level consistency lock */
+  consistencyLock?: ConsistencyLock;
 }
 
 export interface StoryPage {
@@ -32,7 +73,7 @@ export interface StoryPage {
   content: string;
   illustrationPrompt: string;
   illustrationUrl?: string;
-  faceSwappedUrl?: string; // After face swap processing
+  faceSwappedUrl?: string;
   pageType: string;
 }
 
@@ -85,33 +126,72 @@ export async function generateStoryWithFaceSwap(
   try {
     const appBaseUrl = getAppBaseUrl(request.baseUrl);
 
-    console.log('[PIPELINE] Starting story generation with face swap...');
+    // ── Logging tags (Phase 1) ──────────────────────────────────────────────
+    const imageProvider = process.env.IMAGE_PROVIDER || 'LEGACY';
+    const enableFaceSwapFallback =
+      process.env.ENABLE_FACE_SWAP_FALLBACK !== 'false' &&
+      (request.enableFaceSwap !== false);
+    const referenceCount =
+      request.referenceImageUrls?.length ??
+      (request.childPhotoUrl ? 1 : 0);
+
+    console.log('[PIPELINE] Starting story generation...');
+    console.log(`[IMAGE_PROVIDER] ${imageProvider}`);
+    console.log(`[REFERENCE_IMAGES_COUNT] ${referenceCount}`);
     console.log('[PIPELINE] Config:', {
       appBaseUrl,
       childName: request.childName,
       theme: request.theme,
-      enableFaceSwap: request.enableFaceSwap,
-      hasPhotoUrl: !!request.childPhotoUrl,
+      imageProvider,
+      enableFaceSwapFallback,
+      hasConsistencyLock: !!request.consistencyLock,
+      hasIdentityProfile: !!request.childIdentityProfile,
+      referenceCount,
     });
 
     // Step 1: Generate story structure and prompts
     const story = await generateStoryStructure(request);
     console.log(`[PIPELINE] ✓ Story structure generated with ${story.pages.length} pages`);
 
-    // Step 2: Generate illustrations for each page
-    const illustratedPages = await generateIllustrations(story.pages, request);
+    // Step 2: Generate illustrations
+    // Primary: identity-consistent generation when IMAGE_PROVIDER=REPLICATE_IDENTITY
+    // Fallback: legacy illustration + face swap
+    let illustratedPages: StoryPage[];
+
+    if (imageProvider === 'REPLICATE_IDENTITY') {
+      // TODO (Phase 3): Call generateIdentityIllustrations() once implemented.
+      // For now log the intent and fall through to legacy flow.
+      console.log('[PIPELINE] IMAGE_PROVIDER=REPLICATE_IDENTITY – identity generation path selected');
+      console.log('[PIPELINE] ⚠ Phase 2/3 identity generation not yet implemented; using legacy flow');
+      illustratedPages = await generateIllustrations(story.pages, request);
+    } else {
+      console.log(`[IMAGE_PROVIDER] ${imageProvider} (legacy SDXL path)`);
+      illustratedPages = await generateIllustrations(story.pages, request);
+    }
+
     console.log('[PIPELINE] ✓ All illustrations generated');
 
-    // Step 3: Apply face swap if enabled
-    if (request.enableFaceSwap && request.childPhotoUrl) {
-      const faceSwappedPages = await applyFaceSwapToPages(
-        illustratedPages,
-        request.childPhotoUrl,
-        request.projectId,
-        request.baseUrl
-      );
-      story.pages = faceSwappedPages;
-      console.log('[PIPELINE] ✓ Face swap applied to all pages');
+    // Step 3: Apply face swap (legacy) or identity fallback
+    // Phase 3 TODO: When identity generation is live, skip face swap entirely
+    // unless identity generation fails and ENABLE_FACE_SWAP_FALLBACK=true.
+    if (enableFaceSwapFallback && request.childPhotoUrl) {
+      const photoUrl =
+        request.childPhotoUrl ||
+        (request.referenceImageUrls && request.referenceImageUrls[0]);
+
+      if (photoUrl) {
+        console.log('[FALLBACK_FACE_SWAP_USED] false (attempted)');
+        const faceSwappedPages = await applyFaceSwapToPages(
+          illustratedPages,
+          photoUrl,
+          request.projectId,
+          request.baseUrl
+        );
+        story.pages = faceSwappedPages;
+        console.log('[PIPELINE] ✓ Face swap applied to all pages');
+      }
+    } else {
+      story.pages = illustratedPages;
     }
 
     // Step 4: Compose final images (add text overlays if needed)
