@@ -424,12 +424,11 @@ function buildIllustrationPrompt({
 
   return [
     `FORMAT: CARTOON ILLUSTRATION ONLY for ${childName} - This MUST be rendered as a beautiful 2D hand-drawn or hand-painted cartoon illustration, NEVER photorealistic, NEVER a photo, NEVER a filtered/edited real photo. Style: premium children's storybook with soft colors, smooth lines, painted texture, expressive cartoon features. The output must LOOK LIKE A CARTOON, not realistic.`,
+    `STORY PAGE SPECIFICITY (SECOND PRIORITY): This illustration MUST accurately represent the EXACT story moment from this specific page: "${safePageTitle}" - ${storyMoment}. The scene content, objects, actions, and events mentioned in the story text MUST all appear in the illustration. Do NOT create a generic theme illustration - create THIS SPECIFIC STORY MOMENT with all the story elements present. The child's actions, the setting details, and plot points from the story MUST be visually represented.`,
     `ABSOLUTE PRIORITY - FACE IDENTITY: The uploaded reference image defines the EXACT FACE this child must have. Use the face from the reference photo as the absolute template for every illustration - same child identity, same recognizable person, same distinctive facial features.`,
     `FACE STRUCTURE: Preserve exactly from reference photo: face shape, cheekbones, jawline, chin, forehead, ALL facial proportions, eye position and shape, eye color, eyebrow placement and shape, nose shape and size, mouth shape, lip fullness, skin tone, age appearance, any distinctive marks.`,
     `HAIR EXACT MATCH: Keep exactly: hair color and highlights, hair style and cut, hair texture (straight/curly/wavy), part position, hair length, any unique hair characteristics from reference image.`,
     `CARTOON FACE RENDERING: This child's face must be rendered in beautiful cartoon illustration style - expressive eyes with light reflections, smooth skin tones, soft shading, painted texture, warm and inviting. Every person should immediately recognize 'this is the same child from the photo, illustrated in storybook style.' The face is 2-3x more prominent than the background.`,
-    `Scene title: ${safePageTitle}.`,
-    `Story moment to illustrate: ${storyMoment}.`,
     `Build a complete cinematic environment: ${sceneGuide.setting}.`,
     `The child should be actively interacting with the world by ${sceneGuide.interaction}.`,
     `OUTFIT & BACKGROUND: Redesign clothing completely - do NOT copy original outfit, shirt color, text, logos, or any original photo details. Do NOT copy background, furniture, lighting, or room details. Only use the child's FACE from reference image - everything else is illustrated and redesigned.`,
