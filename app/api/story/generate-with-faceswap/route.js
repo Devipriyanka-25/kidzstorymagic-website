@@ -34,7 +34,10 @@ export async function POST(request) {
       childName,
       childAge,
       theme,
-      childPhotoUrl, // ⭐ Child's uploaded photo URL
+      childPhotoUrl,           // ⭐ Single child photo URL (legacy)
+      referenceImageUrls,      // ⭐ Phase 3: multiple reference URLs for identity generation
+      childIdentityProfile,    // ⭐ Phase 1: structured child identity profile
+      consistencyLock,         // ⭐ Phase 1: story-level consistency lock
       enableFaceSwap = true,
       pageCount = 12,
       userId,
@@ -58,10 +61,12 @@ export async function POST(request) {
     }
 
     // Validate face swap prerequisites
-    if (enableFaceSwap && !childPhotoUrl) {
-      console.warn('[FACESWAP_ENDPOINT] Face swap enabled but no photo URL provided');
-      console.log('[FACESWAP_ENDPOINT] Proceeding with face swap disabled');
+    if (enableFaceSwap && !childPhotoUrl && (!referenceImageUrls || referenceImageUrls.length === 0)) {
+      console.warn('[FACESWAP_ENDPOINT] Face swap/identity generation enabled but no photo URL or reference images provided');
+      console.log('[FACESWAP_ENDPOINT] Proceeding without photos');
     }
+
+    const imageProvider = process.env.IMAGE_PROVIDER || 'LEGACY';
 
     console.log('[FACESWAP_ENDPOINT] Parameters:', {
       projectId,
@@ -70,7 +75,11 @@ export async function POST(request) {
       theme,
       pageCount,
       enableFaceSwap,
+      imageProvider,
       hasPhotoUrl: !!childPhotoUrl,
+      referenceImageCount: Array.isArray(referenceImageUrls) ? referenceImageUrls.length : 0,
+      hasIdentityProfile: !!childIdentityProfile,
+      hasConsistencyLock: !!consistencyLock,
     });
 
     // Call integrated pipeline
@@ -81,7 +90,10 @@ export async function POST(request) {
       childAge,
       theme,
       childPhotoUrl,
-      enableFaceSwap: enableFaceSwap && !!childPhotoUrl, // Only if photo provided
+      referenceImageUrls: Array.isArray(referenceImageUrls) ? referenceImageUrls : undefined,
+      childIdentityProfile: childIdentityProfile || undefined,
+      consistencyLock: consistencyLock || undefined,
+      enableFaceSwap: enableFaceSwap && (!!childPhotoUrl || (Array.isArray(referenceImageUrls) && referenceImageUrls.length > 0)),
       pageCount,
       milestoneTitle,
       milestonePromptHint,
@@ -93,10 +105,15 @@ export async function POST(request) {
 
     console.log('[FACESWAP_ENDPOINT] ✅ Story generation complete');
 
+    const isStillProcessing = story.status === 'processing';
+
     return NextResponse.json(
       {
         success: true,
-        message: 'Story generated successfully with face swap',
+        message: isStillProcessing
+          ? 'Your magical storybook is still being created. Please wait a little longer.'
+          : 'Story generated successfully',
+        processing: isStillProcessing,
         story: {
           id: story.id,
           projectId: story.projectId,
@@ -104,6 +121,7 @@ export async function POST(request) {
           title: story.title,
           pageCount: story.pages.length,
           status: story.status,
+          processingMessage: story.processingMessage,
           pages: story.pages.map((page) => ({
             pageNumber: page.pageNumber,
             title: page.title,
@@ -115,7 +133,8 @@ export async function POST(request) {
           createdAt: story.createdAt,
           metadata: {
             faceSwapEnabled: enableFaceSwap,
-            modelUsed: 'replicate-sdxl + deepai-faceswap',
+            imageProvider: process.env.IMAGE_PROVIDER || 'LEGACY',
+            modelUsed: process.env.REPLICATE_IDENTITY_MODEL || 'replicate-sdxl',
             processingTime: 'check logs',
           },
         },

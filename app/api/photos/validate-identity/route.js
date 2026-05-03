@@ -133,16 +133,21 @@ export async function POST(request) {
     });
   }
 
-  // ── Return validation errors if any photos failed ─────────────────────────
-  if (photoErrors.length > 0) {
-    console.warn(`[VALIDATE_IDENTITY] ${photoErrors.length} photo(s) failed validation`);
+  // ── Return validation errors if not enough valid photos remain ────────────
+  // If some photos failed but we still have >= MIN_PHOTOS valid ones,
+  // proceed with warnings. Only hard-fail when valid count drops below MIN_PHOTOS.
+  if (validatedPhotos.length < MIN_PHOTOS) {
+    console.warn(
+      `[VALIDATE_IDENTITY] Only ${validatedPhotos.length}/${photoFiles.length} photos passed – below minimum of ${MIN_PHOTOS}`
+    );
     return NextResponse.json(
       {
         error: 'photo_validation_failed',
-        message: 'Some photos did not meet quality requirements. Please review the errors and re-upload.',
+        message: `At least ${MIN_PHOTOS} valid photos are required, but only ${validatedPhotos.length} of ${photoFiles.length} passed quality checks. Please review the errors below and re-upload the affected photos.`,
         photoErrors,
         validCount: validatedPhotos.length,
         totalCount: photoFiles.length,
+        requiredCount: MIN_PHOTOS,
       },
       { status: 422 }
     );
@@ -162,17 +167,27 @@ export async function POST(request) {
     validatedPhotos,
   });
 
-  console.log(`[VALIDATE_IDENTITY] ✓ All ${validatedPhotos.length} photos passed validation`);
+  console.log(`[VALIDATE_IDENTITY] ✓ ${validatedPhotos.length} photos passed validation (${photoErrors.length} rejected)`);
   console.log(`[REFERENCE_IMAGES_COUNT] ${validatedPhotos.length}`);
+
+  const warnings = photoErrors.length > 0
+    ? photoErrors.map((e) => e.friendly)
+    : [];
 
   return NextResponse.json(
     {
       success: true,
       message: `${validatedPhotos.length} photos validated successfully. Child identity profile created.`,
+      ...(warnings.length > 0 && {
+        warnings,
+        warningMessage: `${photoErrors.length} photo(s) were skipped due to quality issues. The remaining ${validatedPhotos.length} photos will be used.`,
+      }),
       childIdentityProfile,
       validatedCount: validatedPhotos.length,
+      skippedCount: photoErrors.length,
+      skippedPhotos: photoErrors.length > 0 ? photoErrors : undefined,
       // Callers should persist this profile with their draft.
-      // Use POST /api/story/save-draft with formData.childIdentityProfile = childIdentityProfile.
+      // Use POST /api/story/save-draft with body.childIdentityProfile = childIdentityProfile.
     },
     { status: 200 }
   );

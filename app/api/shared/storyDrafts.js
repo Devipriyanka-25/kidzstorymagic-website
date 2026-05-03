@@ -263,6 +263,10 @@ export function buildDraftResponse(draft, pages = []) {
   const isGenerated = Boolean(flow.isGenerated || pages.length > 0);
   const isPaid = Boolean(flow.isPaid || draft?.isPaid || draft?.is_paid);
 
+  // Surface Phase 1 identity fields from photo_metadata
+  const childIdentityProfile = getChildIdentityProfile(draft);
+  const consistencyLock = getConsistencyLock(draft);
+
   return {
     ...draft,
     pages,
@@ -278,6 +282,11 @@ export function buildDraftResponse(draft, pages = []) {
     draft_expires_at: draftExpiresAt,
     expired,
     formData: buildDraftFormData(draft, pages),
+    // Phase 1: identity pipeline fields – null when not yet collected
+    childIdentityProfile,
+    consistencyLock,
+    hasIdentityProfile: childIdentityProfile !== null,
+    hasConsistencyLock: consistencyLock !== null,
   };
 }
 

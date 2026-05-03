@@ -89,8 +89,6 @@ async function pollPredictionToCompletion(replicate, predictionId) {
  * @param {string}   [params.negativePrompt]    – negative prompt
  * @param {string}   [params.styleStrength]     – "15-50" range (PhotoMaker style_strength_ratio)
  * @returns {Promise<{ imageUrl: string, predictionId: string, model: string }>}
- *
- * TODO (Phase 2): Implement this function.
  */
 export async function generateWithPhotoMaker(params) {
   const { referenceImageUrls = [], prompt, negativePrompt = '', styleStrength = '35' } = params;
@@ -98,30 +96,35 @@ export async function generateWithPhotoMaker(params) {
   console.log('[IDENTITY_MODEL] Provider: photomaker');
   console.log(`[REFERENCE_IMAGES_COUNT] ${referenceImageUrls.length}`);
 
-  // TODO (Phase 2): Uncomment and complete once PhotoMaker version is stable.
-  // const replicate = getReplicateClient();
-  // const version = await resolveModelVersionId(
-  //   PHOTOMAKER_MODEL_OWNER,
-  //   PHOTOMAKER_MODEL_NAME,
-  //   process.env.REPLICATE_PHOTOMAKER_VERSION
-  // );
-  // const prediction = await replicate.predictions.create({
-  //   version,
-  //   input: {
-  //     prompt,
-  //     negative_prompt: negativePrompt,
-  //     input_image: referenceImageUrls[0],
-  //     input_image2: referenceImageUrls[1] || undefined,
-  //     input_image3: referenceImageUrls[2] || undefined,
-  //     input_image4: referenceImageUrls[3] || undefined,
-  //     style_strength_ratio: Number(styleStrength),
-  //     num_outputs: 1,
-  //     style: 'Photographic',
-  //   },
-  // });
-  // return { ...(await pollPredictionToCompletion(replicate, prediction.id)), model: 'photomaker' };
+  if (referenceImageUrls.length === 0) {
+    throw new Error('[IDENTITY_MODEL] PhotoMaker requires at least one reference image URL.');
+  }
 
-  throw new Error('[IDENTITY_MODEL] PhotoMaker is not yet enabled (Phase 2 TODO).');
+  const replicate = getReplicateClient();
+  const version = await resolveModelVersionId(
+    PHOTOMAKER_MODEL_OWNER,
+    PHOTOMAKER_MODEL_NAME,
+    process.env.REPLICATE_PHOTOMAKER_VERSION
+  );
+
+  const input = {
+    prompt,
+    negative_prompt: negativePrompt,
+    input_image: referenceImageUrls[0],
+    style_strength_ratio: Math.min(50, Math.max(15, Number(styleStrength) || 35)),
+    num_outputs: 1,
+    style: 'Photographic',
+  };
+
+  // Attach up to 3 additional reference images
+  if (referenceImageUrls[1]) input.input_image2 = referenceImageUrls[1];
+  if (referenceImageUrls[2]) input.input_image3 = referenceImageUrls[2];
+  if (referenceImageUrls[3]) input.input_image4 = referenceImageUrls[3];
+
+  console.log('[IDENTITY_MODEL] Creating PhotoMaker prediction...');
+  const prediction = await replicate.predictions.create({ version, input });
+  const result = await pollPredictionToCompletion(replicate, prediction.id);
+  return { ...result, model: 'photomaker' };
 }
 
 // ─── InstantID ────────────────────────────────────────────────────────────────
@@ -134,8 +137,6 @@ export async function generateWithPhotoMaker(params) {
  * @param {string}   params.prompt             – full scene prompt
  * @param {string}   [params.negativePrompt]   – negative prompt
  * @returns {Promise<{ imageUrl: string, predictionId: string, model: string }>}
- *
- * TODO (Phase 2): Implement this function.
  */
 export async function generateWithInstantID(params) {
   const { referenceImageUrl, prompt, negativePrompt = '' } = params;
@@ -143,26 +144,35 @@ export async function generateWithInstantID(params) {
   console.log('[IDENTITY_MODEL] Provider: instantid');
   console.log(`[REFERENCE_IMAGES_COUNT] 1`);
 
-  // TODO (Phase 2): Uncomment and complete once InstantID version is confirmed.
-  // const replicate = getReplicateClient();
-  // const version = await resolveModelVersionId(
-  //   INSTANTID_MODEL_OWNER,
-  //   INSTANTID_MODEL_NAME,
-  //   process.env.REPLICATE_INSTANTID_VERSION
-  // );
-  // const prediction = await replicate.predictions.create({
-  //   version,
-  //   input: {
-  //     image: referenceImageUrl,
-  //     prompt,
-  //     negative_prompt: negativePrompt,
-  //     width: 1024,
-  //     height: 1024,
-  //   },
-  // });
-  // return { ...(await pollPredictionToCompletion(replicate, prediction.id)), model: 'instantid' };
+  if (!referenceImageUrl) {
+    throw new Error('[IDENTITY_MODEL] InstantID requires a reference image URL.');
+  }
 
-  throw new Error('[IDENTITY_MODEL] InstantID is not yet enabled (Phase 2 TODO).');
+  const replicate = getReplicateClient();
+  const version = await resolveModelVersionId(
+    INSTANTID_MODEL_OWNER,
+    INSTANTID_MODEL_NAME,
+    process.env.REPLICATE_INSTANTID_VERSION
+  );
+
+  console.log('[IDENTITY_MODEL] Creating InstantID prediction...');
+  const prediction = await replicate.predictions.create({
+    version,
+    input: {
+      image: referenceImageUrl,
+      prompt,
+      negative_prompt: negativePrompt,
+      width: 1024,
+      height: 1024,
+      num_inference_steps: 30,
+      guidance_scale: 5,
+      ip_adapter_scale: 0.8,
+      controlnet_conditioning_scale: 0.8,
+    },
+  });
+
+  const result = await pollPredictionToCompletion(replicate, prediction.id);
+  return { ...result, model: 'instantid' };
 }
 
 // ─── IP-Adapter FaceID ────────────────────────────────────────────────────────
@@ -175,8 +185,6 @@ export async function generateWithInstantID(params) {
  * @param {string}   params.prompt             – full scene prompt
  * @param {string}   [params.negativePrompt]   – negative prompt
  * @returns {Promise<{ imageUrl: string, predictionId: string, model: string }>}
- *
- * TODO (Phase 2): Implement this function.
  */
 export async function generateWithIPAdapterFaceID(params) {
   const { referenceImageUrl, prompt, negativePrompt = '' } = params;
@@ -184,25 +192,33 @@ export async function generateWithIPAdapterFaceID(params) {
   console.log('[IDENTITY_MODEL] Provider: ipadapter_faceid');
   console.log(`[REFERENCE_IMAGES_COUNT] 1`);
 
-  // TODO (Phase 2): Uncomment and complete once IP-Adapter version is confirmed.
-  // const replicate = getReplicateClient();
-  // const version = await resolveModelVersionId(
-  //   IPADAPTER_MODEL_OWNER,
-  //   IPADAPTER_MODEL_NAME,
-  //   process.env.REPLICATE_IPADAPTER_VERSION
-  // );
-  // const prediction = await replicate.predictions.create({
-  //   version,
-  //   input: {
-  //     prompt,
-  //     negative_prompt: negativePrompt,
-  //     image: referenceImageUrl,
-  //     scale: 0.8,
-  //   },
-  // });
-  // return { ...(await pollPredictionToCompletion(replicate, prediction.id)), model: 'ipadapter_faceid' };
+  if (!referenceImageUrl) {
+    throw new Error('[IDENTITY_MODEL] IP-Adapter FaceID requires a reference image URL.');
+  }
 
-  throw new Error('[IDENTITY_MODEL] IP-Adapter FaceID is not yet enabled (Phase 2 TODO).');
+  const replicate = getReplicateClient();
+  const version = await resolveModelVersionId(
+    IPADAPTER_MODEL_OWNER,
+    IPADAPTER_MODEL_NAME,
+    process.env.REPLICATE_IPADAPTER_VERSION
+  );
+
+  console.log('[IDENTITY_MODEL] Creating IP-Adapter FaceID prediction...');
+  const prediction = await replicate.predictions.create({
+    version,
+    input: {
+      prompt,
+      negative_prompt: negativePrompt,
+      image: referenceImageUrl,
+      scale: 0.8,
+      num_images: 1,
+      num_inference_steps: 30,
+      guidance_scale: 7.5,
+    },
+  });
+
+  const result = await pollPredictionToCompletion(replicate, prediction.id);
+  return { ...result, model: 'ipadapter_faceid' };
 }
 
 // ─── Flux LoRA (advanced) ─────────────────────────────────────────────────────
@@ -219,31 +235,72 @@ export async function generateWithIPAdapterFaceID(params) {
  * @param {string}   [params.negativePrompt]
  * @returns {Promise<{ imageUrl: string, predictionId: string, model: string }>}
  *
- * TODO (Phase 2): Implement this function.  See lib/replicate/training.ts for the
- *                 training helpers.
+ * See lib/replicate/training.ts for the training helpers.
  */
 export async function generateWithFluxLora(params) {
   const { weightsUrl, triggerWord, prompt, negativePrompt = '' } = params;
 
   console.log('[IDENTITY_MODEL] Provider: flux_lora');
 
-  // TODO (Phase 2): Implement Flux LoRA generation via replicate.run() with the
-  //                 fine-tuned weights URL.
-  // const replicate = getReplicateClient();
-  // const prediction = await replicate.predictions.create({
-  //   version: '<flux-dev model version>',
-  //   input: {
-  //     prompt: `${triggerWord} ${prompt}`,
-  //     negative_prompt: negativePrompt,
-  //     extra_lora: weightsUrl,
-  //     extra_lora_scale: 0.9,
-  //     width: 1024,
-  //     height: 1024,
-  //   },
-  // });
-  // return { ...(await pollPredictionToCompletion(replicate, prediction.id)), model: 'flux_lora' };
+  if (!weightsUrl) {
+    throw new Error('[IDENTITY_MODEL] Flux LoRA requires a weightsUrl from a completed LoRA training.');
+  }
 
-  throw new Error('[IDENTITY_MODEL] Flux LoRA generation is not yet enabled (Phase 2 TODO).');
+  if (!triggerWord) {
+    throw new Error('[IDENTITY_MODEL] Flux LoRA requires a triggerWord that matches the training run.');
+  }
+
+  // Combine trigger word with prompt so the LoRA activates
+  const fullPrompt = prompt.includes(triggerWord) ? prompt : `${triggerWord} ${prompt}`;
+
+  const replicate = getReplicateClient();
+
+  // Use the flux-dev base model with the extra_lora weights from training
+  const FLUX_DEV_MODEL = 'black-forest-labs/flux-dev';
+  const fluxDevVersion = process.env.REPLICATE_FLUX_DEV_VERSION;
+
+  console.log('[IDENTITY_MODEL] Creating Flux LoRA prediction...');
+
+  let prediction;
+  if (fluxDevVersion) {
+    prediction = await replicate.predictions.create({
+      version: fluxDevVersion,
+      input: {
+        prompt: fullPrompt,
+        negative_prompt: negativePrompt,
+        extra_lora: weightsUrl,
+        extra_lora_scale: 0.9,
+        width: 1024,
+        height: 1024,
+        num_inference_steps: 28,
+        guidance_scale: 3.5,
+        output_format: 'png',
+        output_quality: 95,
+      },
+    });
+  } else {
+    // Use the model:version deployment path when no explicit version is pinned
+    const [fluxOwner, fluxName] = FLUX_DEV_MODEL.split('/');
+    const resolvedVersion = await resolveModelVersionId(fluxOwner, fluxName, undefined);
+    prediction = await replicate.predictions.create({
+      version: resolvedVersion,
+      input: {
+        prompt: fullPrompt,
+        negative_prompt: negativePrompt,
+        extra_lora: weightsUrl,
+        extra_lora_scale: 0.9,
+        width: 1024,
+        height: 1024,
+        num_inference_steps: 28,
+        guidance_scale: 3.5,
+        output_format: 'png',
+        output_quality: 95,
+      },
+    });
+  }
+
+  const result = await pollPredictionToCompletion(replicate, prediction.id);
+  return { ...result, model: 'flux_lora' };
 }
 
 // ─── Primary dispatcher ───────────────────────────────────────────────────────
