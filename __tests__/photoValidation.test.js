@@ -110,6 +110,7 @@ describe('buildChildIdentityProfile', () => {
     });
 
     expect(profile.visualAttributesExtracted).toBe(false);
+    expect(profile.visualAttributesExtractionTimestamp).toBeNull();
     expect(profile.hairstyle).toBeNull();
     expect(profile.hairColor).toBeNull();
     expect(profile.skinTone).toBeNull();

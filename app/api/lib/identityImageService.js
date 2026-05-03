@@ -33,7 +33,10 @@ const INSTANTID_MODEL_NAME = 'instant-id';
 const IPADAPTER_MODEL_OWNER = 'lucataco';
 const IPADAPTER_MODEL_NAME = 'ip-adapter-faceid-portrait';
 
-// Default poll settings shared across models
+// Default poll settings shared across models.
+// With a 5-second interval and 60 max attempts this allows up to 5 minutes
+// of polling per prediction – matching the typical Replicate generation time
+// for identity models (1–4 minutes).  Adjust via callers if needed.
 const DEFAULT_POLL_INTERVAL_MS = 5_000;
 const DEFAULT_MAX_POLL_ATTEMPTS = 60;
 

@@ -25,6 +25,10 @@ export const MIN_SHARPNESS_STDDEV = 12;
  */
 export const MIN_FACE_AREA_RATIO = 0.04; // 4 % of image
 
+// Face coverage estimation ratios (used in estimateFaceAreaRatio)
+const ESTIMATED_FACE_WIDTH_RATIO = 0.5;  // face occupies ~50% of image width
+const ESTIMATED_FACE_HEIGHT_RATIO = 0.55; // face occupies ~55% of image height
+
 export const ACCEPTED_ANGLES = [
   'front',
   'slight-left',
@@ -112,9 +116,8 @@ export async function validatePhotoBuffer(buffer, mimeType = 'image/jpeg') {
  * @returns {number} ratio between 0 and 1
  */
 export function estimateFaceAreaRatio(width, height) {
-  // Assume the face occupies ~50% of image width and ~55% of image height
-  const estimatedFaceWidth = width * 0.5;
-  const estimatedFaceHeight = height * 0.55;
+  const estimatedFaceWidth = width * ESTIMATED_FACE_WIDTH_RATIO;
+  const estimatedFaceHeight = height * ESTIMATED_FACE_HEIGHT_RATIO;
   return (estimatedFaceWidth * estimatedFaceHeight) / (width * height);
 }
 
@@ -157,8 +160,9 @@ export function buildChildIdentityProfile({
       sharpness: p.greyscaleStddev,
     })),
     profileCreatedAt: new Date().toISOString(),
-    // Placeholder flags for Phase 2
+    // Placeholder flags for Phase 2 – will be populated once the vision model runs.
     visualAttributesExtracted: false,
-    visualAttributesExtractedAt: null,
+    // Timestamp of when visual attribute extraction completes (null until Phase 2).
+    visualAttributesExtractionTimestamp: null,
   };
 }

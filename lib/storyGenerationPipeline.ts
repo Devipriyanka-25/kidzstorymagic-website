@@ -180,7 +180,7 @@ export async function generateStoryWithFaceSwap(
         (request.referenceImageUrls && request.referenceImageUrls[0]);
 
       if (photoUrl) {
-        console.log('[FALLBACK_FACE_SWAP_USED] false (attempted)');
+        console.log('[FALLBACK_FACE_SWAP_USED] true');
         const faceSwappedPages = await applyFaceSwapToPages(
           illustratedPages,
           photoUrl,
@@ -191,6 +191,7 @@ export async function generateStoryWithFaceSwap(
         console.log('[PIPELINE] ✓ Face swap applied to all pages');
       }
     } else {
+      console.log('[FALLBACK_FACE_SWAP_USED] false');
       story.pages = illustratedPages;
     }
 
