@@ -3,6 +3,10 @@ const fs = require('fs').promises;
 const path = require('path');
 const pool = require('../config/database');
 const StoryGenerationService = require('../services/story-generation.service');
+const {
+  buildBackendStorybookPrompt,
+  buildStorySceneBrief,
+} = require('./storyScenePlanning');
 
 class StoryRenderer {
   /**
@@ -101,85 +105,43 @@ class StoryRenderer {
 
   /**
    * Generate image prompt for a story page
-   * Character appearance changes based on page content while maintaining consistency
+   * Build a scene-first, cinematic story illustration prompt.
    */
-  static generateImagePrompt(pageNumber, storyText, childData, theme, customPrompt = null, storyLanguage = 'en') {
-    const { child_name, child_gender } = childData;
-    
-    // Base art style for all images
-    const baseStyle = "A high-quality 3D digital illustration in a whimsical animation style, soft cinematic lighting, vibrant colors, expressive facial features, smooth textures, semi-realistic children's book aesthetic";
-    
-    // Character traits based on gender
-    const pronouns = child_gender === 'male' ? 'boy' : 'girl';
-    const childDescription = child_gender === 'male' 
-      ? `adorable young boy ${child_name} with bright curious eyes, rosy cheeks, warm expression`
-      : `adorable young girl ${child_name} with big expressive eyes, rosy cheeks, warm smile`;
-    
-    // Page-specific character appearance based on story progression
-    const getPageOutfitContext = (pageNum, storyTheme) => {
-      const progression = {
-        1: 'comfortable everyday clothes, standing confidently, hopeful expression',
-        2: 'cozy adventure jacket, ready for journey, excited eyes',
-        3: 'explorer outfit with adventure gear, determined expression, brave stance',
-        4: 'learning outfit with focus, sitting or practicing, concentration',
-        5: 'empowered with glowing aura, standing tall, confident smile',
-        6: 'celebration clothes, happy expression, surrounded by friends or support',
-        7: 'victorious pose, wearing success, triumphant smile, glowing',
-        8: 'mentor outfit, helping others, kind expression, wisdom in eyes',
-        9: 'reflective pose, thoughtful look, surrounded by memories or lessons',
-        10: 'graduation or celebration outfit, bright future ahead, hopeful gaze',
-        // For 20-page stories, add more variation
-        11: 'new adventure beginning, fresh outfit, curious expression',
-        12: 'growth appears in appearance, mature but still young, confident',
-        13: 'teaching or helping pose, gentle expression, light around character',
-        14: 'connecting with others, surrounded by supportive figures, warm glow',
-        15: 'master or expert pose, skilled appearance, inspiring presence',
-        16: 'dreaming new dreams outfit, looking forward, wonder in eyes',
-        17: 'beacon of hope appearance, helping others find their way, radiant',
-        18: 'unity symbolized, multiple characters or connections visible, harmony',
-        19: 'spreading light and inspiration, uplifting presence, joy radiating',
-        20: 'future ready appearance, grown with experiences, bright destiny ahead'
-      };
-      
-      return progression[pageNum] || progression[10] || 'comfortable and confident, warm expression';
-    };
+  static generateImagePrompt(
+    pageNumber,
+    storyText,
+    childData,
+    theme,
+    customPrompt = null,
+    storyLanguage = 'en',
+    pageTitle = ''
+  ) {
+    return buildBackendStorybookPrompt({
+      childName: childData.child_name,
+      childGender: childData.child_gender,
+      pageNumber,
+      pageTitle,
+      storyText,
+      theme,
+      customPrompt,
+      childInterests: childData.child_interests,
+      childNotes: childData.child_notes,
+      ageHint: `${childData.age_group || childData.age || 'young child'} storybook tone in ${
+        storyLanguage || 'en'
+      }`,
+    });
+  }
 
-    // If custom theme with custom prompt provided
-    if (theme === 'customizable' && customPrompt) {
-      const pageContext = getPageOutfitContext(pageNumber, theme);
-      
-      const storyElements = [
-        `${baseStyle}. ${childDescription}, ${pageContext}, discovering ${customPrompt}. Adventure and wonder. Magical atmosphere with soft glowing elements.`,
-        `${baseStyle}. ${childDescription}, ${pageContext}, exploring ${customPrompt}. Curiosity and excitement. Dreamlike magical quality throughout the scene.`,
-        `${baseStyle}. ${childDescription}, ${pageContext}, encountering ${customPrompt}. Joy and amazement. Enchanted setting with soft glowing lighting.`,
-        `${baseStyle}. ${childDescription}, ${pageContext}, journey through ${customPrompt}. Brave adventure. Magical creatures and sparkling elements present.`,
-        `${baseStyle}. ${childDescription}, ${pageContext}, celebrating ${customPrompt}. Triumph and happiness. Vibrant colors with festive magical atmosphere.`,
-      ];
-
-      const selectedStory = storyElements[(pageNumber - 1) % storyElements.length];
-      return selectedStory;
-    }
-
-    const pageContext = getPageOutfitContext(pageNumber, theme);
-    
-    // Theme-specific settings with character outfit changes
-    const themeSettings = {
-      'friends': `${baseStyle}. ${childDescription}, ${pageContext}, surrounded by friendly animal companions in a magical forest. Warm sunlight filtering through trees, pastel colors throughout the scene.`,
-      'family': `${baseStyle}. ${childDescription}, ${pageContext}, with whimsical family members and loved ones. Warm cozy home setting, golden gentle lighting, heartwarming atmosphere.`,
-      'adventure': `${baseStyle}. ${childDescription}, ${pageContext}, on an exciting jungle exploration. Lush green scenery with glowing plants, magical aura, soft adventurous lighting.`,
-      'motivational': `${baseStyle}. ${childDescription}, ${pageContext}, showing courage and determination. Inspiring background with uplifting colors, light emanating from character's expression and presence.`,
-      'behavioural': `${baseStyle}. ${childDescription}, ${pageContext}, learning important life lessons. Supportive environment with gentle colors, wisdom and understanding in the scene.`,
-      'fairytale': `${baseStyle}. ${childDescription}, ${pageContext}, in an enchanted magical realm. Glowing flowers, sparkling magic particles, soft pastel and jewel-toned colors throughout.`,
-      'space': `${baseStyle}. ${childDescription}, ${pageContext}, floating through cosmic space. Colorful planets and stars around, pastel nebula background, dreamy space exploration.`,
-      'ocean': `${baseStyle}. ${childDescription}, ${pageContext}, as underwater explorer. Colorful coral reef, friendly fish, magical ocean glow, bubbles and light rays.`,
-      'superhero': `${baseStyle}. ${childDescription}, ${pageContext}, with heroic cape and pose. Colorful cityscape background, action-packed but playful, superhero energy.`,
-      'dinosaur': `${baseStyle}. ${childDescription}, ${pageContext}, playing with friendly prehistoric dinosaurs. Vibrant prehistoric landscape, magical prehistoric adventure feeling.`,
-      'wizard': `${baseStyle}. ${childDescription}, ${pageContext}, as young wizard in magical academy. Spellbooks, glowing magical effects, mystical environment throughout.`,
-      'pirate': `${baseStyle}. ${childDescription}, ${pageContext}, on treasure ship adventure. Ocean waves, treasure chest, adventure and discovery spirit.`,
-      'princess': `${baseStyle}. ${childDescription}, ${pageContext}, in enchanted castle realm. Royal magical setting, glowing decorative details, dreamy atmosphere.`
-    };
-
-    return themeSettings[theme] || `${baseStyle}. ${childDescription}, ${pageContext}, in a magical ${theme} world with vibrant colors and dreamy ambiance.`;
+  static generateIllustrationSceneBrief(pageNumber, storyText, childData, theme, customPrompt = null, pageTitle = '') {
+    return buildStorySceneBrief({
+      childName: childData.child_name,
+      pageTitle,
+      pageContent: storyText,
+      customPrompt,
+      childInterests: childData.child_interests,
+      childNotes: childData.child_notes,
+      theme,
+    });
   }
 
   /**
@@ -215,8 +177,23 @@ class StoryRenderer {
             page_number: page.pageNumber || index + 1,
             title: page.title || '',
             page_text: page.content || '',
-            illustrationPrompt: page.imagePrompt || '',
-            imagePrompt: `Illustration for: ${page.content?.substring(0, 100)}...`
+            illustrationPrompt: this.generateIllustrationSceneBrief(
+              page.pageNumber || index + 1,
+              page.content || '',
+              projectData,
+              theme,
+              customPrompt,
+              page.title || ''
+            ),
+            imagePrompt: this.generateImagePrompt(
+              page.pageNumber || index + 1,
+              page.content || '',
+              projectData,
+              theme,
+              customPrompt,
+              storyLanguage,
+              page.title || ''
+            )
           }));
 
           console.log(`[GENERATE_STORY] Converted ${generatedPages.length} AI-generated pages`);
@@ -254,14 +231,24 @@ class StoryRenderer {
         return {
           ...page,
           page_text: processedText,
-          illustrationPrompt: processedIllustrationPrompt,
+          illustrationPrompt:
+            processedIllustrationPrompt ||
+            this.generateIllustrationSceneBrief(
+              page.page_number || index + 1,
+              processedText,
+              projectData,
+              theme,
+              customPrompt,
+              page.title || ''
+            ),
           imagePrompt: this.generateImagePrompt(
             page.page_number || index + 1,
             processedText,
             projectData,
             theme,
             customPrompt,
-            storyLanguage
+            storyLanguage,
+            page.title || ''
           )
         };
       });

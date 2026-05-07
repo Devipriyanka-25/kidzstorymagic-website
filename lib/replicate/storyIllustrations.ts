@@ -2,6 +2,7 @@ import {
   getReplicateClient,
   resolveModelVersionId,
 } from "@/lib/replicate/client";
+import { buildStorySceneBrief } from "@/lib/storybook/scenePlanning";
 import type { Prediction } from "replicate";
 
 const DEFAULT_STORYBOOK_MODEL = "black-forest-labs/flux-kontext-pro";
@@ -36,7 +37,7 @@ const FLUX_STORYBOOK_MODEL_PREFIX = "black-forest-labs/flux-2-";
 const KONTEXT_STORYBOOK_MODEL_PREFIX = "black-forest-labs/flux-kontext-";
 
 export const DEFAULT_STORYBOOK_NEGATIVE_PROMPT =
-  "realistic, photorealistic, photo, photograph, DSLR, camera, real photo, filtered photo, photo edit, photo filter, photo composite, photo overlay, realistic rendering, CGI, 3D render, realistic 3D, hyperrealistic, overly detailed realism, portrait photo, headshot photo, selfie photo, polaroid, instagram photo, social media photo, real world, live action, film still, movie still, documentary, photojournalism, professional photography, studio lighting real, different child, different person, different face, different facial features, different face shape, different cheekbones, different jawline, changed hair type, changed hair color, changed hair style, aged child, older child, younger child, baby face, adult face, distorted face, asymmetrical face, unrecognizable child, unrecognizable face, face swap, deepfake, pasted face, face composite, face splice, facial features mismatch, photographic face on cartoon body, blurry, low resolution, washed out colors, pale, desaturated, low contrast, muddy, gloomy lighting, dark mood, horror, scary, nighttime, completely different child"
+  "realistic, photorealistic, photo, photograph, DSLR, camera, real photo, filtered photo, photo edit, photo filter, photo composite, photo overlay, realistic rendering, CGI, 3D render, realistic 3D, hyperrealistic, overly detailed realism, portrait photo, headshot photo, selfie photo, polaroid, instagram photo, social media photo, real world, live action, film still, movie still, documentary, photojournalism, professional photography, studio lighting real, portrait only, centered character, empty background, plain background, random pose, sticker look, emoji face, flat cartoon, cheap cartoon style, face-focused composition, low-detail environment, generic AI child, different child, different person, different face, different facial features, different face shape, different cheekbones, different jawline, changed hair type, changed hair color, changed hair style, aged child, older child, younger child, baby face, adult face, distorted face, asymmetrical face, unrecognizable child, unrecognizable face, face swap, deepfake, pasted face, face composite, face splice, facial features mismatch, photographic face on cartoon body, blurry, low resolution, washed out colors, pale, desaturated, low contrast, muddy, gloomy lighting, dark mood, horror, scary, nighttime, completely different child";
 
 export type StoryPageGenerationInput = {
   prompt: string;
@@ -240,29 +241,49 @@ function buildPositiveAvoidanceInstructions(negativePrompt: string): string {
   return `Avoid outputs with these problems: ${cleaned.join(", ")}.`;
 }
 
+function normalizeSceneBlueprint(prompt: string): string {
+  const normalizedPrompt = prompt.replace(/\s+/g, " ").trim();
+
+  if (!normalizedPrompt) {
+    return buildStorySceneBrief({
+      pageTitle: "Story page",
+      pageContent: "A premium children's book scene with clear story action.",
+    });
+  }
+
+  if (
+    normalizedPrompt.includes("Movie-frame story scene") ||
+    normalizedPrompt.includes("Exact story beat:")
+  ) {
+    return normalizedPrompt;
+  }
+
+  return buildStorySceneBrief({
+    pageTitle: "Story page",
+    pageContent: normalizedPrompt,
+  });
+}
+
 export function buildStorybookPrompt(
   prompt: string,
   negativePrompt = DEFAULT_STORYBOOK_NEGATIVE_PROMPT
 ): string {
-  const normalizedScenePrompt = prompt.replace(/\s+/g, " ").trim();
+  const normalizedScenePrompt = normalizeSceneBlueprint(prompt);
   const avoidanceInstruction =
     buildPositiveAvoidanceInstructions(negativePrompt);
 
   return [
-    "FORMAT: CARTOON ILLUSTRATION ONLY - This MUST be rendered as a beautiful 2D hand-drawn or hand-painted cartoon illustration, NEVER photorealistic, NEVER a photo, NEVER a filtered/edited real photo, NEVER AI-generated realism. Style: premium children's storybook with soft colors, smooth lines, painted texture, expressive cartoon features, and magical quality. The output must LOOK LIKE A CARTOON, not a realistic image.",
-    "STORY SPECIFICITY (SECOND PRIORITY): This illustration MUST accurately represent the EXACT story moment described. Include all the specific elements, actions, objects, characters, and events mentioned in the scene description. Do NOT create a generic theme illustration - create THIS SPECIFIC STORY MOMENT with all the story details visually present. Every object, action, and plot point mentioned MUST appear in the illustration.",
-    "ABSOLUTE PRIORITY - FACE IDENTITY: The uploaded reference image contains the EXACT FACE this child must have. Use the face from the reference image as the absolute template - same child identity, same recognizable person, same distinctive features on every illustration.",
-    "FACE STRUCTURE PRESERVATION: Preserve these exact facial features from the reference image UNCHANGED: face shape, cheekbones, jawline, chin shape, forehead, all facial proportions, eye position and shape, eye color, eyebrow shape and placement, nose shape and size, nostrils, mouth shape and size, lip fullness, skin tone and undertone, age appearance, all distinctive marks or features.",
-    "HAIR PRESERVATION: Keep exactly: hair color (all tones and highlights), hair style and cut, hair texture (straight/curly/wavy), part position, fringe if present, hair length, any unique hair characteristics from the reference image.",
-    "CARTOON FACE RENDERING: This child's face must be rendered in beautiful cartoon illustration style - expressive eyes with light reflections, smooth skin tones, soft shading, painted texture, warm and inviting. The face should look hand-illustrated, not photographic or realistic. Every person viewing this should immediately recognize 'this is the same child from the photo, illustrated in storybook style.' The face is 2-3x more prominent than the background.",
-    "SCENE AND OUTFIT: Place this recognizable child into the story scene. Redesign clothing completely - do NOT copy original outfit, shirt color, text, logos, graphics, or any original photo clothing. Use fresh, clean, story-appropriate illustrated clothes with no text or logos.",
-    "ZERO BACKGROUND COPYING: Do NOT copy the original photo's background, room, furniture, lighting, pose, or any environmental details. Only use the child's FACE - everything else is illustrated and redesigned.",
-    "BODY AND POSITIONING: Show full-body or three-quarter-body, with natural proportions and natural positioning within the scene. Never crop the head, never show floating head or close-up portrait only.",
-    "SCENE DIRECTION: ${normalizedScenePrompt}",
-    "COLOR PALETTE: Use rich, saturated, bright magical colors with warm lighting (golden sunrise, bright daylight, pastel glow, or fantasy warmth). Clean, kid-friendly, vibrant - never washed out, pale, muddy, or gloomy.",
-    "EMOTIONAL EXPRESSION: Capture genuine emotion from the reference photo. Natural smile if appropriate, but always maintain this child's true face and personality.",
-    "CONSISTENT CHARACTER: This illustrated child must remain instantly recognizable as the SAME PERSON across every page - same face, same identity, zero changes to facial features or appearance.",
-    "QUALITY STANDARD: This must look like a premium personalized storybook illustration for high-end children's books - polished, magical, emotionally warm, professional. NOT a filtered photo, photo composite, or edited realistic image.",
+    "PRIMARY GOAL: The story scene is the primary focus. The finished image must read like a movie frame from the story, not like a child portrait with a random background.",
+    "FORMAT: premium 2D illustrated children's storybook art with soft painterly rendering, cinematic storytelling, warm emotional lighting, volumetric glow, depth of field, expressive eyes, realistic child proportions, magical atmosphere, and detailed environments. It must be not photorealistic and never resemble a real photo.",
+    "SCENE-FIRST GENERATION: Build the complete environment first. The location, objects, action, emotional beat, time of day, lighting, and cinematic mood from the page must all be visible in the final image. The child should exist naturally inside the scene rather than replacing the scene.",
+    "IDENTITY REFERENCE ONLY: Use the uploaded child photo only to preserve identity and consistency. Keep the same hairstyle, face shape, eye shape, skin tone, and age appearance across all pages, but do not copy the photo's pose, framing, background, clothing, room, or lighting.",
+    "CHARACTER CONSISTENCY: Maintain the same recognizable child across the whole book while letting the pose, camera angle, facial expression, and body movement change to match each page's story action.",
+    "WARDROBE RULE: redesign the outfit into a consistent premium storybook wardrobe family that feels natural for the book. Use no readable text, logos, or copied graphics from the original photo clothing.",
+    "COMPOSITION RULE: Fill most of the page with a cinematic story scene, create clear foreground/midground/background depth, and leave clean breathing room for printed story text. Avoid centered portrait-only framing, empty backdrops, sticker characters, passport poses, and headshot composition.",
+    "PHOTO SAFETY RULE: The output should look like painted story art, not photorealistic reference usage, not a realistic jungle photo, and not a studio portrait in any setting.",
+    "BODY AND STAGING: Use full-body or three-quarter-body storytelling poses with natural scale in the world. Never crop to a floating head, giant face, or close-up portrait unless the story explicitly requires it.",
+    `SCENE BLUEPRINT: ${normalizedScenePrompt}`,
+    "QUALITY STANDARD: Deliver premium children's book illustration quality that feels immersive, emotionally connected, professionally illustrated, and rich enough that the story is understandable even without reading the text.",
     avoidanceInstruction,
   ]
     .filter(Boolean)
