@@ -4,6 +4,7 @@ import {
   getStoryProjectById,
   listStoryProjectPages,
   listStoryProjectsByUser,
+  listStoryProjectsByStatuses,
   replaceStoryProjectPages,
   updateStoryProjectRecord,
 } from './storyProjects.js';
@@ -11,6 +12,7 @@ import { DRAFT_TTL_HOURS, DRAFT_TTL_MS } from '@/utils/draftExpiry';
 
 export { DRAFT_TTL_HOURS, DRAFT_TTL_MS };
 export const ACTIVE_DRAFT_STATUSES = ['draft', 'in_progress', 'pending'];
+export const EXPIRABLE_DRAFT_STATUSES = [...ACTIVE_DRAFT_STATUSES, 'inactive'];
 
 const DEFAULT_DRAFT_THEME = 'adventure';
 const DEFAULT_DRAFT_AGE_GROUP = '5-8';
@@ -82,7 +84,9 @@ export function isDraftExpired(project) {
 }
 
 function isDraftEligibleForExpiry(project = {}) {
-  return ACTIVE_DRAFT_STATUSES.includes(String(project?.status || '').toLowerCase());
+  return EXPIRABLE_DRAFT_STATUSES.includes(
+    String(project?.status || '').toLowerCase()
+  );
 }
 
 async function deleteExpiredDraftIfNeeded(userId, project) {
@@ -396,6 +400,50 @@ export async function purgeExpiredDraftsForUser(userId, { projects } = {}) {
   return {
     drafts: validDrafts,
     deletedIds,
+  };
+}
+
+export async function purgeExpiredDrafts({ limit = 200, maxBatches = 10 } = {}) {
+  const deletedProjects = [];
+  let scannedCount = 0;
+
+  for (let batch = 0; batch < maxBatches; batch += 1) {
+    const projects = await listStoryProjectsByStatuses(EXPIRABLE_DRAFT_STATUSES, {
+      limit,
+      offset: 0,
+    });
+
+    if (!Array.isArray(projects) || projects.length === 0) {
+      break;
+    }
+
+    scannedCount += projects.length;
+    let deletedInBatch = 0;
+
+    for (const project of projects) {
+      const flow = getDraftFlowMetadata(project);
+      if (flow.isActive === false) {
+        continue;
+      }
+
+      if (await deleteExpiredDraftIfNeeded(project.user_id, project)) {
+        deletedProjects.push({
+          id: String(project.id),
+          userId: project.user_id ?? null,
+        });
+        deletedInBatch += 1;
+      }
+    }
+
+    if (projects.length < limit || deletedInBatch === 0) {
+      break;
+    }
+  }
+
+  return {
+    deletedCount: deletedProjects.length,
+    deletedProjects,
+    scannedCount,
   };
 }
 

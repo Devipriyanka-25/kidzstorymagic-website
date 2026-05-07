@@ -267,3 +267,73 @@ export async function persistStoryPreviewAssets(projectId, pages = []) {
 
   return persistedPages;
 }
+
+export async function deleteStoryPreviewAssets(projectId) {
+  const normalizedProjectId = String(projectId || '').trim();
+
+  if (!normalizedProjectId || !supabaseClient) {
+    return { deletedCount: 0 };
+  }
+
+  const bucketReady = await ensureBucketExists();
+  if (!bucketReady) {
+    return { deletedCount: 0 };
+  }
+
+  const prefix = `${STORY_ILLUSTRATION_PREFIX}/${normalizedProjectId}`;
+  let offset = 0;
+  const pathsToDelete = [];
+
+  while (true) {
+    const { data, error } = await supabaseClient.storage
+      .from(BUCKET_NAME)
+      .list(prefix, {
+        limit: 100,
+        offset,
+        sortBy: { column: 'name', order: 'asc' },
+      });
+
+    if (error) {
+      console.warn('[STORY_ASSET_STORAGE] Could not list project assets:', {
+        projectId: normalizedProjectId,
+        message: error.message,
+      });
+      return { deletedCount: 0 };
+    }
+
+    const entries = Array.isArray(data) ? data : [];
+    if (entries.length === 0) {
+      break;
+    }
+
+    pathsToDelete.push(
+      ...entries
+        .filter((entry) => entry?.name)
+        .map((entry) => `${prefix}/${entry.name}`)
+    );
+
+    if (entries.length < 100) {
+      break;
+    }
+
+    offset += entries.length;
+  }
+
+  if (pathsToDelete.length === 0) {
+    return { deletedCount: 0 };
+  }
+
+  const { error: removeError } = await supabaseClient.storage
+    .from(BUCKET_NAME)
+    .remove(pathsToDelete);
+
+  if (removeError) {
+    console.warn('[STORY_ASSET_STORAGE] Could not delete project assets:', {
+      projectId: normalizedProjectId,
+      message: removeError.message,
+    });
+    return { deletedCount: 0 };
+  }
+
+  return { deletedCount: pathsToDelete.length };
+}

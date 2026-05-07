@@ -4,5 +4,11 @@
   "public": true,
   "buildCommand": "npm run build",
   "installCommand": "npm install --legacy-peer-deps",
-  "outputDirectory": ".next"
+  "outputDirectory": ".next",
+  "crons": [
+    {
+      "path": "/api/cron/expire-drafts",
+      "schedule": "0 6 * * *"
+    }
+  ]
 }

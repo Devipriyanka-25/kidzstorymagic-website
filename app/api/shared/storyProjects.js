@@ -1,5 +1,8 @@
 import { supabaseClient } from './supabaseClient.js';
-import { persistStoryPreviewAssets } from './storyAssetStorage.js';
+import {
+  deleteStoryPreviewAssets,
+  persistStoryPreviewAssets,
+} from './storyAssetStorage.js';
 import {
   findAuthUserByEmail,
   findAuthUserById,
@@ -362,6 +365,37 @@ export async function listStoryProjectsByUser(
   }
 }
 
+export async function listStoryProjectsByStatuses(
+  statuses = [],
+  { limit = 100, offset = 0 } = {}
+) {
+  const client = requireStoryStorage();
+  const normalizedStatuses = Array.isArray(statuses)
+    ? statuses.filter(Boolean)
+    : [];
+
+  let query = client
+    .from('story_projects')
+    .select(STORY_PROJECT_COLUMNS)
+    .order('updated_at', { ascending: true });
+
+  if (normalizedStatuses.length > 0) {
+    query = query.in('status', normalizedStatuses);
+  }
+
+  if (Number.isFinite(limit) && Number.isFinite(offset)) {
+    query = query.range(offset, offset + Math.max(limit, 1) - 1);
+  }
+
+  const { data, error } = await query;
+
+  if (error) {
+    throw wrapStoryProjectError('list projects by statuses', error);
+  }
+
+  return (data || []).map(mapStoryProjectRecord);
+}
+
 export async function getStoryProjectStats(userId) {
   try {
     const client = requireStoryStorage();
@@ -691,6 +725,8 @@ export async function deleteStoryProjectRecord(userId, projectId) {
   if (pageDeleteError) {
     throw wrapStoryProjectError('delete project pages', pageDeleteError);
   }
+
+  await deleteStoryPreviewAssets(normalizedProjectId);
 
   const { data, error } = await client
     .from('story_projects')

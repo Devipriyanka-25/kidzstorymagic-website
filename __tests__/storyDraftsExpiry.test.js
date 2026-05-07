@@ -4,6 +4,7 @@ jest.mock('@/app/api/shared/storyProjects.js', () => ({
   getStoryProjectById: jest.fn(),
   listStoryProjectPages: jest.fn(),
   listStoryProjectsByUser: jest.fn(),
+  listStoryProjectsByStatuses: jest.fn(),
   replaceStoryProjectPages: jest.fn(),
   updateStoryProjectRecord: jest.fn(),
 }));
@@ -12,6 +13,7 @@ const storyProjects = require('@/app/api/shared/storyProjects.js');
 const {
   DRAFT_TTL_MS,
   getLatestDraftForUser,
+  purgeExpiredDrafts,
   saveDraftForUser,
 } = require('@/app/api/shared/storyDrafts.js');
 
@@ -101,5 +103,43 @@ describe('storyDrafts expiry cleanup', () => {
     expect(storyProjects.deleteStoryProjectRecord).toHaveBeenCalledWith(9, '21');
     expect(storyProjects.createStoryProjectRecord).toHaveBeenCalled();
     expect(result.id).toBe('22');
+  });
+
+  it('purges expired drafts globally for the cron job', async () => {
+    const now = Date.now();
+    const expiredDraft = {
+      id: '31',
+      user_id: 4,
+      status: 'draft',
+      updatedAt: new Date(now - DRAFT_TTL_MS - 1000).toISOString(),
+      photo_metadata: {
+        draftFlow: {
+          isActive: true,
+        },
+      },
+    };
+    const freshDraft = {
+      id: '32',
+      user_id: 5,
+      status: 'draft',
+      updatedAt: new Date(now - 5 * 60 * 1000).toISOString(),
+      photo_metadata: {
+        draftFlow: {
+          isActive: true,
+        },
+      },
+    };
+
+    storyProjects.listStoryProjectsByStatuses.mockResolvedValueOnce([
+      expiredDraft,
+      freshDraft,
+    ]);
+    storyProjects.deleteStoryProjectRecord.mockResolvedValue(expiredDraft);
+
+    const result = await purgeExpiredDrafts({ limit: 50, maxBatches: 1 });
+
+    expect(storyProjects.deleteStoryProjectRecord).toHaveBeenCalledWith(4, '31');
+    expect(result.deletedCount).toBe(1);
+    expect(result.scannedCount).toBe(2);
   });
 });

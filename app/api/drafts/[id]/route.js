@@ -15,8 +15,8 @@ import {
   updateStoryProjectRecord,
 } from '../../shared/storyProjects.js';
 import {
-  ACTIVE_DRAFT_STATUSES,
   buildDraftResponse,
+  EXPIRABLE_DRAFT_STATUSES,
   isDraftExpired,
 } from '../../shared/storyDrafts.js';
 
@@ -81,7 +81,7 @@ export async function GET(request, { params }) {
     }
 
     if (
-      ACTIVE_DRAFT_STATUSES.includes(String(draft.status || '').toLowerCase()) &&
+      EXPIRABLE_DRAFT_STATUSES.includes(String(draft.status || '').toLowerCase()) &&
       isDraftExpired(draft)
     ) {
       await deleteStoryProjectRecord(authUser.id, params.id);
@@ -127,7 +127,7 @@ export async function PUT(request, { params }) {
     }
 
     if (
-      ACTIVE_DRAFT_STATUSES.includes(
+      EXPIRABLE_DRAFT_STATUSES.includes(
         String(existingDraft.status || '').toLowerCase()
       ) &&
       isDraftExpired(existingDraft)
