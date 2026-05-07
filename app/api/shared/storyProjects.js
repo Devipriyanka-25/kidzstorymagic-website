@@ -677,6 +677,21 @@ export async function deleteStoryProjectRecord(userId, projectId) {
     return null;
   }
 
+  const existingProject = await getStoryProjectById(userId, normalizedProjectId);
+
+  if (!existingProject) {
+    return null;
+  }
+
+  const { error: pageDeleteError } = await client
+    .from('story_content')
+    .delete()
+    .eq('project_id', normalizedProjectId);
+
+  if (pageDeleteError) {
+    throw wrapStoryProjectError('delete project pages', pageDeleteError);
+  }
+
   const { data, error } = await client
     .from('story_projects')
     .delete()

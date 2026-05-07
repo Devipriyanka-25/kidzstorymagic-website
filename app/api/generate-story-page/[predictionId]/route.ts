@@ -2,10 +2,12 @@ import { NextRequest, NextResponse } from "next/server";
 
 import {
   cancelStoryPageIllustrationPrediction,
+  getReplicateRetryAfter,
   getReplicateErrorMessage,
   getStoryPageIllustrationPredictionStatus,
   createFallbackStoryPageIllustration,
   isReplicateBillingError,
+  isReplicateRateLimitError,
 } from "@/lib/replicate/storyIllustrations";
 
 export const runtime = "nodejs";
@@ -99,6 +101,17 @@ export async function GET(
             "Replicate service billing limit reached. Showing a preview placeholder instead.",
         },
         { status: 200 }
+      );
+    }
+
+    if (isReplicateRateLimitError(error)) {
+      return NextResponse.json(
+        {
+          error: "Story page illustration status is temporarily throttled.",
+          details: message,
+          retryAfterMs: getReplicateRetryAfter(error),
+        },
+        { status: 429 }
       );
     }
 

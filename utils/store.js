@@ -3,6 +3,7 @@ import { create } from 'zustand';
 import { authAPI, getAuthToken } from './api';
 import { DEFAULT_EXCHANGE_RATES } from './pricing';
 import { STORAGE_KEYS } from './constants';
+import { isLocalDraftExpired } from './draftExpiry';
 
 let backendDraftSaveTimer = null;
 let backendDraftSaveSequence = 0;
@@ -97,6 +98,7 @@ function persistWizardDraft(step, formData) {
       STORAGE_KEYS.WIZARD_DRAFT,
       JSON.stringify({
         step,
+        savedAt: new Date().toISOString(),
         formData: buildDraftSafeFormData(formData),
       })
     );
@@ -465,6 +467,12 @@ export const useWizardStore = create((set, get) => ({
         const draft = localStorage.getItem(STORAGE_KEYS.WIZARD_DRAFT);
         if (draft) {
           const parsedDraft = JSON.parse(draft);
+
+          if (isLocalDraftExpired(parsedDraft)) {
+            localStorage.removeItem(STORAGE_KEYS.WIZARD_DRAFT);
+            return false;
+          }
+
           return get().loadDraftSnapshot(parsedDraft, options);
         }
       } catch (err) {

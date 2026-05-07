@@ -14,7 +14,11 @@ import {
   resolveAuthenticatedStoryUser,
   updateStoryProjectRecord,
 } from '../../shared/storyProjects.js';
-import { buildDraftResponse } from '../../shared/storyDrafts.js';
+import {
+  ACTIVE_DRAFT_STATUSES,
+  buildDraftResponse,
+  isDraftExpired,
+} from '../../shared/storyDrafts.js';
 
 const jwt = require('jsonwebtoken');
 
@@ -70,14 +74,24 @@ export async function GET(request, { params }) {
       return error;
     }
 
-    const [draft, pages] = await Promise.all([
-      getStoryProjectById(authUser.id, params.id),
-      listStoryProjectPages(params.id),
-    ]);
+    const draft = await getStoryProjectById(authUser.id, params.id);
 
     if (!draft || draft.status === 'published') {
       return NextResponse.json({ error: 'Draft not found' }, { status: 404 });
     }
+
+    if (
+      ACTIVE_DRAFT_STATUSES.includes(String(draft.status || '').toLowerCase()) &&
+      isDraftExpired(draft)
+    ) {
+      await deleteStoryProjectRecord(authUser.id, params.id);
+      return NextResponse.json(
+        { error: 'Draft expired and was deleted.' },
+        { status: 404 }
+      );
+    }
+
+    const pages = await listStoryProjectPages(params.id);
 
     return NextResponse.json(
       {
@@ -106,6 +120,24 @@ export async function PUT(request, { params }) {
     }
 
     const body = await request.json();
+    const existingDraft = await getStoryProjectById(authUser.id, params.id);
+
+    if (!existingDraft || existingDraft.status === 'published') {
+      return NextResponse.json({ error: 'Draft not found' }, { status: 404 });
+    }
+
+    if (
+      ACTIVE_DRAFT_STATUSES.includes(
+        String(existingDraft.status || '').toLowerCase()
+      ) &&
+      isDraftExpired(existingDraft)
+    ) {
+      await deleteStoryProjectRecord(authUser.id, params.id);
+      return NextResponse.json(
+        { error: 'Draft expired and was deleted.' },
+        { status: 404 }
+      );
+    }
 
     const updatedDraft = await updateStoryProjectRecord(authUser.id, params.id, {
       title: body.title,

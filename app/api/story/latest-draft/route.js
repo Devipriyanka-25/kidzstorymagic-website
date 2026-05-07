@@ -30,10 +30,8 @@ export async function GET(request) {
       {
         success: true,
         draft,
-        expired: Boolean(draft.expired),
-        message: draft.expired
-          ? 'This draft is older than 24 hours. Resume may require regeneration.'
-          : 'Latest active draft loaded.',
+        expired: false,
+        message: 'Latest active draft loaded.',
       },
       { status: 200 }
     );

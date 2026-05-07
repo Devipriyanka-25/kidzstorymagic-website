@@ -17,7 +17,12 @@ import {
   prepareReferenceImagesForGeneration,
   readIllustrationApiPayload,
 } from '@/utils/subjectImage';
-import { shouldPreferStoryPreview } from '@/utils/storyPreviewSync';
+import {
+  getSavedPageImageUrl,
+  hasCompletedPageIllustration,
+  isTemporaryPreviewIllustrationUrl,
+  shouldPreferStoryPreview,
+} from '@/utils/storyPreviewSync';
 import {
   COUNTRY_CURRENCY_OPTIONS,
   CURRENCY_SYMBOLS,
@@ -27,12 +32,6 @@ import {
 } from '@/utils/pricing';
 
 const isIllustratedStoryPage = (page) => page?.pageType === 'story';
-const getSavedPageImageUrl = (page) =>
-  page?.illustrationUrl ||
-  page?.faceSwappedUrl ||
-  page?.image_url ||
-  page?.image ||
-  null;
 const ENABLE_PREVIEW_FACE_SWAP =
   process.env.NEXT_PUBLIC_ENABLE_PREVIEW_FACE_SWAP === 'true';
 const PREVIEW_SUPPORT_EMAIL = 'support@kidzstorymagic.com';
@@ -41,6 +40,8 @@ const PREVIEW_FIRST_PAGE_TIMEOUT_MS = 90000;
 const PREVIEW_RESTORE_TIMEOUT_MS = 30000;
 const MAX_POLL_RETRIES = 8;
 const FREE_PREVIEW_PAGE_LIMIT = 3;
+const TEMPORARY_ILLUSTRATION_STATUS_MESSAGE =
+  'We opened this page with a vibrant temporary scene while the final illustration is refreshed later.';
 const PREVIEW_EMAIL_WAIT_MESSAGE =
   'Your story is still being created. Please wait until generation is complete before sending it to your email.';
 const PREVIEW_QUOTES = [
@@ -66,14 +67,22 @@ const buildInitialPageGenerationStates = (
   shouldGateIllustrations = false
 ) =>
   pages.reduce((states, page, index) => {
+    const savedImageUrl = getSavedPageImageUrl(page);
+    const hasCompletedIllustration = hasCompletedPageIllustration(page);
     states[index] = {
       status:
         !shouldGateIllustrations ||
         !isIllustratedStoryPage(page) ||
-        Boolean(getSavedPageImageUrl(page))
+        hasCompletedIllustration
           ? 'ready'
           : 'idle',
-      message: '',
+      message:
+        shouldGateIllustrations &&
+        isIllustratedStoryPage(page) &&
+        savedImageUrl &&
+        !hasCompletedIllustration
+          ? 'Refreshing a temporary preview scene with the finished illustration.'
+          : '',
     };
     return states;
   }, {});
@@ -172,6 +181,16 @@ function waitForDelay(ms, signal) {
       signal.addEventListener('abort', handleAbort, { once: true });
     }
   });
+}
+
+function getRetryDelayFromPayload(payload, fallbackMs = PREVIEW_POLL_INTERVAL_MS) {
+  const retryAfterMs = Number(payload?.retryAfterMs);
+
+  if (Number.isFinite(retryAfterMs) && retryAfterMs > 0) {
+    return retryAfterMs;
+  }
+
+  return fallbackMs;
 }
 
 function escapePreviewSvgText(value) {
@@ -380,10 +399,6 @@ async function pollStoryPageIllustration(
       );
       const payload = await readIllustrationApiPayload(response);
 
-      // Reset rate limit counter on successful response
-      consecutiveRateLimitErrors = 0;
-      currentPollIntervalMs = PREVIEW_POLL_INTERVAL_MS;
-
       if (!response.ok) {
         // If it's a fallback response due to billing error, use the fallback image
         if (
@@ -402,25 +417,37 @@ async function pollStoryPageIllustration(
         // Check for rate limiting (429)
         if (response.status === 429) {
           consecutiveRateLimitErrors += 1;
-          // Increase poll interval exponentially on rate limit (max 15 seconds)
-          currentPollIntervalMs = Math.min(
-            PREVIEW_POLL_INTERVAL_MS * Math.pow(1.5, consecutiveRateLimitErrors),
-            15000
+          currentPollIntervalMs = Math.max(
+            getRetryDelayFromPayload(payload, currentPollIntervalMs),
+            Math.min(
+              PREVIEW_POLL_INTERVAL_MS *
+                Math.pow(1.5, consecutiveRateLimitErrors),
+              15000
+            )
           );
-          
+
           console.warn('[POLL_ILLUSTRATION_RATE_LIMITED]', {
             predictionId,
             attempt,
             consecutiveErrors: consecutiveRateLimitErrors,
             nextPollMs: currentPollIntervalMs,
           });
-          
-          // Continue polling with increased interval instead of failing
+
+          onPending?.({
+            pending: true,
+            rateLimited: true,
+            retryAfterMs: currentPollIntervalMs,
+          });
+
           continue;
         }
 
         throw new Error(getIllustrationApiErrorMessage(response, payload));
       }
+
+      // Reset rate limit counter on successful response
+      consecutiveRateLimitErrors = 0;
+      currentPollIntervalMs = PREVIEW_POLL_INTERVAL_MS;
 
       if (payload?.pending) {
         onPending?.(payload);
@@ -514,54 +541,87 @@ async function createStoryPageIllustration({
   );
   const preparedSubjectImage =
     preparedReferenceImages[0] || String(subjectImage || '').trim();
-  const response = await fetch('/api/generate-story-page', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    signal,
-    body: JSON.stringify({
-      prompt,
-      subjectImage: preparedSubjectImage,
-      referenceImages: preparedReferenceImages,
-    }),
-  });
-  const payload = await readIllustrationApiPayload(response);
 
-  if (!response.ok) {
-    throw new Error(getIllustrationApiErrorMessage(response, payload));
-  }
-
-  if (typeof payload?.imageUrl === 'string' && payload.imageUrl) {
-    onFaceSwapRequested?.({
-      faceImageUrl: preparedSubjectImage,
-      illustrationImageUrl: payload.imageUrl,
-    });
-    return payload.imageUrl;
-  }
-
-  if (payload?.pending && typeof payload?.predictionId === 'string') {
-    onPending?.(payload);
-    const generatedIllustrationUrl = await pollStoryPageIllustration(
-      payload.predictionId,
+  for (let attempt = 0; attempt < MAX_POLL_RETRIES; attempt += 1) {
+    const response = await fetch('/api/generate-story-page', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
       signal,
-      onPending,
-      {
-        fallbackPrompt: prompt,
-        bookThemeValue,
+      body: JSON.stringify({
+        prompt,
         subjectImage: preparedSubjectImage,
-        timeoutMs,
-      }
-    );
-
-    onFaceSwapRequested?.({
-      faceImageUrl: preparedSubjectImage,
-      illustrationImageUrl: generatedIllustrationUrl,
+        referenceImages: preparedReferenceImages,
+      }),
     });
-    return generatedIllustrationUrl;
+    const payload = await readIllustrationApiPayload(response);
+
+    if (response.status === 429) {
+      const retryAfterMs = getRetryDelayFromPayload(payload);
+
+      console.warn('[CREATE_ILLUSTRATION_RATE_LIMITED]', {
+        attempt,
+        retryAfterMs,
+      });
+
+      onPending?.({
+        pending: true,
+        rateLimited: true,
+        retryAfterMs,
+      });
+
+      if (attempt === MAX_POLL_RETRIES - 1) {
+        throw new Error(getIllustrationApiErrorMessage(response, payload));
+      }
+
+      await waitForDelay(retryAfterMs, signal);
+      continue;
+    }
+
+    if (!response.ok) {
+      throw new Error(getIllustrationApiErrorMessage(response, payload));
+    }
+
+    if (typeof payload?.imageUrl === 'string' && payload.imageUrl) {
+      if (!isTemporaryPreviewIllustrationUrl(payload.imageUrl)) {
+        onFaceSwapRequested?.({
+          faceImageUrl: preparedSubjectImage,
+          illustrationImageUrl: payload.imageUrl,
+        });
+      }
+      return payload.imageUrl;
+    }
+
+    if (payload?.pending && typeof payload?.predictionId === 'string') {
+      onPending?.(payload);
+      const generatedIllustrationUrl = await pollStoryPageIllustration(
+        payload.predictionId,
+        signal,
+        onPending,
+        {
+          fallbackPrompt: prompt,
+          bookThemeValue,
+          subjectImage: preparedSubjectImage,
+          timeoutMs,
+        }
+      );
+
+      if (!isTemporaryPreviewIllustrationUrl(generatedIllustrationUrl)) {
+        onFaceSwapRequested?.({
+          faceImageUrl: preparedSubjectImage,
+          illustrationImageUrl: generatedIllustrationUrl,
+        });
+      }
+      return generatedIllustrationUrl;
+    }
+
+    throw new Error('Illustration generation completed without an image.');
   }
 
-  throw new Error('Illustration generation completed without an image.');
+  throw new Error(
+    'Illustration generation is temporarily throttled. Please try again shortly.'
+  );
 }
 
 async function applyOptionalFaceSwap({
@@ -720,6 +780,30 @@ export default function Step6ReviewCheckout() {
 
   const currentTheme = getActiveTheme();
   const selectedThemeLabel = getBookThemeLabel(formData.theme);
+  const savedPreviewReferenceImage = useMemo(() => {
+    const previewCandidates = [storyPreview, formData.storyPreview];
+
+    for (const candidatePages of previewCandidates) {
+      if (!Array.isArray(candidatePages) || candidatePages.length === 0) {
+        continue;
+      }
+
+      const firstReadyStoryPage = candidatePages.find(
+        (page, index) =>
+          index > 0 &&
+          index < candidatePages.length - 1 &&
+          isIllustratedStoryPage(page) &&
+          hasCompletedPageIllustration(page)
+      );
+      const savedReferenceImage = getSavedPageImageUrl(firstReadyStoryPage);
+
+      if (savedReferenceImage) {
+        return savedReferenceImage;
+      }
+    }
+
+    return '';
+  }, [formData.storyPreview, storyPreview]);
   const primaryStoryReferenceImage = useMemo(() => {
     if (selectedFaceReferenceImage) {
       return String(selectedFaceReferenceImage || '').trim();
@@ -741,10 +825,15 @@ export default function Step6ReviewCheckout() {
       }
     }
 
+    if (savedPreviewReferenceImage) {
+      return String(savedPreviewReferenceImage || '').trim();
+    }
+
     return '';
   }, [
     formData.uploadedImages,
     formData.uploadedPhoto?.watermarkedUrl,
+    savedPreviewReferenceImage,
     selectedFaceReferenceImage,
   ]);
   const storyReferenceImages = useMemo(() => {
@@ -759,6 +848,7 @@ export default function Step6ReviewCheckout() {
       primaryStoryReferenceImage,
       ...supportingReferenceImages,
       formData.uploadedPhoto?.watermarkedUrl || '',
+      savedPreviewReferenceImage,
     ]
       .map((value) => String(value || '').trim())
       .filter(Boolean);
@@ -768,6 +858,7 @@ export default function Step6ReviewCheckout() {
     formData.uploadedImages,
     formData.uploadedPhoto?.watermarkedUrl,
     primaryStoryReferenceImage,
+    savedPreviewReferenceImage,
   ]);
   const storySubjectImage = storyReferenceImages[0] || null;
   const shouldGateIllustrations = Boolean(storySubjectImage);
@@ -1366,8 +1457,9 @@ export default function Step6ReviewCheckout() {
     : 0;
   const isFreePreviewLocked = lockedPreviewPageCount > 0;
   const allIllustratedPagesReady = Array.isArray(storyPreview)
-    ? storyPreview.every((page, pageIndex) =>
-        isPageIllustrationReady(page, pageIndex)
+    ? storyPreview.every(
+        (page) =>
+          !isIllustratedStoryPage(page) || hasCompletedPageIllustration(page)
       )
     : false;
   const isPreviewEmailReady =
@@ -1383,7 +1475,7 @@ export default function Step6ReviewCheckout() {
           index > 0 &&
           index < storyPreview.length - 1 &&
           isIllustratedStoryPage(page) &&
-          Boolean(getSavedPageImageUrl(page))
+          hasCompletedPageIllustration(page)
       );
       const firstReadyStoryPageImage = getSavedPageImageUrl(firstReadyStoryPage);
 
@@ -1572,7 +1664,16 @@ export default function Step6ReviewCheckout() {
     setPreviewPrepProgress(100);
   };
 
-  const handleIllustrationReady = (pageIndex, imageUrl) => {
+  const handleIllustrationReady = (
+    pageIndex,
+    imageUrl,
+    {
+      status = isTemporaryPreviewIllustrationUrl(imageUrl) ? 'error' : 'ready',
+      message = isTemporaryPreviewIllustrationUrl(imageUrl)
+        ? TEMPORARY_ILLUSTRATION_STATUS_MESSAGE
+        : '',
+    } = {}
+  ) => {
     setStoryPreview((currentPages) => {
       if (!Array.isArray(currentPages)) {
         return currentPages;
@@ -1597,8 +1698,8 @@ export default function Step6ReviewCheckout() {
     });
 
     updatePageGenerationState(pageIndex, {
-      status: 'ready',
-      message: '',
+      status,
+      message,
     });
   };
 
@@ -1613,7 +1714,10 @@ export default function Step6ReviewCheckout() {
 
     for (let index = 0; index < storyPreview.length; index += 1) {
       const page = storyPreview[index];
-      if (!isIllustratedStoryPage(page) || getSavedPageImageUrl(page)) {
+      if (
+        !isIllustratedStoryPage(page) ||
+        hasCompletedPageIllustration(page)
+      ) {
         continue;
       }
 
@@ -1876,8 +1980,14 @@ export default function Step6ReviewCheckout() {
     }
 
     // Check if illustration is cached for this photo and page
-    const cachedIllustration = getPhotoIllustration(selectedPhotoIndex, nextPageIndex);
-    if (cachedIllustration) {
+    const cachedIllustration = getPhotoIllustration(
+      selectedPhotoIndex,
+      nextPageIndex
+    );
+    if (
+      cachedIllustration &&
+      !isTemporaryPreviewIllustrationUrl(cachedIllustration)
+    ) {
       console.log('[USING_CACHED_ILLUSTRATION]', {
         pageIndex: nextPageIndex,
         photoIndex: selectedPhotoIndex,
@@ -1910,23 +2020,34 @@ export default function Step6ReviewCheckout() {
           illustrationImageUrl,
         });
       },
-      onPending: () => {
+      onPending: (pendingPayload) => {
         if (cancelled) {
           return;
         }
 
+        const retryAfterMs = getRetryDelayFromPayload(
+          pendingPayload,
+          PREVIEW_POLL_INTERVAL_MS
+        );
+        const retryAfterSeconds = Math.max(
+          1,
+          Math.ceil(retryAfterMs / 1000)
+        );
+        const pendingMessage = pendingPayload?.rateLimited
+          ? nextPageIndex === firstIllustratedPageIndex
+            ? `The first page is waiting for illustration capacity and will retry automatically in about ${retryAfterSeconds} seconds.`
+            : `Page ${pageLabel} is waiting for illustration capacity and will retry automatically in about ${retryAfterSeconds} seconds.`
+          : nextPageIndex === firstIllustratedPageIndex
+            ? 'The first page is taking a little longer than usual, but it is still processing.'
+            : `Page ${pageLabel} is still processing in the background.`;
+
         updatePageGenerationState(nextPageIndex, {
           status: 'loading',
-          message:
-            nextPageIndex === firstIllustratedPageIndex
-              ? 'The first page is taking a little longer than usual, but it is still processing.'
-              : `Page ${pageLabel} is still processing in the background.`,
+          message: pendingMessage,
         });
 
         if (nextPageIndex === firstIllustratedPageIndex) {
-          setPreviewPrepDetail(
-            'The first page is taking a little longer than usual, but it is still processing.'
-          );
+          setPreviewPrepDetail(pendingMessage);
         }
       },
     })
@@ -1937,13 +2058,14 @@ export default function Step6ReviewCheckout() {
 
         handleIllustrationReady(nextPageIndex, imageUrl);
 
-        // Cache the illustration for this photo and page
-        cachePhotoIllustration(selectedPhotoIndex, nextPageIndex, imageUrl);
-        console.log('[ILLUSTRATION_CACHED]', {
-          pageIndex: nextPageIndex,
-          photoIndex: selectedPhotoIndex,
-          imageUrl,
-        });
+        if (!isTemporaryPreviewIllustrationUrl(imageUrl)) {
+          cachePhotoIllustration(selectedPhotoIndex, nextPageIndex, imageUrl);
+          console.log('[ILLUSTRATION_CACHED]', {
+            pageIndex: nextPageIndex,
+            photoIndex: selectedPhotoIndex,
+            imageUrl,
+          });
+        }
 
         if (nextPageIndex === firstIllustratedPageIndex) {
           setPreviewPrepProgress(100);
@@ -1982,11 +2104,9 @@ export default function Step6ReviewCheckout() {
           message,
         });
 
-        handleIllustrationReady(nextPageIndex, fallbackImageUrl);
-        updatePageGenerationState(nextPageIndex, {
-          status: 'ready',
-          message:
-            'We opened this page with a vibrant temporary scene while the final illustration is retried later.',
+        handleIllustrationReady(nextPageIndex, fallbackImageUrl, {
+          status: 'error',
+          message: TEMPORARY_ILLUSTRATION_STATUS_MESSAGE,
         });
 
         if (nextPageIndex === firstIllustratedPageIndex) {

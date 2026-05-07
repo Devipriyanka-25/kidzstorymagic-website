@@ -2,6 +2,10 @@ function isIllustratedStoryPage(page) {
   return page?.pageType === 'story';
 }
 
+export function isTemporaryPreviewIllustrationUrl(value) {
+  return /^data:image\/svg\+xml/i.test(String(value || '').trim());
+}
+
 export function getSavedPageImageUrl(page) {
   return (
     page?.illustrationUrl ||
@@ -10,6 +14,11 @@ export function getSavedPageImageUrl(page) {
     page?.image ||
     null
   );
+}
+
+export function hasCompletedPageIllustration(page) {
+  const imageUrl = getSavedPageImageUrl(page);
+  return Boolean(imageUrl) && !isTemporaryPreviewIllustrationUrl(imageUrl);
 }
 
 function getPageText(page) {
@@ -38,7 +47,7 @@ export function getStoryPreviewMetrics(pages = []) {
       if (isIllustratedStoryPage(page)) {
         metrics.storyPages += 1;
 
-        if (imageUrl) {
+        if (hasCompletedPageIllustration(page)) {
           metrics.readyIllustrations += 1;
         }
       }

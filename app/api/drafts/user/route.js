@@ -7,9 +7,8 @@
 import { NextResponse } from 'next/server';
 import {
   createStoryProjectRecord,
-  listStoryProjectsByUser,
-  resolveAuthenticatedStoryUser,
 } from '../../shared/storyProjects.js';
+import { purgeExpiredDraftsForUser } from '../../shared/storyDrafts.js';
 
 const jwt = require('jsonwebtoken');
 
@@ -65,12 +64,8 @@ export async function GET(request) {
       return error;
     }
 
-    const { projects } = await listStoryProjectsByUser(authUser.id, {
-      limit: 100,
-      offset: 0,
-      statuses: ['draft', 'in_progress', 'pending'],
-    });
-    const unpaidDrafts = projects.filter(
+    const { drafts } = await purgeExpiredDraftsForUser(authUser.id);
+    const unpaidDrafts = drafts.filter(
       (project) =>
         project.status !== 'published' && !project.isPaid && !project.is_paid
     );

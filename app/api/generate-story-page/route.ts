@@ -4,8 +4,10 @@ import {
   createFallbackStoryPageIllustration,
   createStoryPageIllustrationPrediction,
   DEFAULT_STORYBOOK_NEGATIVE_PROMPT,
+  getReplicateRetryAfter,
   getReplicateErrorMessage,
   isReplicateBillingError,
+  isReplicateRateLimitError,
 } from "@/lib/replicate/storyIllustrations";
 
 export const runtime = "nodejs";
@@ -119,6 +121,17 @@ export async function POST(request: NextRequest) {
         warning:
           "Replicate billing is unavailable. Showing a preview illustration placeholder instead.",
       });
+    }
+
+    if (isReplicateRateLimitError(error)) {
+      return NextResponse.json(
+        {
+          error: "Story page illustration generation is temporarily throttled.",
+          details: message,
+          retryAfterMs: getReplicateRetryAfter(error),
+        },
+        { status: 429 }
+      );
     }
 
     const status = message.includes("REPLICATE_API_TOKEN") ? 503 : 500;

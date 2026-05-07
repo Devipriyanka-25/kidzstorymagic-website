@@ -1,14 +1,15 @@
 import {
   createStoryProjectRecord,
+  deleteStoryProjectRecord,
   getStoryProjectById,
   listStoryProjectPages,
   listStoryProjectsByUser,
   replaceStoryProjectPages,
   updateStoryProjectRecord,
 } from './storyProjects.js';
+import { DRAFT_TTL_HOURS, DRAFT_TTL_MS } from '@/utils/draftExpiry';
 
-export const DRAFT_TTL_HOURS = 24;
-export const DRAFT_TTL_MS = DRAFT_TTL_HOURS * 60 * 60 * 1000;
+export { DRAFT_TTL_HOURS, DRAFT_TTL_MS };
 export const ACTIVE_DRAFT_STATUSES = ['draft', 'in_progress', 'pending'];
 
 const DEFAULT_DRAFT_THEME = 'adventure';
@@ -78,6 +79,28 @@ export function getDraftExpiresAt(project, fallbackUpdatedAt = '') {
 export function isDraftExpired(project) {
   const expiresAt = getDraftExpiresAt(project);
   return new Date(expiresAt).getTime() <= Date.now();
+}
+
+function isDraftEligibleForExpiry(project = {}) {
+  return ACTIVE_DRAFT_STATUSES.includes(String(project?.status || '').toLowerCase());
+}
+
+async function deleteExpiredDraftIfNeeded(userId, project) {
+  if (!project || !isDraftEligibleForExpiry(project) || !isDraftExpired(project)) {
+    return false;
+  }
+
+  try {
+    await deleteStoryProjectRecord(userId, project.id);
+    return true;
+  } catch (error) {
+    console.warn('[DRAFTS] Failed to delete expired draft:', {
+      userId,
+      projectId: project?.id,
+      error: error?.message || String(error),
+    });
+    return false;
+  }
 }
 
 function normalizeStoryPagesFromFormData(formData = {}) {
@@ -243,6 +266,10 @@ export async function markUserDraftsInactive(userId, { exceptProjectId = '' } = 
         continue;
       }
 
+      if (await deleteExpiredDraftIfNeeded(userId, project)) {
+        continue;
+      }
+
       try {
         await updateStoryProjectRecord(userId, project.id, {
           status: 'inactive',
@@ -284,6 +311,10 @@ export async function saveDraftForUser(userId, payload = {}) {
   let draft = requestedProjectId
     ? await getStoryProjectById(userId, requestedProjectId)
     : null;
+
+  if (await deleteExpiredDraftIfNeeded(userId, draft)) {
+    draft = null;
+  }
 
   const now = new Date().toISOString();
   const expiresAt = new Date(Date.now() + DRAFT_TTL_MS).toISOString();
@@ -336,23 +367,51 @@ export async function saveDraftForUser(userId, payload = {}) {
   return buildDraftResponse(updatedDraft || draft, savedPages);
 }
 
+export async function purgeExpiredDraftsForUser(userId, { projects } = {}) {
+  const sourceProjects = Array.isArray(projects)
+    ? projects
+    : (
+        await listStoryProjectsByUser(userId, {
+          limit: 100,
+          offset: 0,
+          statuses: ACTIVE_DRAFT_STATUSES,
+        })
+      ).projects;
+  const activeDrafts = sourceProjects.filter((project) => {
+    const flow = getDraftFlowMetadata(project);
+    return flow.isActive !== false;
+  });
+  const validDrafts = [];
+  const deletedIds = [];
+
+  for (const project of activeDrafts) {
+    if (await deleteExpiredDraftIfNeeded(userId, project)) {
+      deletedIds.push(String(project.id));
+      continue;
+    }
+
+    validDrafts.push(project);
+  }
+
+  return {
+    drafts: validDrafts,
+    deletedIds,
+  };
+}
+
 export async function getLatestDraftForUser(userId) {
   const { projects } = await listStoryProjectsByUser(userId, {
     limit: 25,
     offset: 0,
     statuses: ACTIVE_DRAFT_STATUSES,
   });
+  const { drafts } = await purgeExpiredDraftsForUser(userId, { projects });
 
-  const activeDrafts = projects.filter((project) => {
-    const flow = getDraftFlowMetadata(project);
-    return flow.isActive !== false;
-  });
-
-  if (activeDrafts.length === 0) {
+  if (drafts.length === 0) {
     return null;
   }
 
-  const latest = activeDrafts[0];
+  const latest = drafts[0];
   const pages = await listStoryProjectPages(latest.id);
   return buildDraftResponse(latest, pages);
 }
@@ -364,6 +423,10 @@ export async function getSavedStoryForPreview(userId, storyId) {
   ]);
 
   if (!story) {
+    return null;
+  }
+
+  if (await deleteExpiredDraftIfNeeded(userId, story)) {
     return null;
   }
 

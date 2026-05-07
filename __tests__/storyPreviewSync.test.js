@@ -1,5 +1,6 @@
 const {
   getStoryPreviewMetrics,
+  hasCompletedPageIllustration,
   selectBestStoryPreview,
   shouldPreferStoryPreview,
 } = require('@/utils/storyPreviewSync');
@@ -92,6 +93,25 @@ describe('storyPreviewSync', () => {
       readyIllustrations: 1,
       textPages: 4,
       promptPages: 2,
+      pagesWithAnyImage: 1,
+    });
+  });
+
+  it('does not treat temporary svg preview cards as completed illustrations', () => {
+    const temporaryPreview = {
+      pageNumber: 2,
+      pageType: 'story',
+      text: 'Page 2 text',
+      illustrationUrl: 'data:image/svg+xml;charset=UTF-8,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%3E%3C/svg%3E',
+    };
+
+    expect(hasCompletedPageIllustration(temporaryPreview)).toBe(false);
+    expect(getStoryPreviewMetrics([temporaryPreview])).toEqual({
+      pageCount: 1,
+      storyPages: 1,
+      readyIllustrations: 0,
+      textPages: 1,
+      promptPages: 0,
       pagesWithAnyImage: 1,
     });
   });

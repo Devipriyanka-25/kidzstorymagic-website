@@ -5,6 +5,7 @@ import { useSearchParams } from 'next/navigation';
 import { useWizardStore } from '@/utils/store';
 import { getAuthToken, storyAPI } from '@/utils/api';
 import { STORAGE_KEYS } from '@/utils/constants';
+import { isLocalDraftExpired } from '@/utils/draftExpiry';
 import { selectBestStoryPreview } from '@/utils/storyPreviewSync';
 import { useEffect, useState } from 'react';
 import LanguageSelector from '@/components/i18n/LanguageSelector';
@@ -79,7 +80,17 @@ function readLocalWizardDraft() {
 
   try {
     const storedDraft = localStorage.getItem(STORAGE_KEYS.WIZARD_DRAFT);
-    return storedDraft ? JSON.parse(storedDraft) : null;
+    if (!storedDraft) {
+      return null;
+    }
+
+    const parsedDraft = JSON.parse(storedDraft);
+    if (isLocalDraftExpired(parsedDraft)) {
+      localStorage.removeItem(STORAGE_KEYS.WIZARD_DRAFT);
+      return null;
+    }
+
+    return parsedDraft;
   } catch (error) {
     console.error('[WIZARD] Failed to read local draft:', error);
     return null;
