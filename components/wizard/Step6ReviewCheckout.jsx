@@ -17,6 +17,7 @@ import {
   prepareReferenceImagesForGeneration,
   readIllustrationApiPayload,
 } from '@/utils/subjectImage';
+import { shouldPreferStoryPreview } from '@/utils/storyPreviewSync';
 import {
   COUNTRY_CURRENCY_OPTIONS,
   CURRENCY_SYMBOLS,
@@ -828,22 +829,62 @@ export default function Step6ReviewCheckout() {
     loadPhotoSelection();
   }, [formData?.projectId]);
 
-  useEffect(() => {
-    if (storyPreview) {
+  const applyResolvedStoryPreview = (
+    nextPages,
+    { resetCurrentPage = false } = {}
+  ) => {
+    if (!Array.isArray(nextPages) || nextPages.length === 0) {
       return;
     }
 
+    hasOpenedFirstIllustratedPageRef.current = false;
+    setStoryPreview(nextPages);
+    setPageGenerationStates(
+      buildInitialPageGenerationStates(
+        nextPages,
+        shouldGateIllustrationsRef.current
+      )
+    );
+    setCurrentPage((currentValue) => {
+      if (resetCurrentPage) {
+        return 0;
+      }
+
+      const safeCurrentPage = Number.isInteger(currentValue)
+        ? currentValue
+        : 0;
+
+      return Math.min(
+        Math.max(safeCurrentPage, 0),
+        Math.max(nextPages.length - 1, 0)
+      );
+    });
+  };
+
+  useEffect(() => {
     if (!Array.isArray(formData?.storyPreview) || formData.storyPreview.length === 0) {
       return;
     }
 
-    setStoryPreview(normalizeStoryPreviewPages(formData.storyPreview));
+    const normalizedPreview = normalizeStoryPreviewPages(
+      formData.storyPreview,
+      Array.isArray(storyPreview) ? storyPreview : []
+    );
+
+    if (
+      Array.isArray(storyPreview) &&
+      !shouldPreferStoryPreview(normalizedPreview, storyPreview)
+    ) {
+      return;
+    }
+
+    applyResolvedStoryPreview(normalizedPreview);
   }, [formData?.storyPreview, storyPreview]);
 
   useEffect(() => {
     const projectId = String(formData.projectId || '').trim();
 
-    if (!projectId || storyPreview) {
+    if (!projectId) {
       return;
     }
 
@@ -911,15 +952,16 @@ export default function Step6ReviewCheckout() {
           ? latestFormData.storyPreview
           : [];
         const restoredPages = normalizeStoryPreviewPages(savedPages, cachedPreview);
+        const shouldApplyRestoredPreview =
+          !Array.isArray(storyPreview) ||
+          shouldPreferStoryPreview(restoredPages, storyPreview);
+        const shouldStoreRestoredPreview =
+          !Array.isArray(latestFormData?.storyPreview) ||
+          shouldPreferStoryPreview(restoredPages, latestFormData.storyPreview);
 
-        setStoryPreview(restoredPages);
-        setCurrentPage(0);
-        setPageGenerationStates(
-          buildInitialPageGenerationStates(
-            restoredPages,
-            shouldGateIllustrationsRef.current
-          )
-        );
+        if (shouldApplyRestoredPreview) {
+          applyResolvedStoryPreview(restoredPages, { resetCurrentPage: true });
+        }
 
         useWizardStore.setState((state) => ({
           formData: {
@@ -942,7 +984,9 @@ export default function Step6ReviewCheckout() {
             childInterests:
               savedStory?.childInterests || state.formData.childInterests,
             childNotes: savedStory?.childNotes || state.formData.childNotes,
-            storyPreview: restoredPages,
+            storyPreview: shouldStoreRestoredPreview
+              ? restoredPages
+              : state.formData.storyPreview,
           },
         }));
         useWizardStore.getState().saveDraft();

@@ -5,6 +5,7 @@ import { useSearchParams } from 'next/navigation';
 import { useWizardStore } from '@/utils/store';
 import { getAuthToken, storyAPI } from '@/utils/api';
 import { STORAGE_KEYS } from '@/utils/constants';
+import { selectBestStoryPreview } from '@/utils/storyPreviewSync';
 import { useEffect, useState } from 'react';
 import LanguageSelector from '@/components/i18n/LanguageSelector';
 import AgeGateModal from '@/components/wizard/AgeGateModal';
@@ -99,6 +100,16 @@ function mergeServerDraftWithLocalDraft(serverDraft, localDraftFormData = null) 
   const savedPages = Array.isArray(serverDraft?.pages)
     ? serverDraft.pages
     : [];
+  const bestStoryPreview =
+    selectBestStoryPreview([
+      Array.isArray(serverFormData?.storyPreview)
+        ? serverFormData.storyPreview
+        : null,
+      savedPages,
+      Array.isArray(localDraftFormData?.storyPreview)
+        ? localDraftFormData.storyPreview
+        : null,
+    ]) || null;
   const localUploadedImages = Array.isArray(localDraftFormData?.uploadedImages)
     ? localDraftFormData.uploadedImages
     : [];
@@ -129,23 +140,17 @@ function mergeServerDraftWithLocalDraft(serverDraft, localDraftFormData = null) 
               false
           )
         : Boolean(localDraftFormData?.needsPhotoReupload),
-    storyPreview:
-      Array.isArray(serverFormData.storyPreview) &&
-      serverFormData.storyPreview.length > 0
-        ? serverFormData.storyPreview
-        : savedPages.length > 0
-          ? savedPages
-          : null,
+    storyPreview: bestStoryPreview,
     isGenerated: Boolean(
       serverDraft?.isGenerated ||
         serverDraft?.is_generated ||
         serverFormData?.isGenerated ||
-        savedPages.length > 0
+        (bestStoryPreview && bestStoryPreview.length > 0)
     ),
     generationStatus:
       serverDraft?.generationStatus ||
       serverFormData?.generationStatus ||
-      (savedPages.length > 0 ? 'completed' : 'idle'),
+      (bestStoryPreview && bestStoryPreview.length > 0 ? 'completed' : 'idle'),
   };
 }
 
