@@ -690,6 +690,7 @@ export default function Step6ReviewCheckout() {
   const pendingFaceSwapQueueRef = useRef([]);
   const activeFaceSwapTaskRef = useRef(null);
   const hasOpenedFirstIllustratedPageRef = useRef(false);
+  const brokenIllustrationUrlsRef = useRef(new Set());
   const uploadedImagesCountRef = useRef(0);
   const isRegeneratingRef = useRef(false);
   const [giftData, setGiftData] = useState({
@@ -1083,6 +1084,107 @@ export default function Step6ReviewCheckout() {
         [pageIndex]: mergedState,
       };
     });
+  };
+
+  const removeCachedIllustrationUrl = (pageIndex, failedUrl) => {
+    if (!failedUrl) {
+      return;
+    }
+
+    useWizardStore.setState((state) => {
+      const currentCache = state.photoIllustrationCache || {};
+      let hasChanged = false;
+      const nextCache = {};
+
+      for (const [photoIndex, pageCache] of Object.entries(currentCache)) {
+        if (!pageCache || typeof pageCache !== 'object') {
+          continue;
+        }
+
+        const nextPageCache = { ...pageCache };
+        const cachedUrl = nextPageCache[pageIndex];
+
+        if (cachedUrl === failedUrl) {
+          delete nextPageCache[pageIndex];
+          hasChanged = true;
+        }
+
+        if (Object.keys(nextPageCache).length > 0) {
+          nextCache[photoIndex] = nextPageCache;
+        }
+      }
+
+      return hasChanged
+        ? {
+            photoIllustrationCache: nextCache,
+          }
+        : {};
+    });
+  };
+
+  const handleIllustrationLoadError = (pageIndex, failedUrl) => {
+    const normalizedFailedUrl = String(failedUrl || '').trim();
+
+    if (
+      !normalizedFailedUrl ||
+      normalizedFailedUrl.startsWith('data:image/')
+    ) {
+      return;
+    }
+
+    const errorKey = `${pageIndex}:${normalizedFailedUrl}`;
+    if (brokenIllustrationUrlsRef.current.has(errorKey)) {
+      return;
+    }
+
+    brokenIllustrationUrlsRef.current.add(errorKey);
+    removeCachedIllustrationUrl(pageIndex, normalizedFailedUrl);
+
+    setStoryPreview((currentPages) => {
+      if (!Array.isArray(currentPages)) {
+        return currentPages;
+      }
+
+      const page = currentPages[pageIndex];
+      if (!page) {
+        return currentPages;
+      }
+
+      const fieldsToClear = ['illustrationUrl', 'faceSwappedUrl', 'image_url', 'image'];
+      const shouldClearPage = fieldsToClear.some(
+        (fieldName) => page?.[fieldName] === normalizedFailedUrl
+      );
+
+      if (!shouldClearPage) {
+        return currentPages;
+      }
+
+      const nextPages = [...currentPages];
+      nextPages[pageIndex] = {
+        ...page,
+        illustrationUrl:
+          page.illustrationUrl === normalizedFailedUrl
+            ? null
+            : page.illustrationUrl,
+        faceSwappedUrl:
+          page.faceSwappedUrl === normalizedFailedUrl
+            ? null
+            : page.faceSwappedUrl,
+        image_url:
+          page.image_url === normalizedFailedUrl ? null : page.image_url,
+        image: page.image === normalizedFailedUrl ? null : page.image,
+      };
+
+      return nextPages;
+    });
+
+    updatePageGenerationState(pageIndex, {
+      status: 'idle',
+      message:
+        'A saved illustration link expired. We are regenerating this page now.',
+    });
+    activeGenerationPageIndexRef.current = null;
+    setGenerationQueueVersion((currentVersion) => currentVersion + 1);
   };
 
   const runNextFaceSwapTask = () => {
@@ -2235,6 +2337,9 @@ export default function Step6ReviewCheckout() {
         referenceImages={storyReferenceImages}
         subjectImage={storySubjectImage}
         onIllustrationReady={(imageUrl) => handleIllustrationReady(index, imageUrl)}
+        onIllustrationLoadError={(imageUrl) =>
+          handleIllustrationLoadError(index, imageUrl)
+        }
         onIllustrationStateChange={(nextState) =>
           handleIllustrationStateChange(index, nextState)
         }
@@ -2475,8 +2580,12 @@ export default function Step6ReviewCheckout() {
                           src={storyPreview[index].illustrationUrl || storyPreview[index].faceSwappedUrl}
                           alt={`Page ${index + 1}`}
                           className="h-full w-full object-cover"
-                          onError={(event) => {
-                            event.target.style.display = 'none';
+                          onError={() => {
+                            handleIllustrationLoadError(
+                              index,
+                              storyPreview[index].illustrationUrl ||
+                                storyPreview[index].faceSwappedUrl
+                            );
                           }}
                         />
                       ) : (
@@ -2616,8 +2725,12 @@ export default function Step6ReviewCheckout() {
                                 src={storyPreview[index].illustrationUrl || storyPreview[index].faceSwappedUrl}
                                 alt={`Page ${index + 1}`}
                                 className="h-full w-full object-cover"
-                                onError={(event) => {
-                                  event.target.style.display = 'none';
+                                onError={() => {
+                                  handleIllustrationLoadError(
+                                    index,
+                                    storyPreview[index].illustrationUrl ||
+                                      storyPreview[index].faceSwappedUrl
+                                  );
                                 }}
                               />
                             </div>

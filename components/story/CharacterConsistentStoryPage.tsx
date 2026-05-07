@@ -28,6 +28,7 @@ type CharacterConsistentStoryPageProps = {
     status: "idle" | "loading" | "ready" | "error";
     message?: string;
   } | null;
+  onIllustrationLoadError?: (imageUrl: string) => void;
   onIllustrationReady?: (imageUrl: string) => void;
   onIllustrationStateChange?: (state: {
     status: "idle" | "loading" | "ready" | "error";
@@ -111,6 +112,7 @@ export default function CharacterConsistentStoryPage({
   autoGenerateIllustration = true,
   bookThemeValue = null,
   generationState = null,
+  onIllustrationLoadError,
   onIllustrationReady,
   onIllustrationStateChange,
   page,
@@ -124,8 +126,13 @@ export default function CharacterConsistentStoryPage({
   const [error, setError] = useState<string | null>(null);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [retryCount, setRetryCount] = useState(0);
+  const onIllustrationLoadErrorRef = useRef(onIllustrationLoadError);
   const onIllustrationReadyRef = useRef(onIllustrationReady);
   const onIllustrationStateChangeRef = useRef(onIllustrationStateChange);
+
+  useEffect(() => {
+    onIllustrationLoadErrorRef.current = onIllustrationLoadError;
+  }, [onIllustrationLoadError]);
 
   useEffect(() => {
     onIllustrationReadyRef.current = onIllustrationReady;
@@ -373,6 +380,24 @@ export default function CharacterConsistentStoryPage({
               src={displayIllustrationUrl}
               alt={pageTitle}
               className="absolute inset-0 h-full w-full object-cover saturate-[1.08] brightness-[1.05]"
+              onError={() => {
+                if (!imageUrl) {
+                  return;
+                }
+
+                const failedImageUrl = imageUrl;
+                setImageUrl(null);
+                setError(null);
+                setStatusMessage(
+                  "A saved illustration expired. We are regenerating this page."
+                );
+                onIllustrationLoadErrorRef.current?.(failedImageUrl);
+                onIllustrationStateChangeRef.current?.({
+                  status: "idle",
+                  message:
+                    "A saved illustration expired. We are regenerating this page.",
+                });
+              }}
             />
             <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(255,255,255,0.42)_0%,transparent_34%)]" />
             <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(255,255,255,0.10)_0%,rgba(255,255,255,0.22)_100%)]" />

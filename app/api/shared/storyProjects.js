@@ -1,4 +1,5 @@
 import { supabaseClient } from './supabaseClient.js';
+import { persistStoryPreviewAssets } from './storyAssetStorage.js';
 import {
   findAuthUserByEmail,
   findAuthUserById,
@@ -699,6 +700,11 @@ export async function replaceStoryProjectPages(projectId, pages) {
     throw new Error('A valid projectId is required before saving story pages.');
   }
 
+  const pagesWithDurableAssets = await persistStoryPreviewAssets(
+    normalizedProjectId,
+    pages
+  );
+
   const { error: deleteError } = await client
     .from('story_content')
     .delete()
@@ -708,11 +714,11 @@ export async function replaceStoryProjectPages(projectId, pages) {
     throw wrapStoryProjectError('clear existing story pages', deleteError);
   }
 
-  if (!Array.isArray(pages) || pages.length === 0) {
+  if (!Array.isArray(pagesWithDurableAssets) || pagesWithDurableAssets.length === 0) {
     return [];
   }
 
-  const pageRows = pages.map((page, index) => ({
+  const pageRows = pagesWithDurableAssets.map((page, index) => ({
     project_id: normalizedProjectId,
     page_number: Number(page.pageNumber || page.page_number || index + 1),
     page_title: page.title || page.page_title || `Page ${index + 1}`,
@@ -723,8 +729,8 @@ export async function replaceStoryProjectPages(projectId, pages) {
       page.illustration_prompt ||
       null,
     image_url:
-      page.illustrationUrl ||
       page.faceSwappedUrl ||
+      page.illustrationUrl ||
       page.image_url ||
       page.image ||
       null,
