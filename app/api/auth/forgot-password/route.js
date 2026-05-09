@@ -19,13 +19,21 @@ export const dynamic = 'force-dynamic';
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const RESET_TOKEN_WINDOW_MS = 60 * 60 * 1000;
+const RESET_TOKEN_HASH_SALT =
+  process.env.RESET_TOKEN_HASH_SALT || 'kidz-reset-token-salt';
 
 function isValidEmail(email) {
   return EMAIL_PATTERN.test(String(email || '').trim());
 }
 
-function hashResetToken(token) {
-  return crypto.createHash('sha256').update(String(token || '')).digest('hex');
+function createResetTokenDigest(token) {
+  return crypto
+    .pbkdf2Sync(String(token || ''), RESET_TOKEN_HASH_SALT, 100000, 32, 'sha256')
+    .toString('hex');
+}
+
+function hashIdentifier(value) {
+  return crypto.createHash('sha256').update(String(value || '')).digest('hex');
 }
 
 function getSiteBaseUrl(request) {
@@ -136,13 +144,18 @@ export async function POST(request) {
 
     const message = 'If an account exists, a reset link has been sent.';
     const isPersistentAuth = isPersistentAuthAvailable();
-    const user = isPersistentAuth
+    const storedUser = isPersistentAuth
       ? await findAuthUserByEmail(email)
       : userStore.getUser(email);
-
-    if (!isPersistentAuth && (!user || !user.passwordHash)) {
-      return NextResponse.json({ success: true, message }, { status: 200 });
-    }
+    const user =
+      storedUser && (isPersistentAuth || storedUser.passwordHash)
+        ? storedUser
+        : null;
+    const resetToken = crypto.randomBytes(32).toString('hex');
+    const resetTokenHash = createResetTokenDigest(resetToken);
+    const resetTokenExpiry = new Date(Date.now() + RESET_TOKEN_WINDOW_MS).toISOString();
+    const siteBaseUrl = getSiteBaseUrl(request);
+    const resetUrl = `${siteBaseUrl}/auth/reset-password?token=${resetToken}`;
 
     if (isPersistentAuth && !isAutomatedEmailConfigured()) {
       return NextResponse.json(
@@ -154,43 +167,36 @@ export async function POST(request) {
       );
     }
 
-    if (!user) {
-      return NextResponse.json({ success: true, message }, { status: 200 });
-    }
+    if (user) {
+      if (isPersistentAuth) {
+        await saveAuthUserResetToken({
+          userId: user.id,
+          resetTokenHash,
+          resetTokenExpiry,
+        });
+      } else {
+        saveEphemeralResetToken({
+          email: user.email,
+          resetTokenHash,
+          resetTokenExpiry,
+        });
+      }
 
-    const resetToken = crypto.randomBytes(32).toString('hex');
-    const resetTokenHash = hashResetToken(resetToken);
-    const resetTokenExpiry = new Date(Date.now() + RESET_TOKEN_WINDOW_MS).toISOString();
-    const siteBaseUrl = getSiteBaseUrl(request);
-    const resetUrl = `${siteBaseUrl}/auth/reset-password?token=${resetToken}`;
-
-    if (isPersistentAuth) {
-      await saveAuthUserResetToken({
-        userId: user.id,
-        resetTokenHash,
-        resetTokenExpiry,
+      const emailContent = buildForgotPasswordEmail({
+        recipientName: user.name,
+        resetUrl,
       });
-    } else {
-      saveEphemeralResetToken({
-        email: user.email,
-        resetTokenHash,
-        resetTokenExpiry,
-      });
-    }
 
-    const emailContent = buildForgotPasswordEmail({
-      recipientName: user.name,
-      resetUrl,
-    });
-
-    if (isAutomatedEmailConfigured()) {
-      await sendTransactionalEmail({
-        to: user.email,
-        subject: emailContent.subject,
-        html: emailContent.html,
-        text: emailContent.text,
-        idempotencyKey: `forgot-password-${user.id || user.email}-${resetTokenHash}`,
-      });
+      if (isAutomatedEmailConfigured()) {
+        const recipientKey = user.id || hashIdentifier(user.email);
+        await sendTransactionalEmail({
+          to: user.email,
+          subject: emailContent.subject,
+          html: emailContent.html,
+          text: emailContent.text,
+          idempotencyKey: `forgot-password-${recipientKey}-${resetTokenHash}`,
+        });
+      }
     }
 
     const response = {

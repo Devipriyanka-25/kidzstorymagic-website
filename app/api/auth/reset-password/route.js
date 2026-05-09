@@ -3,6 +3,7 @@ import bcrypt from 'bcryptjs';
 import {
   findAuthUserByResetTokenHash,
   isPersistentAuthAvailable,
+  normalizeEmail,
   updateAuthUserPassword,
 } from '../../shared/authUsers.js';
 import { userStore } from '../../shared/userStore.js';
@@ -11,9 +12,19 @@ import crypto from 'crypto';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
+const RESET_TOKEN_HASH_SALT =
+  process.env.RESET_TOKEN_HASH_SALT || 'kidz-reset-token-salt';
 
-function hashResetToken(token) {
-  return crypto.createHash('sha256').update(String(token || '')).digest('hex');
+function createResetTokenDigest(rawToken) {
+  return crypto
+    .pbkdf2Sync(
+      String(rawToken || ''),
+      RESET_TOKEN_HASH_SALT,
+      100000,
+      32,
+      'sha256'
+    )
+    .toString('hex');
 }
 
 function isMissingResetColumnsError(error) {
@@ -44,7 +55,7 @@ export async function POST(request) {
       );
     }
 
-    const resetTokenHash = hashResetToken(token);
+    const resetTokenHash = createResetTokenDigest(token);
     const isPersistentAuth = isPersistentAuthAvailable();
     const user = isPersistentAuth
       ? await findAuthUserByResetTokenHash(resetTokenHash)
@@ -65,7 +76,7 @@ export async function POST(request) {
         passwordHash,
       });
     } else {
-      const normalizedEmail = String(user.email || '').toLowerCase().trim();
+      const normalizedEmail = normalizeEmail(user.email);
       const storedUser = userStore.getUser(normalizedEmail);
       if (!storedUser) {
         return NextResponse.json(
