@@ -74,7 +74,10 @@ export async function POST(request) {
           preferredCurrency: userData.preferred_currency,
           createdAt: userData.created_at,
         });
-        userStore.addUser(normalizedEmail, clientUser);
+        userStore.addUser(normalizedEmail, {
+          ...clientUser,
+          passwordHash,
+        });
 
         const token = jwt.sign(
           { id: userData.id, email: userData.email, name: userData.name },
@@ -135,7 +138,10 @@ export async function POST(request) {
     };
 
     const clientUser = buildClientAuthUser(userData);
-    userStore.addUser(normalizedEmail, clientUser);
+    userStore.addUser(normalizedEmail, {
+      ...clientUser,
+      passwordHash,
+    });
 
     const token = jwt.sign(
       { id: userId, email: normalizedEmail, name },

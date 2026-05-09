@@ -5,6 +5,8 @@ import {
   isPersistentAuthAvailable,
   updateAuthUserPassword,
 } from '../../shared/authUsers.js';
+import { userStore } from '../../shared/userStore.js';
+import { consumeEphemeralResetToken } from '../../shared/resetTokenStore.js';
 import crypto from 'crypto';
 
 export const runtime = 'nodejs';
@@ -42,20 +44,13 @@ export async function POST(request) {
       );
     }
 
-    if (!isPersistentAuthAvailable()) {
-      return NextResponse.json(
-        {
-          error: 'Password reset is temporarily unavailable.',
-          details: 'Persistent auth storage is not configured for this environment.',
-        },
-        { status: 503 }
-      );
-    }
-
     const resetTokenHash = hashResetToken(token);
-    const user = await findAuthUserByResetTokenHash(resetTokenHash);
+    const isPersistentAuth = isPersistentAuthAvailable();
+    const user = isPersistentAuth
+      ? await findAuthUserByResetTokenHash(resetTokenHash)
+      : { email: consumeEphemeralResetToken(resetTokenHash) };
 
-    if (!user?.id) {
+    if ((isPersistentAuth && !user?.id) || (!isPersistentAuth && !user?.email)) {
       return NextResponse.json(
         { error: 'Invalid or expired reset token.' },
         { status: 400 }
@@ -64,10 +59,22 @@ export async function POST(request) {
 
     const passwordHash = await bcrypt.hash(password, 10);
 
-    await updateAuthUserPassword({
-      userId: user.id,
-      passwordHash,
-    });
+    if (isPersistentAuth) {
+      await updateAuthUserPassword({
+        userId: user.id,
+        passwordHash,
+      });
+    } else {
+      const normalizedEmail = String(user.email || '').toLowerCase().trim();
+      const storedUser = userStore.getUser(normalizedEmail);
+      if (!storedUser) {
+        return NextResponse.json(
+          { error: 'Invalid or expired reset token.' },
+          { status: 400 }
+        );
+      }
+      userStore.updateUser(normalizedEmail, { ...storedUser, passwordHash });
+    }
 
     return NextResponse.json(
       {

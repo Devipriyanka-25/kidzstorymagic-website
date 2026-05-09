@@ -6,6 +6,8 @@ import {
   normalizeEmail,
   saveAuthUserResetToken,
 } from '../../shared/authUsers.js';
+import { userStore } from '../../shared/userStore.js';
+import { saveEphemeralResetToken } from '../../shared/resetTokenStore.js';
 import {
   getEmailFromAddress,
   isAutomatedEmailConfigured,
@@ -132,17 +134,17 @@ export async function POST(request) {
       );
     }
 
-    if (!isPersistentAuthAvailable()) {
-      return NextResponse.json(
-        {
-          error: 'Password reset is temporarily unavailable.',
-          details: 'Persistent auth storage is not configured for this environment.',
-        },
-        { status: 503 }
-      );
+    const message = 'If an account exists, a reset link has been sent.';
+    const isPersistentAuth = isPersistentAuthAvailable();
+    const user = isPersistentAuth
+      ? await findAuthUserByEmail(email)
+      : userStore.getUser(email);
+
+    if (!isPersistentAuth && (!user || !user.passwordHash)) {
+      return NextResponse.json({ success: true, message }, { status: 200 });
     }
 
-    if (!isAutomatedEmailConfigured()) {
+    if (isPersistentAuth && !isAutomatedEmailConfigured()) {
       return NextResponse.json(
         {
           error: 'Password reset email is not configured yet.',
@@ -151,9 +153,6 @@ export async function POST(request) {
         { status: 503 }
       );
     }
-
-    const user = await findAuthUserByEmail(email);
-    const message = 'If an account exists, a reset link has been sent.';
 
     if (!user) {
       return NextResponse.json({ success: true, message }, { status: 200 });
@@ -165,24 +164,34 @@ export async function POST(request) {
     const siteBaseUrl = getSiteBaseUrl(request);
     const resetUrl = `${siteBaseUrl}/auth/reset-password?token=${resetToken}`;
 
-    await saveAuthUserResetToken({
-      userId: user.id,
-      resetTokenHash,
-      resetTokenExpiry,
-    });
+    if (isPersistentAuth) {
+      await saveAuthUserResetToken({
+        userId: user.id,
+        resetTokenHash,
+        resetTokenExpiry,
+      });
+    } else {
+      saveEphemeralResetToken({
+        email: user.email,
+        resetTokenHash,
+        resetTokenExpiry,
+      });
+    }
 
     const emailContent = buildForgotPasswordEmail({
       recipientName: user.name,
       resetUrl,
     });
 
-    await sendTransactionalEmail({
-      to: user.email,
-      subject: emailContent.subject,
-      html: emailContent.html,
-      text: emailContent.text,
-      idempotencyKey: `forgot-password-${user.id}-${resetTokenHash}`,
-    });
+    if (isAutomatedEmailConfigured()) {
+      await sendTransactionalEmail({
+        to: user.email,
+        subject: emailContent.subject,
+        html: emailContent.html,
+        text: emailContent.text,
+        idempotencyKey: `forgot-password-${user.id || user.email}-${resetTokenHash}`,
+      });
+    }
 
     const response = {
       success: true,
@@ -191,6 +200,7 @@ export async function POST(request) {
 
     if (
       process.env.NODE_ENV !== 'production' ||
+      !isAutomatedEmailConfigured() ||
       getEmailFromAddress().includes('resend.dev')
     ) {
       response.resetUrl = resetUrl;
