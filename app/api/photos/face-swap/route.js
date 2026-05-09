@@ -23,6 +23,10 @@ const PRIVATE_HOST_PATTERNS = [
   /^::1$/,
 ];
 
+/**
+ * Normalize provider errors to safe, plain-text messages for logs/responses.
+ * This avoids returning raw error objects while still preserving actionable context.
+ */
 function sanitizeProviderError(error) {
   return error instanceof Error ? error.message : String(error);
 }
@@ -47,7 +51,11 @@ export function isPublicHttpUrl(value) {
     }
 
     return !isLikelyPrivateHost(parsed.hostname);
-  } catch {
+  } catch (error) {
+    console.warn(
+      '[FACE_SWAP] Invalid URL input received:',
+      sanitizeProviderError(error)
+    );
     return false;
   }
 }
@@ -64,6 +72,11 @@ function classifyImageInput(value) {
   return 'unsupported';
 }
 
+/**
+ * Build DeepAI-compatible inputs.
+ * DeepAI accepts only public HTTP(S) URLs, so data URLs are converted to hosted URLs
+ * while unsupported/private inputs are rejected with a controlled error.
+ */
 async function prepareInputsForDeepAI(faceImageUrl, illustrationImageUrl, host) {
   const faceType = classifyImageInput(faceImageUrl);
   const illustrationType = classifyImageInput(illustrationImageUrl);
