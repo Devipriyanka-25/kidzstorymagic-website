@@ -106,7 +106,14 @@ export default function LoginPage() {
       console.log('[LOGIN_REDIRECT] Redirecting to:', redirectTarget);
       router.push(redirectTarget);
     } catch (error) {
-      setGeneralError(error.message || 'Login failed');
+      const loginErrorMessage =
+        error?.response?.data?.error ||
+        error?.response?.data?.details ||
+        (error?.response?.status === 401
+          ? 'Invalid email or password'
+          : error?.message) ||
+        'Login failed';
+      setGeneralError(loginErrorMessage);
     } finally {
       setLoading(false);
     }
