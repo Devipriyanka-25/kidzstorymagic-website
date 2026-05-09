@@ -37,7 +37,16 @@ export function shouldRedirectToLoginOnUnauthorized(error) {
   }
 
   const requestUrl = String(error?.config?.url || '');
-  return !requestUrl.includes('/auth/login');
+  const LOGIN_ENDPOINT_PATHS = new Set(['/auth/login', '/api/auth/login']);
+  const normalizePath = (path) => String(path || '').replace(/\/+$/, '');
+
+  try {
+    // "http://localhost" is only a parsing base for relative URLs; we compare pathname only.
+    const parsedUrl = new URL(requestUrl, 'http://localhost');
+    return !LOGIN_ENDPOINT_PATHS.has(normalizePath(parsedUrl.pathname));
+  } catch {
+    return !LOGIN_ENDPOINT_PATHS.has(normalizePath(requestUrl));
+  }
 }
 
 // Create API client dynamically at runtime

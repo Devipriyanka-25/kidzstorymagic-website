@@ -17,6 +17,13 @@ describe('shouldRedirectToLoginOnUnauthorized', () => {
         config: { url: '/auth/login' },
       })
     ).toBe(false);
+
+    expect(
+      shouldRedirectToLoginOnUnauthorized({
+        response: { status: 401 },
+        config: { url: '/api/auth/login' },
+      })
+    ).toBe(false);
   });
 
   it('returns true for protected endpoint 401 errors', () => {

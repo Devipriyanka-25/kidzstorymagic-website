@@ -38,6 +38,7 @@ jobs:
         env:
           PUPPETEER_SKIP_DOWNLOAD: 'true'
           NODE_OPTIONS: '--max-old-space-size=1024'
+        # Install dev dependencies because backend tests run Jest in CI.
         run: npm ci --legacy-peer-deps
 
       - name: Setup database
