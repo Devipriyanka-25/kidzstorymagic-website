@@ -14,6 +14,7 @@ const BUCKET_NAME = 'story-assets';
 const ALLOWED_MIME_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);
 const ALLOWED_FORMATS = new Set(['jpeg', 'png', 'webp']);
 const MAX_UPLOAD_SIZE_BYTES = 15 * 1024 * 1024;
+let hasVerifiedBucket = false;
 
 function sanitizeStorageSegment(value, fallback = 'upload') {
   const normalized = String(value || '')
@@ -70,6 +71,7 @@ async function validateUploadedImage(photoFile, photoBuffer) {
 
 async function ensureBucketExists() {
   if (!supabaseClient) return false;
+  if (hasVerifiedBucket) return true;
   
   try {
     // Try to get bucket info
@@ -86,18 +88,22 @@ async function ensureBucketExists() {
       
       if (createError) {
         console.warn('[UPLOAD_PHOTO] Could not create bucket:', createError.message);
-        return false;
+        console.warn('[UPLOAD_PHOTO] Continuing optimistically and letting upload return the concrete storage error if needed.');
+        return true;
       }
       
       console.log('[UPLOAD_PHOTO] Bucket created successfully');
+      hasVerifiedBucket = true;
       return true;
     }
     
     console.log('[UPLOAD_PHOTO] Bucket exists');
+    hasVerifiedBucket = true;
     return true;
   } catch (err) {
     console.error('[UPLOAD_PHOTO] Bucket check error:', err.message);
-    return false;
+    console.warn('[UPLOAD_PHOTO] Continuing optimistically after bucket check error.');
+    return true;
   }
 }
 

@@ -2,6 +2,7 @@ import {
   getReplicateClient,
   resolveModelVersionId,
 } from "@/lib/replicate/client";
+import { buildIdentityReferenceBoard } from "@/lib/replicate/identityReferenceBoard";
 import { buildStorySceneBrief } from "@/lib/storybook/scenePlanning";
 import type { Prediction } from "replicate";
 
@@ -158,19 +159,29 @@ export function buildStorybookPrompt(
   return [
     "PRIMARY GOAL: The story scene is the primary focus. The finished image must read like a movie frame from the story, not like a child portrait with a random background.",
     "FORMAT: premium 2D illustrated children's storybook art with soft painterly rendering, cinematic storytelling, warm emotional lighting, volumetric glow, depth of field, expressive eyes, realistic child proportions, magical atmosphere, and detailed environments. It must be not photorealistic and never resemble a real photo.",
+    "VIBRANT COLOR PALETTE: Use rich, saturated, vibrant colors throughout the entire scene. Employ warm glowing yellows, turquoises, corals, oranges, pinks, and soft purples. Colors should feel alive and joyful with excellent saturation and luminosity. Avoid muted, washed-out, or desaturated colors.",
+    "LIGHTING & ATMOSPHERE: Soft volumetric lighting, warm color cast, subtle lighting gradients, glowing highlights, and atmospheric depth. Use lighting to create emotional warmth and magical mood. Include subtle light rays, soft shadows, and luminous glows around key elements.",
+    "ENVIRONMENTAL RICHNESS: Build densely detailed backgrounds with multiple layers of foreground, midground, and background elements. Add intricate textures, decorative details, natural elements (plants, water, rocks), and visual storytelling elements that enhance the world and create depth without overwhelming the child character.",
+    "TEXTURE & MATERIAL DETAIL: Include visible texture on fabrics, surfaces, and natural elements. Render clothing with fabric textures and folds. Add depth to water, plants, wood, stone, and other materials. Use material variety to create visual interest and premium quality.",
     "SCENE-FIRST GENERATION: Build the complete environment first. The location, objects, action, emotional beat, time of day, lighting, and cinematic mood from the page must all be visible in the final image. The child should be one of the primary storytelling anchors inside the scene, but the world and page action stay visually rich and essential.",
+    "CHARACTER CREATION: Create an illustrated child character from the uploaded reference photo. Match the child's hairstyle, face shape, eye color, skin tone, and age appearance to create a recognizable character version.",
     "IDENTITY REFERENCE RULE: Use the uploaded child photo as identity guidance only. Match hairstyle, face shape, eye shape, skin tone, and age appearance, but do not copy the original photo framing, room, clothing graphics, lighting, or pose.",
-    "CHARACTER CONSISTENCY: Keep the same recognizable child across the full book while letting the pose, camera angle, body movement, and facial emotion change to match the exact story beat of each page.",
-    "WARDROBE RULE: redesign the outfit into a consistent premium storybook wardrobe family that feels natural for the book. Use no readable text, logos, or copied graphics from the original photo clothing.",
+    "CHARACTER CONSISTENCY: Keep the child's face, identity, and facial features recognizable across the full book. The child's face should remain consistent and identifiable. However, the clothing, costume, and accessories should change per page to match the exact story beat, setting, and adventure context of each page.",
+    "PAGE-SPECIFIC COSTUME DESIGN: Each page must have unique costume and outfit design that matches the story's environmental setting and page action. Change the child's clothing, accessories, and costume between pages to reflect the story progression and specific location. Examples: indoor explorer scene = indoor adventure outfit, jungle/safari scene = explorer vest and khaki colors, underwater scene = wetsuit/scuba gear, forest scene = nature-appropriate clothing, etc. Costumes should be context-specific and thematically appropriate.",
+    "REFERENCE SANITIZATION RULE: Ignore all props and surroundings from the uploaded child photo, especially cups, furniture, walls, indoor room backgrounds, jewelry details, clothing slogans, and household objects.",
+    "STORY OVERRIDE RULE: The page story beat always overrides the uploaded photo context. If the story mentions an elephant, eagle, river, jungle, zebra, birds, or another page object, those story elements must appear clearly in the illustration.",
+    "PROMINENCE RULE: Child should be easily identifiable and appear as the active protagonist experiencing the adventure. Child's face must be clearly visible and recognizable from the uploaded photo.",
     "COMPOSITION RULE: Fill most of the page with a cinematic story scene. Create clear foreground, midground, and background depth, and leave clean breathing room for printed story text without shrinking the world into a plain backdrop.",
     "SCENE BALANCE RULE: The illustrated child must be clearly recognizable and emotionally readable, but should not dominate the frame like a portrait, passport photo, sticker, or pasted face. The story world and action should carry at least half of the visual storytelling weight.",
     "WORLD SCALE RULE: Keep the child at natural story scale inside the environment. Use medium-wide to wide cinematic framing with the child acting within the setting, not oversized as a giant face or floating close-up unless the story beat truly requires it.",
     "CAMERA RULE: Prefer child-height or gently dynamic camera angles that help the viewer understand the page action and the surrounding world in one glance.",
+    "ACTIVE PARTICIPATION: Child should be shown as an active participant - moving, interacting, exploring, discovering, or engaging with the story environment and characters rather than standing passively.",
+    "FACE VISIBILITY: Child's face must be clearly visible and recognizable. Ensure facial expressions are expressive and match the emotional beat of the story page.",
     "READABILITY RULE: if the text were hidden, a parent should immediately recognize their child as the protagonist experiencing the story events.",
     "PHOTO SAFETY RULE: The output should look like painted story art, not photorealistic reference usage, not a realistic photo, not a face swap, and not a studio portrait. Transform the photo into beautiful illustrated storybook character art.",
     "BODY AND STAGING: Prefer full-body or three-quarter-body storytelling poses appropriate to the page action. Use natural scale and positioning within the world. The child should be moving, interacting, exploring, or experiencing the story instead of posing for the camera.",
     `SCENE BLUEPRINT: ${normalizedScenePrompt}`,
-    "QUALITY STANDARD: Deliver premium children's book illustration quality that feels immersive, emotionally connected, professionally illustrated, and rich enough that the story is understandable even without reading the text.",
+    "QUALITY STANDARD: Deliver premium children's book illustration quality that rivals professional studio work like Imagitime. The image should be immersive, emotionally connected, professionally illustrated, visually rich, with vibrant colors, detailed environments, and textured materials. Rich enough that the story is understandable even without reading the text.",
     avoidanceInstruction,
   ]
     .filter(Boolean)
@@ -224,7 +235,7 @@ function buildFluxPredictionInput(input: StoryPageGenerationInput) {
   };
 }
 
-function buildKontextPredictionInput(input: StoryPageGenerationInput) {
+async function buildKontextPredictionInput(input: StoryPageGenerationInput) {
   const referenceImages = getNormalizedReferenceImages(input);
   const primaryReferenceImage = referenceImages[0] || input.subjectImage;
 
@@ -236,7 +247,7 @@ function buildKontextPredictionInput(input: StoryPageGenerationInput) {
 
   return {
     prompt: buildStorybookPrompt(input.prompt, input.negativePrompt),
-    input_image: normalizeSubjectInput(primaryReferenceImage),
+    input_image: await buildIdentityReferenceBoard(referenceImages),
     aspect_ratio: DEFAULT_STORYBOOK_ASPECT_RATIO,
   };
 }
@@ -261,7 +272,7 @@ function buildLegacyPredictionInput(input: StoryPageGenerationInput) {
   };
 }
 
-function buildPredictionInput(input: StoryPageGenerationInput) {
+async function buildPredictionInput(input: StoryPageGenerationInput) {
   if (isKontextStorybookModel(STORYBOOK_MODEL)) {
     return buildKontextPredictionInput(input);
   }
@@ -483,7 +494,7 @@ export async function createStoryPageIllustrationPrediction(
   const prediction = await replicate.predictions.create({
     version,
     wait: INITIAL_REPLICATE_WAIT_SECONDS,
-    input: buildPredictionInput(input),
+    input: await buildPredictionInput(input),
   });
 
   return normalizeStoryPagePrediction(prediction, {
