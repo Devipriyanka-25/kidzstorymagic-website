@@ -20,12 +20,17 @@ describe('storybook illustration prompt', () => {
     expect(prompt).toContain('identity guidance only');
     expect(prompt).toContain('PAGE-SPECIFIC COSTUME DESIGN');
     expect(prompt).toContain('REFERENCE SANITIZATION RULE');
+    expect(prompt).toContain('REFERENCE IMAGE FILTER');
     expect(prompt).toContain('STORY OVERRIDE RULE');
+    expect(prompt).toContain('NON-NEGOTIABLE SCENE RULE');
     expect(prompt).toContain('not photorealistic');
     expect(prompt).toContain('SCENE BALANCE RULE');
     expect(prompt).toContain('WORLD SCALE RULE');
     expect(prompt).toContain('not a face swap');
     expect(prompt).not.toContain('semi-realistic');
+    expect(prompt.indexOf('SCENE BLUEPRINT:')).toBeLessThan(
+      prompt.indexOf('CHARACTER CREATION:')
+    );
   });
 
   it('preserves a prebuilt scene-first brief instead of wrapping it again as plain text', () => {

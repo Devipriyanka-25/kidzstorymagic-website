@@ -158,6 +158,8 @@ export function buildStorybookPrompt(
 
   return [
     "PRIMARY GOAL: The story scene is the primary focus. The finished image must read like a movie frame from the story, not like a child portrait with a random background.",
+    `SCENE BLUEPRINT: ${normalizedScenePrompt}`,
+    "NON-NEGOTIABLE SCENE RULE: Illustrate the exact page scene from the blueprint above. The location, action, important story objects, time of day, and emotional beat must be visible at a glance even if the page text is hidden.",
     "FORMAT: premium 2D illustrated children's storybook art with soft painterly rendering, cinematic storytelling, warm emotional lighting, volumetric glow, depth of field, expressive eyes, realistic child proportions, magical atmosphere, and detailed environments. It must be not photorealistic and never resemble a real photo.",
     "VIBRANT COLOR PALETTE: Use rich, saturated, vibrant colors throughout the entire scene. Employ warm glowing yellows, turquoises, corals, oranges, pinks, and soft purples. Colors should feel alive and joyful with excellent saturation and luminosity. Avoid muted, washed-out, or desaturated colors.",
     "LIGHTING & ATMOSPHERE: Soft volumetric lighting, warm color cast, subtle lighting gradients, glowing highlights, and atmospheric depth. Use lighting to create emotional warmth and magical mood. Include subtle light rays, soft shadows, and luminous glows around key elements.",
@@ -166,6 +168,7 @@ export function buildStorybookPrompt(
     "SCENE-FIRST GENERATION: Build the complete environment first. The location, objects, action, emotional beat, time of day, lighting, and cinematic mood from the page must all be visible in the final image. The child should be one of the primary storytelling anchors inside the scene, but the world and page action stay visually rich and essential.",
     "CHARACTER CREATION: Create an illustrated child character from the uploaded reference photo. Match the child's hairstyle, face shape, eye color, skin tone, and age appearance to create a recognizable character version.",
     "IDENTITY REFERENCE RULE: Use the uploaded child photo as identity guidance only. Match hairstyle, face shape, eye shape, skin tone, and age appearance, but do not copy the original photo framing, room, clothing graphics, lighting, or pose.",
+    "REFERENCE IMAGE FILTER: Treat every uploaded photo like a face-and-hair identity card only. Never copy shirt prints, sleeves, necklaces, bracelets, cups, chairs, sofas, walls, floors, furniture, door frames, room layouts, or household clutter from the reference images.",
     "CHARACTER CONSISTENCY: Keep the child's face, identity, and facial features recognizable across the full book. The child's face should remain consistent and identifiable. However, the clothing, costume, and accessories should change per page to match the exact story beat, setting, and adventure context of each page.",
     "PAGE-SPECIFIC COSTUME DESIGN: Each page must have unique costume and outfit design that matches the story's environmental setting and page action. Change the child's clothing, accessories, and costume between pages to reflect the story progression and specific location. Examples: indoor explorer scene = indoor adventure outfit, jungle/safari scene = explorer vest and khaki colors, underwater scene = wetsuit/scuba gear, forest scene = nature-appropriate clothing, etc. Costumes should be context-specific and thematically appropriate.",
     "REFERENCE SANITIZATION RULE: Ignore all props and surroundings from the uploaded child photo, especially cups, furniture, walls, indoor room backgrounds, jewelry details, clothing slogans, and household objects.",
@@ -180,7 +183,6 @@ export function buildStorybookPrompt(
     "READABILITY RULE: if the text were hidden, a parent should immediately recognize their child as the protagonist experiencing the story events.",
     "PHOTO SAFETY RULE: The output should look like painted story art, not photorealistic reference usage, not a realistic photo, not a face swap, and not a studio portrait. Transform the photo into beautiful illustrated storybook character art.",
     "BODY AND STAGING: Prefer full-body or three-quarter-body storytelling poses appropriate to the page action. Use natural scale and positioning within the world. The child should be moving, interacting, exploring, or experiencing the story instead of posing for the camera.",
-    `SCENE BLUEPRINT: ${normalizedScenePrompt}`,
     "QUALITY STANDARD: Deliver premium children's book illustration quality that rivals professional studio work like Imagitime. The image should be immersive, emotionally connected, professionally illustrated, visually rich, with vibrant colors, detailed environments, and textured materials. Rich enough that the story is understandable even without reading the text.",
     avoidanceInstruction,
   ]

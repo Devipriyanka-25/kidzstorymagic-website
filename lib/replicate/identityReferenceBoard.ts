@@ -2,8 +2,10 @@ import sharp from "sharp";
 
 const MAX_REFERENCE_IMAGES = 4;
 const TILE_SIZE = 640;
+const TILE_SUBJECT_SIZE = 520;
 const TILE_GAP = 24;
 const TILE_PADDING = 28;
+const BOARD_BACKGROUND = { r: 247, g: 243, b: 236 };
 
 function isDataUrl(value: string): boolean {
   return /^data:image\//i.test(String(value || "").trim());
@@ -43,12 +45,12 @@ function getFocusedCrop(
   height: number
 ): { left: number; top: number; width: number; height: number } {
   if (height >= width) {
-    const cropWidth = Math.min(width, Math.round(height * 0.62));
-    const cropHeight = Math.min(height, Math.round(cropWidth * 1.14));
+    const cropHeight = Math.min(height, Math.round(height * 0.34));
+    const cropWidth = Math.min(width, Math.round(cropHeight * 0.78));
     const left = Math.max(0, Math.round((width - cropWidth) / 2));
     const top = Math.max(
       0,
-      Math.min(height - cropHeight, Math.round(height * 0.06))
+      Math.min(height - cropHeight, Math.round(height * 0.04))
     );
 
     return {
@@ -59,12 +61,12 @@ function getFocusedCrop(
     };
   }
 
-  const cropHeight = Math.min(height, Math.round(width * 0.8));
-  const cropWidth = Math.min(width, Math.round(cropHeight * 0.92));
+  const cropHeight = Math.min(height, Math.round(height * 0.46));
+  const cropWidth = Math.min(width, Math.round(cropHeight * 0.74));
   const left = Math.max(0, Math.round((width - cropWidth) / 2));
   const top = Math.max(
     0,
-    Math.min(height - cropHeight, Math.round(height * 0.05))
+    Math.min(height - cropHeight, Math.round(height * 0.03))
   );
 
   return {
@@ -81,15 +83,57 @@ async function buildReferenceTile(referenceBuffer: Buffer): Promise<Buffer> {
   const width = metadata.width || TILE_SIZE;
   const height = metadata.height || TILE_SIZE;
   const crop = getFocusedCrop(width, height);
-
-  return normalized
+  const centeredPortrait = await normalized
     .extract(crop)
-    .resize(TILE_SIZE, TILE_SIZE, {
-      fit: "cover",
-      position: sharp.strategy.attention,
+    .resize(TILE_SUBJECT_SIZE, TILE_SUBJECT_SIZE, {
+      fit: "contain",
+      background: { ...BOARD_BACKGROUND, alpha: 0 },
+      withoutEnlargement: false,
     })
     .png()
     .toBuffer();
+
+  return sharp({
+    create: {
+      width: TILE_SIZE,
+      height: TILE_SIZE,
+      channels: 3,
+      background: BOARD_BACKGROUND,
+    },
+  })
+    .composite([
+      {
+        input: centeredPortrait,
+        left: Math.round((TILE_SIZE - TILE_SUBJECT_SIZE) / 2),
+        top: Math.round((TILE_SIZE - TILE_SUBJECT_SIZE) / 2),
+      },
+    ])
+    .sharpen(0.5)
+    .png()
+    .toBuffer();
+}
+
+function getBoardBackground() {
+  return {
+    ...BOARD_BACKGROUND,
+  };
+}
+
+function getBoardCanvas(tileCount: number) {
+  const { columns, width, height } = getBoardDimensions(tileCount);
+
+  return {
+    board: sharp({
+      create: {
+        width,
+        height,
+        channels: 3,
+        background: getBoardBackground(),
+      },
+    })
+      .png(),
+    columns,
+  };
 }
 
 function getBoardDimensions(tileCount: number): {
@@ -134,15 +178,7 @@ export async function buildIdentityReferenceBoard(
     return tiles[0];
   }
 
-  const { columns, width, height } = getBoardDimensions(tiles.length);
-  const board = sharp({
-    create: {
-      width,
-      height,
-      channels: 3,
-      background: { r: 247, g: 243, b: 236 },
-    },
-  });
+  const { board, columns } = getBoardCanvas(tiles.length);
 
   const composites = tiles.map((tile, index) => {
     const column = index % columns;
