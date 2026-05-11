@@ -3,17 +3,11 @@ import jwt from 'jsonwebtoken';
 import { supabaseClient } from '../../../shared/supabaseClient.js';
 import { resolveAuthenticatedStoryUser } from '../../../shared/storyProjects.js';
 import { resolveUserRole } from '../../../shared/authRoles.js';
+import { getRequiredJwtSecret } from '../../../shared/jwt.js';
 import { readStoredOrderContactDetails } from '@/lib/orderData';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
-
-function getJwtSecret() {
-  return (
-    process.env.JWT_SECRET ||
-    'kidz-story-magic-jwt-secret-key-2024-production-secure-random-12345'
-  );
-}
 
 async function resolveAdminUser(request) {
   const authHeader = request.headers.get('authorization');
@@ -25,9 +19,24 @@ async function resolveAdminUser(request) {
 
   const token = authHeader.substring(7);
   let decoded;
+  let jwtSecret;
 
   try {
-    decoded = jwt.verify(token, getJwtSecret());
+    jwtSecret = getRequiredJwtSecret();
+  } catch (error) {
+    return {
+      error: NextResponse.json(
+        {
+          error: 'Authentication is not configured.',
+          details: error.message,
+        },
+        { status: 503 }
+      ),
+    };
+  }
+
+  try {
+    decoded = jwt.verify(token, jwtSecret);
   } catch {
     return {
       error: NextResponse.json({ error: 'Unauthorized' }, { status: 401 }),

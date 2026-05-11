@@ -8,35 +8,17 @@ import { NextResponse } from 'next/server';
 import { getBookThemeLabel } from '@/utils/themes';
 import {
   createStoryProjectRecord,
-  resolveAuthenticatedStoryUser,
 } from '../../shared/storyProjects.js';
-const jwt = require('jsonwebtoken');
+import { resolveRequestUser } from '../../shared/requestAuth.js';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 export async function POST(request) {
   try {
-    // Verify authentication
-    const authHeader = request.headers.get('authorization');
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
-    }
-
-    const token = authHeader.substring(7);
-    const jwtSecret = process.env.JWT_SECRET || 'kidz-story-magic-jwt-secret-key-2024-production-secure-random-12345';
-
-    let decoded;
-    try {
-      decoded = jwt.verify(token, jwtSecret);
-    } catch (err) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
+    const { error, authUser } = await resolveRequestUser(request);
+    if (error) {
+      return error;
     }
 
     const body = await request.json();
@@ -66,21 +48,6 @@ export async function POST(request) {
     });
 
     const selectedThemeLabel = getBookThemeLabel(theme);
-
-    // Trust the JWT token directly - it has been cryptographically verified
-    if (!decoded?.id) {
-      return NextResponse.json(
-        { error: 'Invalid token: missing user ID' },
-        { status: 401 }
-      );
-    }
-
-    // Create an authUser object from the decoded JWT
-    const authUser = {
-      id: decoded.id,
-      email: decoded.email,
-      name: decoded.name || decoded.email,
-    };
 
     const storyProject = await createStoryProjectRecord(authUser.id, {
       title:

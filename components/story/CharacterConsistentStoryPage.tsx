@@ -6,6 +6,10 @@ import {
   prepareReferenceImagesForGeneration,
   readIllustrationApiPayload,
 } from "@/utils/subjectImage";
+import {
+  getSavedPageImageUrl,
+  hasCompletedPageIllustration,
+} from "@/utils/storyPreviewSync";
 import { getBookThemePreviewArt, getTheme } from "@/utils/themes";
 
 type StoryPage = {
@@ -25,14 +29,16 @@ type CharacterConsistentStoryPageProps = {
   autoGenerateIllustration?: boolean;
   bookThemeValue?: string | null;
   generationState?: {
-    status: "idle" | "loading" | "ready" | "error";
+    status: "idle" | "loading" | "ready" | "error" | "temporary";
     message?: string;
+    retryAt?: number | null;
   } | null;
   onIllustrationLoadError?: (imageUrl: string) => void;
   onIllustrationReady?: (imageUrl: string) => void;
   onIllustrationStateChange?: (state: {
-    status: "idle" | "loading" | "ready" | "error";
+    status: "idle" | "loading" | "ready" | "error" | "temporary";
     message?: string;
+    retryAt?: number | null;
   }) => void;
   page: StoryPage;
   pageIndex: number;
@@ -120,7 +126,9 @@ export default function CharacterConsistentStoryPage({
   referenceImages = null,
   subjectImage,
 }: CharacterConsistentStoryPageProps) {
-  const initialImage = page.illustrationUrl || page.faceSwappedUrl || null;
+  const initialImage = hasCompletedPageIllustration(page)
+    ? getSavedPageImageUrl(page)
+    : null;
   const [imageUrl, setImageUrl] = useState<string | null>(initialImage);
   const [isGenerating, setIsGenerating] = useState(!initialImage);
   const [error, setError] = useState<string | null>(null);
@@ -171,22 +179,26 @@ export default function CharacterConsistentStoryPage({
   const pageNumberLabel = page.pageNumber || pageIndex + 1;
   const pageTitle = page.title || `Page ${pageIndex + 1}`;
   const pageBody = page.page_text || page.text || "";
-  const displayIllustrationUrl = imageUrl || friendlyPreviewArt;
+  const displayIllustrationUrl =
+    imageUrl || (autoGenerateIllustration ? friendlyPreviewArt : null);
 
   useEffect(() => {
     if (autoGenerateIllustration) {
       return;
     }
 
-    if (page.illustrationUrl || page.faceSwappedUrl) {
-      setImageUrl(page.illustrationUrl || page.faceSwappedUrl || null);
+    if (hasCompletedPageIllustration(page)) {
+      setImageUrl(getSavedPageImageUrl(page));
       setIsGenerating(false);
       setError(null);
       setStatusMessage(null);
       return;
     }
 
-    if (generationState?.status === "loading") {
+    if (
+      generationState?.status === "loading" ||
+      generationState?.status === "temporary"
+    ) {
       setImageUrl(null);
       setIsGenerating(true);
       setError(null);
@@ -220,9 +232,8 @@ export default function CharacterConsistentStoryPage({
       return;
     }
 
-    if (page.illustrationUrl || page.faceSwappedUrl) {
-      const resolvedPageImage =
-        page.illustrationUrl || page.faceSwappedUrl || null;
+    if (hasCompletedPageIllustration(page)) {
+      const resolvedPageImage = getSavedPageImageUrl(page);
       setImageUrl(resolvedPageImage);
       setIsGenerating(false);
       setError(null);
@@ -376,29 +387,31 @@ export default function CharacterConsistentStoryPage({
       <div className="p-5 sm:p-6 lg:p-7">
         <div className="rounded-[30px] bg-white p-4 shadow-[0_18px_44px_rgba(15,23,42,0.08)]">
           <div className="relative isolate min-h-[360px] overflow-hidden rounded-[28px] bg-[#eef6ff] sm:min-h-[440px] lg:min-h-[520px]">
-            <img
-              src={displayIllustrationUrl}
-              alt={pageTitle}
-              className="absolute inset-0 h-full w-full object-cover saturate-[1.08] brightness-[1.05]"
-              onError={() => {
-                if (!imageUrl) {
-                  return;
-                }
+            {displayIllustrationUrl ? (
+              <img
+                src={displayIllustrationUrl}
+                alt={pageTitle}
+                className="absolute inset-0 h-full w-full object-cover saturate-[1.08] brightness-[1.05]"
+                onError={() => {
+                  if (!imageUrl) {
+                    return;
+                  }
 
-                const failedImageUrl = imageUrl;
-                setImageUrl(null);
-                setError(null);
-                setStatusMessage(
-                  "A saved illustration expired. We are regenerating this page."
-                );
-                onIllustrationLoadErrorRef.current?.(failedImageUrl);
-                onIllustrationStateChangeRef.current?.({
-                  status: "idle",
-                  message:
-                    "A saved illustration expired. We are regenerating this page.",
-                });
-              }}
-            />
+                  const failedImageUrl = imageUrl;
+                  setImageUrl(null);
+                  setError(null);
+                  setStatusMessage(
+                    "A saved illustration expired. We are regenerating this page."
+                  );
+                  onIllustrationLoadErrorRef.current?.(failedImageUrl);
+                  onIllustrationStateChangeRef.current?.({
+                    status: "idle",
+                    message:
+                      "A saved illustration expired. We are regenerating this page.",
+                  });
+                }}
+              />
+            ) : null}
             <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(255,255,255,0.42)_0%,transparent_34%)]" />
             <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(255,255,255,0.10)_0%,rgba(255,255,255,0.22)_100%)]" />
 

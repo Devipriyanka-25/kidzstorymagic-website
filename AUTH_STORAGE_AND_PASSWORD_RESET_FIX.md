@@ -33,8 +33,8 @@ This caused `supabaseClient.js` to return `null`, which broke:
 ```env
 # Supabase Configuration
 NEXT_PUBLIC_SUPABASE_URL="https://wwninqezevmxlvtjhruo.supabase.co"
-NEXT_PUBLIC_SUPABASE_ANON_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind3bmlucWV6ZXZteGx2dGpocnVvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY0NTI0MjUsImV4cCI6MjA5MjAyODQyNX0.sUJDiz980D3q-Lpt_R-ndJcojZD4dOZZr1nnB5d5IvA"
-SUPABASE_SERVICE_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind3bmlucWV6ZXZteGx2dGpocnVvIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NjQ1MjQyNSwiZXhwIjoyMDkyMDI4NDI1fQ.X454EsatKRG3jGNgB0XN0w3ylgr-AJJv2GInXpwYp2I"
+NEXT_PUBLIC_SUPABASE_ANON_KEY="<your-supabase-anon-key>"
+SUPABASE_SERVICE_KEY="<your-supabase-service-role-key>"
 ```
 
 ### How It Works Now
@@ -94,10 +94,10 @@ vercel env add NEXT_PUBLIC_SUPABASE_URL
 # Paste: https://wwninqezevmxlvtjhruo.supabase.co
 
 vercel env add NEXT_PUBLIC_SUPABASE_ANON_KEY
-# Paste: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind3bmlucWV6ZXZteGx2dGpocnVvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY0NTI0MjUsImV4cCI6MjA5MjAyODQyNX0.sUJDiz980D3q-Lpt_R-ndJcojZD4dOZZr1nnB5d5IvA
+# Paste: <your-supabase-anon-key>
 
 vercel env add SUPABASE_SERVICE_KEY
-# Paste: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind3bmlucWV6ZXZteGx2dGpocnVvIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NjQ1MjQyNSwiZXhwIjoyMDkyMDI4NDI1fQ.X454EsatKRG3jGNgB0XN0w3ylgr-AJJv2GInXpwYp2I
+# Paste: <your-supabase-service-role-key>
 
 # Add Resend credentials (once you get the API key)
 vercel env add RESEND_API_KEY

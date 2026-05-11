@@ -3,7 +3,18 @@ function isIllustratedStoryPage(page) {
 }
 
 export function isTemporaryPreviewIllustrationUrl(value) {
-  return /^data:image\/svg\+xml/i.test(String(value || '').trim());
+  const normalizedValue = String(value || '').trim();
+
+  if (!normalizedValue) {
+    return false;
+  }
+
+  return (
+    /^data:image\/svg\+xml/i.test(normalizedValue) ||
+    /\/storage\/v1\/object\/public\/story-assets\/story-illustrations\/.+\.svg(?:\?|$)/i.test(
+      normalizedValue
+    )
+  );
 }
 
 export function getSavedPageImageUrl(page) {

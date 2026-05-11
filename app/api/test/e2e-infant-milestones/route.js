@@ -12,6 +12,13 @@ import {
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
+function areTestRoutesEnabled() {
+  return (
+    process.env.NODE_ENV !== 'production' ||
+    process.env.ENABLE_TEST_ROUTES === 'true'
+  );
+}
+
 function getRepresentativeAge(ageGroup) {
   const matches = String(ageGroup || '').match(/\d+/g) || [];
 
@@ -45,7 +52,41 @@ function findMatchingCategory(ageGroup, milestoneThemeId) {
   );
 }
 
+async function createE2ETestAuthSession(requestUrl) {
+  const registerEndpoint = new URL('/api/auth/register', requestUrl.origin);
+  const runId = buildRunId();
+  const response = await fetch(registerEndpoint, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      name: `E2E Test ${runId}`,
+      email: `e2e_infant_${runId}@example.com`,
+      password: 'E2EPass123!',
+      preferredCurrency: 'USD',
+    }),
+    cache: 'no-store',
+  });
+
+  const payload = await response.json().catch(() => ({}));
+
+  if (!response.ok || !payload?.token) {
+    throw new Error(
+      payload?.error ||
+        payload?.details ||
+        `Failed to create E2E auth session (${response.status}).`
+    );
+  }
+
+  return payload.token;
+}
+
 export async function GET(request) {
+  if (!areTestRoutesEnabled()) {
+    return NextResponse.json({ error: 'Not found' }, { status: 404 });
+  }
+
   const requestUrl = new URL(request.url);
   const ageGroup = requestUrl.searchParams.get('ageGroup') || '0-2';
   const milestones = getMilestonesForAgeGroup(ageGroup);
@@ -88,6 +129,20 @@ export async function GET(request) {
     );
   }
 
+  let authToken = '';
+  try {
+    authToken = await createE2ETestAuthSession(requestUrl);
+  } catch (error) {
+    return NextResponse.json(
+      {
+        status: 'FAILED',
+        ageGroup,
+        error: error.message,
+      },
+      { status: 500 }
+    );
+  }
+
   const results = [];
 
   for (const { milestone, selectedTheme, matchingCategory } of candidateMilestones) {
@@ -96,7 +151,6 @@ export async function GET(request) {
       : [];
     const runId = buildRunId();
     const payload = {
-      projectId: `e2e_${runId}`,
       childName: `Test Child ${runId}`,
       childAge: getRepresentativeAge(ageGroup),
       theme: selectedTheme.value,
@@ -111,7 +165,7 @@ export async function GET(request) {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'x-internal-call': 'true',
+        Authorization: `Bearer ${authToken}`,
       },
       body: JSON.stringify(payload),
       cache: 'no-store',

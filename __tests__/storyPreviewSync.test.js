@@ -1,6 +1,7 @@
 const {
   getStoryPreviewMetrics,
   hasCompletedPageIllustration,
+  isTemporaryPreviewIllustrationUrl,
   selectBestStoryPreview,
   shouldPreferStoryPreview,
 } = require('@/utils/storyPreviewSync');
@@ -114,5 +115,20 @@ describe('storyPreviewSync', () => {
       promptPages: 0,
       pagesWithAnyImage: 1,
     });
+  });
+
+  it('treats saved svg placeholder assets as temporary preview illustrations', () => {
+    const savedPlaceholderUrl =
+      'https://wwninqezevmxlvtjhruo.supabase.co/storage/v1/object/public/story-assets/story-illustrations/51/page-2-placeholder.svg';
+
+    expect(isTemporaryPreviewIllustrationUrl(savedPlaceholderUrl)).toBe(true);
+    expect(
+      hasCompletedPageIllustration({
+        pageNumber: 2,
+        pageType: 'story',
+        text: 'Page 2 text',
+        illustrationUrl: savedPlaceholderUrl,
+      })
+    ).toBe(false);
   });
 });

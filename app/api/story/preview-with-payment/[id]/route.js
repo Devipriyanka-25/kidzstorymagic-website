@@ -5,12 +5,11 @@
  */
 
 import { NextResponse } from 'next/server';
-import jwt from 'jsonwebtoken';
 import { supabaseClient } from '../../../shared/supabaseClient.js';
+import { resolveOptionalRequestUser } from '../../../shared/requestAuth.js';
 import {
   mapStoryContentRecord,
   mapStoryProjectRecord,
-  resolveAuthenticatedStoryUser,
 } from '../../../shared/storyProjects.js';
 import { verifyGiftPreviewToken } from '@/lib/giftStory';
 
@@ -18,28 +17,6 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 const FREE_PREVIEW_PAGE_LIMIT = 3;
-
-function getJwtSecret() {
-  return (
-    process.env.JWT_SECRET ||
-    'kidz-story-magic-jwt-secret-key-2024-production-secure-random-12345'
-  );
-}
-
-async function resolveOptionalUser(request) {
-  const authHeader = request.headers.get('authorization');
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    return null;
-  }
-
-  try {
-    const decoded = jwt.verify(authHeader.substring(7), getJwtSecret());
-    return resolveAuthenticatedStoryUser(decoded);
-  } catch (error) {
-    console.log('[PREVIEW] Token verification failed, continuing as public preview');
-    return null;
-  }
-}
 
 export async function GET(request, { params }) {
   try {
@@ -57,7 +34,7 @@ export async function GET(request, { params }) {
 
     const giftToken = request.nextUrl.searchParams.get('gift_token');
     const giftAccess = verifyGiftPreviewToken(giftToken, projectId);
-    const authUser = await resolveOptionalUser(request);
+    const authUser = await resolveOptionalRequestUser(request);
 
     const { data: storyRecord, error: storyError } = await supabaseClient
       .from('story_projects')

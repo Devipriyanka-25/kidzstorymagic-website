@@ -1,50 +1,10 @@
 import { NextResponse } from 'next/server';
-import jwt from 'jsonwebtoken';
 import { supabaseClient } from '../../shared/supabaseClient.js';
-import { resolveAuthenticatedStoryUser } from '../../shared/storyProjects.js';
+import { resolveRequestUser } from '../../shared/requestAuth.js';
 import {
   buildGiftPreviewUrl,
   sendGiftStoryEmail,
 } from '@/lib/giftStory';
-
-function getJwtSecret() {
-  return (
-    process.env.JWT_SECRET ||
-    'kidz-story-magic-jwt-secret-key-2024-production-secure-random-12345'
-  );
-}
-
-async function resolveRequestUser(request) {
-  const authHeader = request.headers.get('authorization');
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    return {
-      error: NextResponse.json({ error: 'Unauthorized' }, { status: 401 }),
-    };
-  }
-
-  const token = authHeader.substring(7);
-
-  let decoded;
-  try {
-    decoded = jwt.verify(token, getJwtSecret());
-  } catch (error) {
-    return {
-      error: NextResponse.json({ error: 'Unauthorized' }, { status: 401 }),
-    };
-  }
-
-  const authUser = await resolveAuthenticatedStoryUser(decoded);
-  if (!authUser?.id) {
-    return {
-      error: NextResponse.json(
-        { error: 'Authenticated user could not be resolved.' },
-        { status: 401 }
-      ),
-    };
-  }
-
-  return { authUser, decoded };
-}
 
 export async function POST(request) {
   try {

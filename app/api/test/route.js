@@ -3,7 +3,18 @@ import { NextResponse } from 'next/server';
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
+function areTestRoutesEnabled() {
+  return (
+    process.env.NODE_ENV !== 'production' ||
+    process.env.ENABLE_TEST_ROUTES === 'true'
+  );
+}
+
 export async function GET(request) {
+  if (!areTestRoutesEnabled()) {
+    return NextResponse.json({ error: 'Not found' }, { status: 404 });
+  }
+
   console.log('[API_TEST] Test endpoint called');
   
   // Check environment variables

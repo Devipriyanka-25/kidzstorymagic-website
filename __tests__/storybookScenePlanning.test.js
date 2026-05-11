@@ -25,7 +25,9 @@ describe("storybook scene planning", () => {
     expect(scene.characterPose).toContain("wave");
     expect(scene.timeOfDay).toContain("evening");
     expect(scene.lightingStyle).toContain("warm sunset");
-    expect(scene.composition).toContain("printed story text");
+    expect(scene.shotType).toContain("shot");
+    expect(scene.cameraAngle).toContain("child-height");
+    expect(scene.composition).toContain("text-safe band");
   });
 
   it("builds a scene-first story brief instead of a portrait-first prompt", () => {
@@ -48,10 +50,14 @@ describe("storybook scene planning", () => {
       },
     });
 
-    expect(brief).toContain("Movie-frame story scene");
-    expect(brief).toContain("Story objects that must be visible");
-    expect(brief).toContain("Composition:");
-    expect(brief).toContain("leave clean breathing room for printed story text");
-    expect(brief).not.toContain("close-up portrait only");
+    expect(brief).toContain("=== SCENE-FIRST STORY ILLUSTRATION ===");
+    expect(brief).toContain("CINEMATIC ENVIRONMENT:");
+    expect(brief).toContain("Storytelling objects that must read clearly in-frame");
+    expect(brief).toContain("COMPOSITION & FRAMING:");
+    expect(brief).toContain("Shot design:");
+    expect(brief).toContain("Camera angle:");
+    expect(brief).toContain("share the storytelling load");
+    expect(brief).toContain("DON'T shrink the world");
+    expect(brief).toContain("NOT centered portrait");
   });
 });

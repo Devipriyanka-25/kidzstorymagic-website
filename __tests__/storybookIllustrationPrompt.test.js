@@ -16,11 +16,33 @@ describe('storybook illustration prompt', () => {
     );
 
     expect(prompt).toContain('2D illustrated');
-    expect(prompt).toContain('IDENTITY REFERENCE ONLY');
+    expect(prompt).toContain('IDENTITY REFERENCE RULE');
+    expect(prompt).toContain('identity guidance only');
     expect(prompt).toContain('redesign the outfit');
-    expect(prompt).toContain('no readable text');
+    expect(prompt).toContain('Use no readable text');
     expect(prompt).toContain('not photorealistic');
-    expect(prompt).toContain('not a realistic jungle photo');
+    expect(prompt).toContain('SCENE BALANCE RULE');
+    expect(prompt).toContain('WORLD SCALE RULE');
+    expect(prompt).toContain('not a face swap');
     expect(prompt).not.toContain('semi-realistic');
+  });
+
+  it('preserves a prebuilt scene-first brief instead of wrapping it again as plain text', () => {
+    const sceneBrief = [
+      '=== SCENE-FIRST STORY ILLUSTRATION ===',
+      'CINEMATIC ENVIRONMENT: a glowing garage entrance with giant glass doors and friendly trucks nearby.',
+      'COMPOSITION & FRAMING: medium-wide cinematic storytelling shot with the child naturally integrated.',
+    ].join('\n');
+
+    const prompt = buildStorybookPrompt(
+      sceneBrief,
+      DEFAULT_STORYBOOK_NEGATIVE_PROMPT
+    );
+
+    expect(prompt).toContain('SCENE BLUEPRINT: === SCENE-FIRST STORY ILLUSTRATION ===');
+    expect(prompt.match(/=== SCENE-FIRST STORY ILLUSTRATION ===/g)).toHaveLength(1);
+    expect(prompt).toContain('SCENE BALANCE RULE');
+    expect(prompt).toContain('READABILITY RULE');
+    expect(prompt).toContain('world and action should carry at least half of the visual storytelling weight');
   });
 });

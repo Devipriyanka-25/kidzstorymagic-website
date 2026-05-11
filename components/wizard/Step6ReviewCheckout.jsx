@@ -24,6 +24,14 @@ import {
   shouldPreferStoryPreview,
 } from '@/utils/storyPreviewSync';
 import {
+  buildTemporaryIllustrationGenerationState,
+  DEFAULT_TEMPORARY_ILLUSTRATION_RETRY_MS,
+  findNextIllustrationGenerationPageIndex,
+  getNextIllustrationRetryDelay,
+  isTemporaryIllustrationGenerationState,
+  TEMPORARY_ILLUSTRATION_STATUS,
+} from '@/utils/illustrationGenerationState';
+import {
   COUNTRY_CURRENCY_OPTIONS,
   CURRENCY_SYMBOLS,
   getConvertedStoryPrice,
@@ -40,8 +48,10 @@ const PREVIEW_FIRST_PAGE_TIMEOUT_MS = 90000;
 const PREVIEW_RESTORE_TIMEOUT_MS = 30000;
 const MAX_POLL_RETRIES = 8;
 const FREE_PREVIEW_PAGE_LIMIT = 3;
+const TEMPORARY_ILLUSTRATION_RETRY_MS =
+  DEFAULT_TEMPORARY_ILLUSTRATION_RETRY_MS;
 const TEMPORARY_ILLUSTRATION_STATUS_MESSAGE =
-  'We opened this page with a vibrant temporary scene while the final illustration is refreshed later.';
+  'We are still regenerating the final child-based illustration for this page.';
 const PREVIEW_EMAIL_WAIT_MESSAGE =
   'Your story is still being created. Please wait until generation is complete before sending it to your email.';
 const PREVIEW_QUOTES = [
@@ -69,20 +79,30 @@ const buildInitialPageGenerationStates = (
   pages.reduce((states, page, index) => {
     const savedImageUrl = getSavedPageImageUrl(page);
     const hasCompletedIllustration = hasCompletedPageIllustration(page);
+    const hasTemporaryIllustration =
+      savedImageUrl && isTemporaryPreviewIllustrationUrl(savedImageUrl);
     states[index] = {
       status:
         !shouldGateIllustrations ||
         !isIllustratedStoryPage(page) ||
         hasCompletedIllustration
           ? 'ready'
-          : 'idle',
+          : hasTemporaryIllustration
+            ? TEMPORARY_ILLUSTRATION_STATUS
+            : 'idle',
       message:
         shouldGateIllustrations &&
         isIllustratedStoryPage(page) &&
         savedImageUrl &&
         !hasCompletedIllustration
-          ? 'Refreshing a temporary preview scene with the finished illustration.'
+          ? 'Refreshing the saved page with the final illustrated artwork.'
           : '',
+      retryAt:
+        shouldGateIllustrations &&
+        isIllustratedStoryPage(page) &&
+        hasTemporaryIllustration
+          ? Date.now()
+          : null,
     };
     return states;
   }, {});
@@ -193,137 +213,8 @@ function getRetryDelayFromPayload(payload, fallbackMs = PREVIEW_POLL_INTERVAL_MS
   return fallbackMs;
 }
 
-function escapePreviewSvgText(value) {
-  return String(value || '')
-    .replace(/&/g, '&amp;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&apos;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;');
-}
-
-function isEmbeddablePreviewImage(value) {
-  return /^(blob:|data:image\/|https?:\/\/)/i.test(String(value || '').trim());
-}
-
-function wrapPreviewLines(value, maxLength = 26, maxLines = 3) {
-  const words = String(value || '').trim().split(/\s+/).filter(Boolean);
-  const lines = [];
-  let currentLine = '';
-
-  words.forEach((word) => {
-    if (lines.length >= maxLines) {
-      return;
-    }
-
-    const nextLine = currentLine ? `${currentLine} ${word}` : word;
-    if (nextLine.length <= maxLength) {
-      currentLine = nextLine;
-      return;
-    }
-
-    if (currentLine) {
-      lines.push(currentLine);
-    }
-
-    currentLine = word;
-  });
-
-  if (currentLine && lines.length < maxLines) {
-    lines.push(currentLine);
-  }
-
-  return lines.length > 0 ? lines : ['A magical storybook scene'];
-}
-
-function createTimedFallbackIllustration({
-  prompt,
-  bookThemeValue,
-  subjectImage,
-}) {
-  const theme = getTheme(bookThemeValue || 'fantasy');
-  const promptLines = wrapPreviewLines(
-    String(prompt || '')
-      .replace(/\s+/g, ' ')
-      .trim()
-      .slice(0, 92),
-    28,
-    3
-  );
-  const promptLineMarkup = promptLines
-    .map(
-      (line, index) => `
-        <text x="88" y="${946 + index * 44}" fill="#fffdf7" font-family="Verdana, Arial, sans-serif" font-size="30" font-weight="700">
-          ${escapePreviewSvgText(line)}
-        </text>`
-    )
-    .join('');
-  const svg = `
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1100 1400" role="img" aria-label="Storybook preview illustration">
-      <defs>
-        <linearGradient id="sky" x1="0%" x2="100%" y1="0%" y2="100%">
-          <stop offset="0%" stop-color="${theme.primary}" />
-          <stop offset="48%" stop-color="${theme.accentColor}" />
-          <stop offset="100%" stop-color="${theme.secondary}" />
-        </linearGradient>
-        <linearGradient id="sunGlow" x1="0%" x2="0%" y1="0%" y2="100%">
-          <stop offset="0%" stop-color="#fff7cc" stop-opacity="0.82" />
-          <stop offset="100%" stop-color="#ffffff" stop-opacity="0" />
-        </linearGradient>
-        <linearGradient id="groundA" x1="0%" x2="100%" y1="0%" y2="0%">
-          <stop offset="0%" stop-color="${theme.secondary}" stop-opacity="0.88" />
-          <stop offset="100%" stop-color="${theme.accentColor}" stop-opacity="0.62" />
-        </linearGradient>
-        <linearGradient id="groundB" x1="0%" x2="100%" y1="0%" y2="0%">
-          <stop offset="0%" stop-color="${theme.primary}" stop-opacity="0.52" />
-          <stop offset="100%" stop-color="${theme.dark}" stop-opacity="0.42" />
-        </linearGradient>
-      </defs>
-
-      <rect width="1100" height="1400" fill="#fff7ed" />
-      <rect x="52" y="52" width="996" height="1296" rx="44" fill="#fffaf4" />
-      <rect x="82" y="82" width="936" height="886" rx="38" fill="url(#sky)" />
-      <circle cx="238" cy="222" r="152" fill="url(#sunGlow)" />
-      <ellipse cx="794" cy="188" rx="188" ry="88" fill="#ffffff" fill-opacity="0.18" />
-      <ellipse cx="282" cy="188" rx="170" ry="82" fill="#ffffff" fill-opacity="0.12" />
-      <circle cx="814" cy="256" r="24" fill="#ffffff" fill-opacity="0.22" />
-      <circle cx="754" cy="302" r="16" fill="#ffffff" fill-opacity="0.16" />
-      <circle cx="338" cy="314" r="18" fill="#ffffff" fill-opacity="0.18" />
-      <path d="M82 714 C228 612, 360 620, 504 712 S782 834, 1018 716 L1018 968 L82 968 Z" fill="url(#groundA)" />
-      <path d="M82 782 C270 666, 418 690, 604 790 S844 886, 1018 780 L1018 968 L82 968 Z" fill="url(#groundB)" />
-      <path d="M82 850 C254 742, 440 760, 632 850 S846 926, 1018 846 L1018 968 L82 968 Z" fill="${theme.dark}" fill-opacity="0.22" />
-      <path d="M284 684 C338 594, 444 588, 514 658 C552 702, 566 756, 544 818 C520 868, 470 894, 410 900 C348 894, 304 870, 274 822 C248 780, 244 730, 284 684 Z" fill="#fff7ed" fill-opacity="0.24" />
-      <path d="M360 676 C400 646, 454 648, 486 688" fill="none" stroke="#ffffff" stroke-opacity="0.42" stroke-width="10" stroke-linecap="round" />
-      <rect x="128" y="126" width="250" height="56" rx="28" fill="#fff7ed" fill-opacity="0.94" />
-      <text x="160" y="162" fill="#c2410c" font-family="Verdana, Arial, sans-serif" font-size="24" font-weight="700" letter-spacing="6">
-        STORYBOOK SCENE
-      </text>
-      <text x="126" y="612" fill="#ffffff" font-family="Verdana, Arial, sans-serif" font-size="84" font-weight="700">
-        Colorful Preview
-      </text>
-      <text x="126" y="690" fill="#fff7ed" font-family="Verdana, Arial, sans-serif" font-size="42" font-weight="700">
-        Your page opened while the full illustration finishes
-      </text>
-      <text x="126" y="746" fill="#ffedd5" font-family="Verdana, Arial, sans-serif" font-size="28">
-        We keep the story moving with a brighter temporary scene card.
-      </text>
-
-      <rect x="82" y="892" width="936" height="82" rx="26" fill="#ffffff" fill-opacity="0.14" />
-      <text x="126" y="944" fill="#fffdf7" font-family="Verdana, Arial, sans-serif" font-size="28" font-weight="700">
-        Vivid palette + premium storybook energy stay active while page art finishes.
-      </text>
-      <rect x="82" y="1002" width="936" height="272" rx="34" fill="${theme.dark}" fill-opacity="0.86" />
-      <text x="110" y="1050" fill="#fde68a" font-family="Verdana, Arial, sans-serif" font-size="22" font-weight="700" letter-spacing="4">
-        STORY MOMENT
-      </text>
-      ${promptLineMarkup}
-      <text x="110" y="1226" fill="#ffedd5" fill-opacity="0.94" font-family="Verdana, Arial, sans-serif" font-size="24">
-        This page will swap to the finished illustration as soon as it is ready.
-      </text>
-    </svg>
-  `;
-
-  return `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`;
+function getRenderablePreviewIllustrationUrl(page) {
+  return hasCompletedPageIllustration(page) ? getSavedPageImageUrl(page) : null;
 }
 
 async function cancelStoryPageIllustration(predictionId, signal) {
@@ -355,12 +246,7 @@ async function pollStoryPageIllustration(
   predictionId,
   signal,
   onPending,
-  {
-    fallbackPrompt,
-    bookThemeValue,
-    subjectImage,
-    timeoutMs = PREVIEW_FIRST_PAGE_TIMEOUT_MS,
-  } = {}
+  { timeoutMs = PREVIEW_FIRST_PAGE_TIMEOUT_MS } = {}
 ) {
   const startedAt = Date.now();
   let consecutiveRateLimitErrors = 0;
@@ -373,19 +259,11 @@ async function pollStoryPageIllustration(
     }
 
     const elapsedMs = Date.now() - startedAt;
-    if (elapsedMs >= timeoutMs && fallbackPrompt) {
+    if (elapsedMs >= timeoutMs) {
       await cancelStoryPageIllustration(predictionId, signal);
-      console.log('[POLL_ILLUSTRATION_TIMEOUT]', {
-        predictionId,
-        elapsedMs,
-        timeoutMs,
-        attempts: attempt,
-      });
-      return createTimedFallbackIllustration({
-        prompt: fallbackPrompt,
-        bookThemeValue,
-        subjectImage,
-      });
+      throw new Error(
+        'Illustration generation is taking longer than expected. We are retrying this page now.'
+      );
     }
 
     try {
@@ -400,20 +278,6 @@ async function pollStoryPageIllustration(
       const payload = await readIllustrationApiPayload(response);
 
       if (!response.ok) {
-        // If it's a fallback response due to billing error, use the fallback image
-        if (
-          response.status === 200 &&
-          payload?.status === 'fallback' &&
-          typeof payload?.imageUrl === 'string' &&
-          payload.imageUrl
-        ) {
-          console.log('[POLL_ILLUSTRATION_FALLBACK]', {
-            predictionId,
-            reason: payload.warning,
-          });
-          return payload.imageUrl;
-        }
-
         // Check for rate limiting (429)
         if (response.status === 429) {
           consecutiveRateLimitErrors += 1;
@@ -487,39 +351,9 @@ async function pollStoryPageIllustration(
         continue;
       }
 
-      // Otherwise use fallback if available
-      if (fallbackPrompt) {
-        await cancelStoryPageIllustration(predictionId, signal);
-        console.log('[POLL_ILLUSTRATION_ERROR_FALLBACK]', {
-          predictionId,
-          elapsedMs,
-          timeoutMs,
-          attempts: attempt,
-        });
-        return createTimedFallbackIllustration({
-          prompt: fallbackPrompt,
-          bookThemeValue,
-          subjectImage,
-        });
-      }
-
-      // No fallback available, re-throw the error
+      await cancelStoryPageIllustration(predictionId, signal);
       throw pollError;
     }
-  }
-
-  // Max retries exceeded
-  if (fallbackPrompt) {
-    await cancelStoryPageIllustration(predictionId, signal);
-    console.log('[POLL_ILLUSTRATION_MAX_RETRIES]', {
-      predictionId,
-      maxRetries: MAX_POLL_RETRIES,
-    });
-    return createTimedFallbackIllustration({
-      prompt: fallbackPrompt,
-      bookThemeValue,
-      subjectImage,
-    });
   }
 
   throw new Error(`Failed to generate illustration after ${MAX_POLL_RETRIES} attempts. Please try again.`);
@@ -528,7 +362,6 @@ async function createStoryPageIllustration({
   prompt,
   subjectImage,
   referenceImages,
-  bookThemeValue,
   signal,
   onPending,
   onFaceSwapRequested,
@@ -599,12 +432,7 @@ async function createStoryPageIllustration({
         payload.predictionId,
         signal,
         onPending,
-        {
-          fallbackPrompt: prompt,
-          bookThemeValue,
-          subjectImage: preparedSubjectImage,
-          timeoutMs,
-        }
+        { timeoutMs }
       );
 
       if (!isTemporaryPreviewIllustrationUrl(generatedIllustrationUrl)) {
@@ -1165,7 +993,8 @@ export default function Step6ReviewCheckout() {
 
       if (
         previousState.status === mergedState.status &&
-        previousState.message === mergedState.message
+        previousState.message === mergedState.message &&
+        previousState.retryAt === mergedState.retryAt
       ) {
         return currentStates;
       }
@@ -1399,7 +1228,7 @@ export default function Step6ReviewCheckout() {
     }
 
     return (
-      Boolean(getSavedPageImageUrl(page)) ||
+      hasCompletedPageIllustration(page) ||
       pageGenerationStates[pageIndex]?.status === 'ready'
     );
   };
@@ -1440,6 +1269,9 @@ export default function Step6ReviewCheckout() {
     : null;
   const currentPageRequiresIllustration =
     shouldGateIllustrations && isIllustratedStoryPage(currentPageData);
+  const currentPageHasTemporaryIllustration =
+    currentPageRequiresIllustration &&
+    isTemporaryIllustrationGenerationState(currentPageState);
   const isPreparingInitialPreview =
     Array.isArray(storyPreview) &&
     shouldGateIllustrations &&
@@ -1519,6 +1351,21 @@ export default function Step6ReviewCheckout() {
     firstIllustratedPageReady,
     shouldShowStoryPreview,
   ]);
+
+  useEffect(() => {
+    const retryDelayMs = getNextIllustrationRetryDelay(pageGenerationStates);
+    if (!Number.isFinite(retryDelayMs) || retryDelayMs <= 0) {
+      return undefined;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      setGenerationQueueVersion((currentVersion) => currentVersion + 1);
+    }, retryDelayMs + 50);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
+  }, [pageGenerationStates]);
   const supportMailtoLink = useMemo(() => {
     const body = [
       'Hi Kidz Story Magic team,',
@@ -1667,12 +1514,7 @@ export default function Step6ReviewCheckout() {
   const handleIllustrationReady = (
     pageIndex,
     imageUrl,
-    {
-      status = isTemporaryPreviewIllustrationUrl(imageUrl) ? 'error' : 'ready',
-      message = isTemporaryPreviewIllustrationUrl(imageUrl)
-        ? TEMPORARY_ILLUSTRATION_STATUS_MESSAGE
-        : '',
-    } = {}
+    nextState = null
   ) => {
     setStoryPreview((currentPages) => {
       if (!Array.isArray(currentPages)) {
@@ -1697,10 +1539,22 @@ export default function Step6ReviewCheckout() {
       return nextPages;
     });
 
-    updatePageGenerationState(pageIndex, {
-      status,
-      message,
-    });
+    updatePageGenerationState(
+      pageIndex,
+      nextState ||
+        (isTemporaryPreviewIllustrationUrl(imageUrl)
+          ? buildTemporaryIllustrationGenerationState(
+              TEMPORARY_ILLUSTRATION_STATUS_MESSAGE,
+              {
+                retryAfterMs: TEMPORARY_ILLUSTRATION_RETRY_MS,
+              }
+            )
+          : {
+              status: 'ready',
+              message: '',
+              retryAt: null,
+            })
+    );
   };
 
   const handleIllustrationStateChange = (pageIndex, nextState) => {
@@ -1708,27 +1562,14 @@ export default function Step6ReviewCheckout() {
   };
 
   const getNextPendingIllustrationPageIndex = () => {
-    if (!Array.isArray(storyPreview)) {
-      return -1;
-    }
-
-    for (let index = 0; index < storyPreview.length; index += 1) {
-      const page = storyPreview[index];
-      if (
-        !isIllustratedStoryPage(page) ||
-        hasCompletedPageIllustration(page)
-      ) {
-        continue;
+    return findNextIllustrationGenerationPageIndex(
+      storyPreview,
+      pageGenerationStates,
+      {
+        isIllustratedStoryPage,
+        hasCompletedPageIllustration,
       }
-
-      if (pageGenerationStates[index]?.status === 'error') {
-        continue;
-      }
-
-      return index;
-    }
-
-    return -1;
+    );
   };
 
   const handleGenerateStory = async (
@@ -1974,7 +1815,7 @@ export default function Step6ReviewCheckout() {
           `Creating ${formData.childName || 'your child'}'s book preview`
         );
         setPreviewPrepDetail(
-          'Painting the first page now. If artwork takes too long, we will open the preview with your child photo first so you can keep going.'
+          'Painting the first page now. We will wait for the real illustrated page before opening the preview.'
         );
       }
     }
@@ -2009,7 +1850,6 @@ export default function Step6ReviewCheckout() {
       prompt,
       subjectImage: storySubjectImage,
       referenceImages: storyReferenceImages,
-      bookThemeValue: formData.theme,
       signal: controller.signal,
       timeoutMs: PREVIEW_FIRST_PAGE_TIMEOUT_MS,
       onFaceSwapRequested: ({ faceImageUrl, illustrationImageUrl }) => {
@@ -2069,12 +1909,7 @@ export default function Step6ReviewCheckout() {
 
         if (nextPageIndex === firstIllustratedPageIndex) {
           setPreviewPrepProgress(100);
-          setPreviewPrepDetail(
-            imageUrl === storySubjectImage ||
-            imageUrl.startsWith('data:image/svg+xml')
-              ? 'Your preview is ready with a temporary personalized image so you can keep reading while the AI artwork continues later.'
-              : 'Your preview is ready.'
-          );
+          setPreviewPrepDetail('Your preview is ready.');
         }
       })
       .catch((generationError) => {
@@ -2093,26 +1928,23 @@ export default function Step6ReviewCheckout() {
           generationError instanceof Error
             ? generationError.message
             : 'Illustration generation failed for this page.';
-        const fallbackImageUrl = createTimedFallbackIllustration({
-          prompt,
-          bookThemeValue: formData.theme,
-          subjectImage: storySubjectImage,
-        });
-
         console.error('[ILLUSTRATION_GENERATION_ERROR]', {
           pageIndex: nextPageIndex,
           message,
         });
 
-        handleIllustrationReady(nextPageIndex, fallbackImageUrl, {
-          status: 'error',
-          message: TEMPORARY_ILLUSTRATION_STATUS_MESSAGE,
+        updatePageGenerationState(nextPageIndex, {
+          ...buildTemporaryIllustrationGenerationState(
+            message || TEMPORARY_ILLUSTRATION_STATUS_MESSAGE,
+            {
+              retryAfterMs: TEMPORARY_ILLUSTRATION_RETRY_MS,
+            }
+          ),
         });
 
         if (nextPageIndex === firstIllustratedPageIndex) {
-          setPreviewPrepProgress(100);
           setPreviewPrepDetail(
-            'The first page opened with a bright temporary scene so you can keep previewing while we continue improving the artwork.'
+            'The first page is still being illustrated from your uploaded child photo. We are retrying automatically.'
           );
         }
       })
@@ -2695,16 +2527,15 @@ export default function Step6ReviewCheckout() {
                     </div>
                   ) : (
                     <>
-                      {storyPreview[index].illustrationUrl || storyPreview[index].faceSwappedUrl ? (
+                      {getRenderablePreviewIllustrationUrl(storyPreview[index]) ? (
                         <img
-                          src={storyPreview[index].illustrationUrl || storyPreview[index].faceSwappedUrl}
+                          src={getRenderablePreviewIllustrationUrl(storyPreview[index])}
                           alt={`Page ${index + 1}`}
                           className="h-full w-full object-cover"
                           onError={() => {
                             handleIllustrationLoadError(
                               index,
-                              storyPreview[index].illustrationUrl ||
-                                storyPreview[index].faceSwappedUrl
+                              getRenderablePreviewIllustrationUrl(storyPreview[index])
                             );
                           }}
                         />
@@ -2762,6 +2593,19 @@ export default function Step6ReviewCheckout() {
                     </p>
                   </div>
                 )}
+
+                {currentPageHasTemporaryIllustration &&
+                  isTemporaryIllustrationGenerationState(currentPageState) && (
+                    <div className="mt-4 max-w-2xl rounded-2xl border border-sky-300 bg-sky-50 px-5 py-4 text-center text-sky-950">
+                      <p className="font-semibold">
+                        Page {currentPage + 1} is still waiting for its final illustration.
+                      </p>
+                      <p className="mt-1 text-sm text-sky-900">
+                        {currentPageState?.message ||
+                          'We are automatically retrying the child-based illustration in the background.'}
+                      </p>
+                    </div>
+                  )}
 
                 <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
                   <button
@@ -2839,17 +2683,16 @@ export default function Step6ReviewCheckout() {
                             >
                               E
                             </div>
-                          ) : storyPreview[index].illustrationUrl || storyPreview[index].faceSwappedUrl ? (
+                          ) : getRenderablePreviewIllustrationUrl(storyPreview[index]) ? (
                             <div className="relative h-full w-full">
                               <img
-                                src={storyPreview[index].illustrationUrl || storyPreview[index].faceSwappedUrl}
+                                src={getRenderablePreviewIllustrationUrl(storyPreview[index])}
                                 alt={`Page ${index + 1}`}
                                 className="h-full w-full object-cover"
                                 onError={() => {
                                   handleIllustrationLoadError(
                                     index,
-                                    storyPreview[index].illustrationUrl ||
-                                      storyPreview[index].faceSwappedUrl
+                                    getRenderablePreviewIllustrationUrl(storyPreview[index])
                                   );
                                 }}
                               />

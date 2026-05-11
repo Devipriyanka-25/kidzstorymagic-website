@@ -5,7 +5,6 @@ import {
   getReplicateRetryAfter,
   getReplicateErrorMessage,
   getStoryPageIllustrationPredictionStatus,
-  createFallbackStoryPageIllustration,
   isReplicateBillingError,
   isReplicateRateLimitError,
 } from "@/lib/replicate/storyIllustrations";
@@ -25,20 +24,6 @@ export async function GET(
     return NextResponse.json(
       { error: "predictionId is required." },
       { status: 400 }
-    );
-  }
-
-  // Handle fallback predictions
-  if (predictionId === "fallback-placeholder") {
-    return NextResponse.json(
-      {
-        success: true,
-        pending: false,
-        imageUrl: "", // Placeholder - client should handle this
-        status: "fallback",
-        predictionId: "fallback-placeholder",
-      },
-      { status: 200 }
     );
   }
 
@@ -83,24 +68,14 @@ export async function GET(
       isBillingError: isReplicateBillingError(error),
     });
 
-    // If it's a billing error, return a fallback illustration
     if (isReplicateBillingError(error)) {
-      const fallback = createFallbackStoryPageIllustration({
-        prompt: "Illustration preview placeholder",
-        subjectImage: "",
-      });
-
       return NextResponse.json(
         {
-          success: true,
-          pending: false,
-          imageUrl: fallback.imageUrl,
-          status: "fallback",
-          predictionId: "fallback",
-          warning:
-            "Replicate service billing limit reached. Showing a preview placeholder instead.",
+          error:
+            "Illustration generation is temporarily unavailable. Please retry in a moment.",
+          details: message,
         },
-        { status: 200 }
+        { status: 503 }
       );
     }
 

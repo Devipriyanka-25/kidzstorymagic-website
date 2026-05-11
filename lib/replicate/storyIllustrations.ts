@@ -5,7 +5,7 @@ import {
 import { buildStorySceneBrief } from "@/lib/storybook/scenePlanning";
 import type { Prediction } from "replicate";
 
-const DEFAULT_STORYBOOK_MODEL = "black-forest-labs/flux-kontext-pro";
+const DEFAULT_STORYBOOK_MODEL = "black-forest-labs/flux-kontext-max";
 const INITIAL_REPLICATE_WAIT_SECONDS = 3;
 const DEFAULT_STORYBOOK_ASPECT_RATIO =
   process.env.REPLICATE_STORYBOOK_ASPECT_RATIO?.trim() || "4:3";
@@ -70,126 +70,6 @@ export type StoryPageGenerationState =
     })
   | StoryPageGenerationPendingResult;
 
-function escapeXml(value: string): string {
-  return value
-    .replace(/&/g, "&amp;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&apos;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;");
-}
-
-function wrapPreviewText(value: string, maxLineLength = 24): string[] {
-  const words = value.trim().split(/\s+/).filter(Boolean);
-
-  if (words.length === 0) {
-    return ["A magical storybook scene"];
-  }
-
-  const lines: string[] = [];
-  let currentLine = "";
-
-  for (const word of words) {
-    const nextLine = currentLine ? `${currentLine} ${word}` : word;
-
-    if (nextLine.length <= maxLineLength) {
-      currentLine = nextLine;
-      continue;
-    }
-
-    if (currentLine) {
-      lines.push(currentLine);
-    }
-
-    currentLine = word;
-
-    if (lines.length === 3) {
-      break;
-    }
-  }
-
-  if (currentLine && lines.length < 3) {
-    lines.push(currentLine);
-  }
-
-  return lines.slice(0, 3);
-}
-
-function buildFallbackIllustrationSvg(
-  prompt: string
-): string {
-  const promptLines = wrapPreviewText(
-    prompt.replace(/\s+/g, " ").trim().slice(0, 90),
-    26
-  );
-  const lineMarkup = promptLines
-    .map(
-      (line, index) => `
-        <text x="96" y="${1056 + index * 54}" fill="#fff7ed" font-family="Verdana, Arial, sans-serif" font-size="34" font-weight="700">
-          ${escapeXml(line)}
-        </text>`
-    )
-    .join("");
-
-  return `
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1100 1400" role="img" aria-label="Storybook illustration preview">
-      <defs>
-        <linearGradient id="sky" x1="0%" x2="100%" y1="0%" y2="100%">
-          <stop offset="0%" stop-color="#60a5fa" />
-          <stop offset="42%" stop-color="#a855f7" />
-          <stop offset="100%" stop-color="#fb923c" />
-        </linearGradient>
-        <linearGradient id="sunset" x1="0%" x2="0%" y1="0%" y2="100%">
-          <stop offset="0%" stop-color="#fde68a" stop-opacity="0.75" />
-          <stop offset="100%" stop-color="#ffffff" stop-opacity="0" />
-        </linearGradient>
-        <linearGradient id="panel" x1="0%" x2="0%" y1="0%" y2="100%">
-          <stop offset="0%" stop-color="#111827" stop-opacity="0.08" />
-          <stop offset="100%" stop-color="#111827" stop-opacity="0.18" />
-        </linearGradient>
-      </defs>
-
-      <rect width="1100" height="1400" fill="#fff7ed" />
-      <rect x="54" y="52" width="992" height="1296" rx="42" fill="#fffaf5" />
-      <rect x="78" y="78" width="944" height="880" rx="36" fill="url(#sky)" />
-      <ellipse cx="260" cy="200" rx="180" ry="100" fill="#ffffff" fill-opacity="0.2" />
-      <ellipse cx="770" cy="172" rx="230" ry="112" fill="#ffffff" fill-opacity="0.12" />
-      <circle cx="282" cy="250" r="132" fill="url(#sunset)" />
-      <path d="M78 720 C210 610, 320 612, 448 720 S712 846, 1022 720 L1022 958 L78 958 Z" fill="#1d4ed8" fill-opacity="0.32" />
-      <path d="M78 760 C230 642, 360 664, 520 776 S812 864, 1022 744 L1022 958 L78 958 Z" fill="#0f766e" fill-opacity="0.34" />
-      <path d="M78 820 C260 698, 408 742, 578 828 S854 904, 1022 814 L1022 958 L78 958 Z" fill="#14532d" fill-opacity="0.42" />
-      <rect x="116" y="124" width="240" height="56" rx="28" fill="#fff7ed" fill-opacity="0.95" />
-      <text x="148" y="161" fill="#c2410c" font-family="Verdana, Arial, sans-serif" font-size="24" font-weight="700" letter-spacing="6">
-        STORYBOOK PREVIEW
-      </text>
-      <text x="120" y="612" fill="#ffffff" font-family="Verdana, Arial, sans-serif" font-size="86" font-weight="700">
-        Premium Scene
-      </text>
-      <text x="120" y="692" fill="#fff7ed" font-family="Verdana, Arial, sans-serif" font-size="40" font-weight="700">
-        Your child becomes the hero inside the world
-      </text>
-      <text x="120" y="752" fill="#ffedd5" font-family="Verdana, Arial, sans-serif" font-size="28">
-        We will swap in the finished AI illustration here as soon as it is ready.
-      </text>
-
-      <rect x="78" y="992" width="944" height="286" rx="34" fill="#7c2d12" />
-      <rect x="78" y="992" width="944" height="286" rx="34" fill="url(#panel)" />
-      <text x="96" y="1040" fill="#fde68a" font-family="Verdana, Arial, sans-serif" font-size="22" font-weight="700" letter-spacing="4">
-        SCENE PROMPT
-      </text>
-      ${lineMarkup}
-
-      <text x="96" y="1230" fill="#ffedd5" fill-opacity="0.95" font-family="Verdana, Arial, sans-serif" font-size="24">
-        Kidz Story Magic storybook preview
-      </text>
-    </svg>
-  `;
-}
-
-function buildSvgDataUrl(svg: string): string {
-  return `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`;
-}
-
 function extractErrorStatusCode(error: unknown): number | null {
   if (typeof error === "object" && error !== null) {
     const maybeError = error as {
@@ -252,6 +132,9 @@ function normalizeSceneBlueprint(prompt: string): string {
   }
 
   if (
+    normalizedPrompt.includes("=== SCENE-FIRST STORY ILLUSTRATION ===") ||
+    normalizedPrompt.includes("CINEMATIC ENVIRONMENT:") ||
+    normalizedPrompt.includes("COMPOSITION & FRAMING:") ||
     normalizedPrompt.includes("Movie-frame story scene") ||
     normalizedPrompt.includes("Exact story beat:")
   ) {
@@ -275,13 +158,17 @@ export function buildStorybookPrompt(
   return [
     "PRIMARY GOAL: The story scene is the primary focus. The finished image must read like a movie frame from the story, not like a child portrait with a random background.",
     "FORMAT: premium 2D illustrated children's storybook art with soft painterly rendering, cinematic storytelling, warm emotional lighting, volumetric glow, depth of field, expressive eyes, realistic child proportions, magical atmosphere, and detailed environments. It must be not photorealistic and never resemble a real photo.",
-    "SCENE-FIRST GENERATION: Build the complete environment first. The location, objects, action, emotional beat, time of day, lighting, and cinematic mood from the page must all be visible in the final image. The child should exist naturally inside the scene rather than replacing the scene.",
-    "IDENTITY REFERENCE ONLY: Use the uploaded child photo only to preserve identity and consistency. Keep the same hairstyle, face shape, eye shape, skin tone, and age appearance across all pages, but do not copy the photo's pose, framing, background, clothing, room, or lighting.",
-    "CHARACTER CONSISTENCY: Maintain the same recognizable child across the whole book while letting the pose, camera angle, facial expression, and body movement change to match each page's story action.",
+    "SCENE-FIRST GENERATION: Build the complete environment first. The location, objects, action, emotional beat, time of day, lighting, and cinematic mood from the page must all be visible in the final image. The child should be one of the primary storytelling anchors inside the scene, but the world and page action stay visually rich and essential.",
+    "IDENTITY REFERENCE RULE: Use the uploaded child photo as identity guidance only. Match hairstyle, face shape, eye shape, skin tone, and age appearance, but do not copy the original photo framing, room, clothing graphics, lighting, or pose.",
+    "CHARACTER CONSISTENCY: Keep the same recognizable child across the full book while letting the pose, camera angle, body movement, and facial emotion change to match the exact story beat of each page.",
     "WARDROBE RULE: redesign the outfit into a consistent premium storybook wardrobe family that feels natural for the book. Use no readable text, logos, or copied graphics from the original photo clothing.",
-    "COMPOSITION RULE: Fill most of the page with a cinematic story scene, create clear foreground/midground/background depth, and leave clean breathing room for printed story text. Avoid centered portrait-only framing, empty backdrops, sticker characters, passport poses, and headshot composition.",
-    "PHOTO SAFETY RULE: The output should look like painted story art, not photorealistic reference usage, not a realistic jungle photo, and not a studio portrait in any setting.",
-    "BODY AND STAGING: Use full-body or three-quarter-body storytelling poses with natural scale in the world. Never crop to a floating head, giant face, or close-up portrait unless the story explicitly requires it.",
+    "COMPOSITION RULE: Fill most of the page with a cinematic story scene. Create clear foreground, midground, and background depth, and leave clean breathing room for printed story text without shrinking the world into a plain backdrop.",
+    "SCENE BALANCE RULE: The illustrated child must be clearly recognizable and emotionally readable, but should not dominate the frame like a portrait, passport photo, sticker, or pasted face. The story world and action should carry at least half of the visual storytelling weight.",
+    "WORLD SCALE RULE: Keep the child at natural story scale inside the environment. Use medium-wide to wide cinematic framing with the child acting within the setting, not oversized as a giant face or floating close-up unless the story beat truly requires it.",
+    "CAMERA RULE: Prefer child-height or gently dynamic camera angles that help the viewer understand the page action and the surrounding world in one glance.",
+    "READABILITY RULE: if the text were hidden, a parent should immediately recognize their child as the protagonist experiencing the story events.",
+    "PHOTO SAFETY RULE: The output should look like painted story art, not photorealistic reference usage, not a realistic photo, not a face swap, and not a studio portrait. Transform the photo into beautiful illustrated storybook character art.",
+    "BODY AND STAGING: Prefer full-body or three-quarter-body storytelling poses appropriate to the page action. Use natural scale and positioning within the world. The child should be moving, interacting, exploring, or experiencing the story instead of posing for the camera.",
     `SCENE BLUEPRINT: ${normalizedScenePrompt}`,
     "QUALITY STANDARD: Deliver premium children's book illustration quality that feels immersive, emotionally connected, professionally illustrated, and rich enough that the story is understandable even without reading the text.",
     avoidanceInstruction,
@@ -516,20 +403,6 @@ export function getReplicateRetryAfter(error: unknown): number {
 
   // Default: exponential backoff starting at 2 seconds
   return 2000;
-}
-
-export function createFallbackStoryPageIllustration(
-  input: StoryPageGenerationInput
-): StoryPageGenerationResult {
-  const prompt = buildStorybookPrompt(input.prompt, input.negativePrompt);
-
-  return {
-    imageUrl: buildSvgDataUrl(buildFallbackIllustrationSvg(input.prompt)),
-    model: "storybook/demo-fallback",
-    predictionId: "fallback-placeholder",
-    prompt,
-    version: "fallback",
-  };
 }
 
 function extractPredictionPrompt(

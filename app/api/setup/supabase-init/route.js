@@ -10,9 +10,6 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 export const maxDuration = 30;
 
-const SUPABASE_URL = 'https://wwninqezevmxlvtjhruo.supabase.co';
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind3bmlucWV6ZXZteGx2dGpocnVvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY0NTI0MjUsImV4cCI6MjA5MjAyODQyNX0.sUJDiz980D3q-Lpt_R-ndJcojZD4dOZZr1nnB5d5IvA';
-
 // SQL statements to initialize database
 const SQL_STATEMENTS = [
   // Auth users table
@@ -121,6 +118,10 @@ const SQL_STATEMENTS = [
 
 export async function POST(request) {
   try {
+    if (process.env.NODE_ENV === 'production') {
+      return NextResponse.json({ error: 'Not found' }, { status: 404 });
+    }
+
     console.log('[SUPABASE_INIT] Starting database initialization...');
 
     const results = {
@@ -158,24 +159,37 @@ export async function POST(request) {
     results.initialized = results.errors.length === 0;
 
     // Test connection to Supabase
-    try {
-      console.log('[SUPABASE_INIT] Testing Supabase connectivity...');
-      const testResponse = await fetch(`${SUPABASE_URL}/rest/v1/`, {
-        headers: {
-          'apikey': SUPABASE_ANON_KEY,
-          'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
-        },
-      });
+    const supabaseUrl = String(process.env.NEXT_PUBLIC_SUPABASE_URL || '').trim();
+    const supabaseKey = String(
+      process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_ANON_KEY || ''
+    ).trim();
 
+    if (!supabaseUrl || !supabaseKey) {
       results.connectivity = {
-        status: testResponse.ok ? 'connected' : 'failed',
-        statusCode: testResponse.status,
+        status: 'missing_env',
+        error:
+          'NEXT_PUBLIC_SUPABASE_URL and a server-side Supabase key are required for connectivity checks.',
       };
-    } catch (error) {
-      results.connectivity = {
-        status: 'error',
-        error: error.message,
-      };
+    } else {
+      try {
+        console.log('[SUPABASE_INIT] Testing Supabase connectivity...');
+        const testResponse = await fetch(`${supabaseUrl}/rest/v1/`, {
+          headers: {
+            apikey: supabaseKey,
+            Authorization: `Bearer ${supabaseKey}`,
+          },
+        });
+
+        results.connectivity = {
+          status: testResponse.ok ? 'connected' : 'failed',
+          statusCode: testResponse.status,
+        };
+      } catch (error) {
+        results.connectivity = {
+          status: 'error',
+          error: error.message,
+        };
+      }
     }
 
     return NextResponse.json(

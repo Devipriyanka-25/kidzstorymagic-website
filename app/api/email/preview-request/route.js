@@ -1,10 +1,8 @@
 import { NextResponse } from 'next/server';
 import {
-  findAuthUserByEmail,
-  findAuthUserById,
-  isPersistentAuthAvailable,
   normalizeEmail,
 } from '../../shared/authUsers.js';
+import { resolveRequestUser } from '../../shared/requestAuth.js';
 import {
   getStoryProjectById,
   listStoryProjectPages,
@@ -17,8 +15,6 @@ import {
   getPreviewEmailSiteBaseUrl,
   sendPreviewReadyEmail,
 } from '../../../../lib/previewEmail.js';
-
-const jwt = require('jsonwebtoken');
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -42,53 +38,6 @@ function extractResendTestingAddress(message) {
 
 function isValidEmail(email) {
   return EMAIL_PATTERN.test(String(email || '').trim());
-}
-
-async function getAuthenticatedUser(request) {
-  const authHeader = request.headers.get('authorization');
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    return {
-      error: NextResponse.json({ error: 'Unauthorized' }, { status: 401 }),
-    };
-  }
-
-  const token = authHeader.substring(7);
-  const jwtSecret =
-    process.env.JWT_SECRET ||
-    'kidz-story-magic-jwt-secret-key-2024-production-secure-random-12345';
-
-  let decoded;
-  try {
-    decoded = jwt.verify(token, jwtSecret);
-  } catch (error) {
-    return {
-      error: NextResponse.json({ error: 'Unauthorized' }, { status: 401 }),
-    };
-  }
-
-  let user = null;
-  if (isPersistentAuthAvailable()) {
-    if (decoded.id !== undefined && decoded.id !== null) {
-      user = await findAuthUserById(decoded.id);
-    }
-
-    if (!user && decoded.email) {
-      user = await findAuthUserByEmail(normalizeEmail(decoded.email));
-    }
-  }
-
-  return {
-    decoded,
-    user:
-      user ||
-      (decoded?.id
-        ? {
-            id: decoded.id,
-            email: decoded.email || '',
-            name: decoded.name || decoded.email || '',
-          }
-        : null),
-  };
 }
 
 function buildPendingPreviewEmailRequest({
@@ -120,11 +69,12 @@ export async function POST(request) {
       );
     }
 
-    const { error, decoded, user } = await getAuthenticatedUser(request);
+    const { error, decoded, authUser } = await resolveRequestUser(request);
     if (error) {
       return error;
     }
 
+    const user = authUser;
     if (!user?.id) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }

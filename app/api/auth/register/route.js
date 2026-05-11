@@ -7,6 +7,7 @@ import {
   normalizeEmail,
 } from '../../shared/authUsers.js';
 import { buildClientAuthUser } from '../../shared/authRoles.js';
+import { getRequiredJwtSecret } from '../../shared/jwt.js';
 import { userStore } from '../../shared/userStore.js';
 
 const bcrypt = require('bcryptjs');
@@ -42,9 +43,18 @@ export async function POST(request) {
     }
 
     const normalizedEmail = normalizeEmail(email);
-    const jwtSecret =
-      process.env.JWT_SECRET ||
-      'kidz-story-magic-jwt-secret-key-2024-production-secure-random-12345';
+    let jwtSecret;
+    try {
+      jwtSecret = getRequiredJwtSecret();
+    } catch (error) {
+      return NextResponse.json(
+        {
+          error: 'Registration is temporarily unavailable.',
+          details: error.message,
+        },
+        { status: 503 }
+      );
+    }
     const passwordHash = await bcrypt.hash(password, 10);
 
     console.log('[REGISTER] Processing registration for:', normalizedEmail);

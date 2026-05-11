@@ -4,42 +4,20 @@
  */
 
 import { NextResponse } from 'next/server';
-import jwt from 'jsonwebtoken';
+import { resolveRequestUser } from '../../../shared/requestAuth.js';
 import { supabaseClient } from '../../../shared/supabaseClient.js';
 import {
   getStoryProjectById,
-  resolveAuthenticatedStoryUser,
 } from '../../../shared/storyProjects.js';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-function getJwtSecret() {
-  return (
-    process.env.JWT_SECRET ||
-    'kidz-story-magic-jwt-secret-key-2024-production-secure-random-12345'
-  );
-}
-
 export async function GET(request, { params }) {
   try {
-    const authHeader = request.headers.get('authorization');
-    const token = authHeader?.substring(7);
-
-    if (!token) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    let decoded;
-    try {
-      decoded = jwt.verify(token, getJwtSecret());
-    } catch (error) {
-      return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
-    }
-
-    const authUser = await resolveAuthenticatedStoryUser(decoded);
-    if (!authUser?.id) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const { error, authUser } = await resolveRequestUser(request);
+    if (error) {
+      return error;
     }
 
     const projectId = params?.id;

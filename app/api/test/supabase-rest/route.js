@@ -3,11 +3,22 @@ import { NextResponse } from 'next/server';
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-const SUPABASE_URL = 'https://wwninqezevmxlvtjhruo.supabase.co';
-const SUPABASE_ANON_KEY =
-  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind3bmlucWV6ZXZteGx2dGpocnVvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY0NTI0MjUsImV4cCI6MjA5MjAyODQyNX0.sUJDiz980D3q-Lpt_R-ndJcojZD4dOZZr1nnB5d5IvA';
+function getSiteOrigin(request) {
+  const configured = String(
+    process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_APP_URL || ''
+  ).trim();
+  if (configured) {
+    return configured.replace(/\/$/, '');
+  }
 
-export async function GET() {
+  return request.nextUrl?.origin || 'http://127.0.0.1:3000';
+}
+
+export async function GET(request) {
+  if (process.env.NODE_ENV === 'production') {
+    return NextResponse.json({ error: 'Not found' }, { status: 404 });
+  }
+
   const results = {
     timestamp: new Date().toISOString(),
     status: 'TESTING',
@@ -17,24 +28,38 @@ export async function GET() {
   };
 
   try {
-    try {
-      const testResponse = await fetch(`${SUPABASE_URL}/rest/v1/auth_users?limit=1`, {
-        headers: {
-          apikey: SUPABASE_ANON_KEY,
-          Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
-        },
-      });
+    const supabaseUrl = String(process.env.NEXT_PUBLIC_SUPABASE_URL || '').trim();
+    const supabaseKey = String(
+      process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_ANON_KEY || ''
+    ).trim();
+    const siteOrigin = getSiteOrigin(request);
 
-      if (testResponse.ok) {
+    try {
+      if (!supabaseUrl || !supabaseKey) {
         results.supabaseConnection = {
-          status: 'CONNECTED',
-          message: 'Successfully connected to Supabase REST API.',
+          status: 'MISSING_ENV',
+          message:
+            'NEXT_PUBLIC_SUPABASE_URL and a server-side Supabase key are required.',
         };
       } else {
-        results.supabaseConnection = {
-          status: 'FAILED',
-          message: `Status ${testResponse.status}: ${testResponse.statusText}`,
-        };
+        const testResponse = await fetch(`${supabaseUrl}/rest/v1/users?limit=1`, {
+          headers: {
+            apikey: supabaseKey,
+            Authorization: `Bearer ${supabaseKey}`,
+          },
+        });
+
+        if (testResponse.ok) {
+          results.supabaseConnection = {
+            status: 'CONNECTED',
+            message: 'Successfully connected to Supabase REST API.',
+          };
+        } else {
+          results.supabaseConnection = {
+            status: 'FAILED',
+            message: `Status ${testResponse.status}: ${testResponse.statusText}`,
+          };
+        }
       }
     } catch (error) {
       results.supabaseConnection = {
@@ -45,7 +70,7 @@ export async function GET() {
 
     try {
       const signupResponse = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL || 'https://www.kidzstorymagic.org'}/api/auth/register-rest-live`,
+        `${siteOrigin}/api/auth/register-rest-live`,
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -83,7 +108,7 @@ export async function GET() {
 
     try {
       const loginResponse = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL || 'https://www.kidzstorymagic.org'}/api/auth/login-rest-live`,
+        `${siteOrigin}/api/auth/login-rest-live`,
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },

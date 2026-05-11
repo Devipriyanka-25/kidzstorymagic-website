@@ -1,16 +1,28 @@
 /**
  * Payment Checkout Endpoint
  * POST /api/payment/checkout
- * Creates a Stripe checkout session or mock session for payment
+ * Creates a Stripe checkout session for payment
  */
 
 import { NextResponse } from 'next/server';
-import { getConvertedStoryPrice, normalizeStoryPageCount } from '@/utils/pricing';
-const jwt = require('jsonwebtoken');
+import {
+  getConvertedStoryPrice,
+  normalizeStoryPageCount,
+} from '@/utils/pricing';
+import { resolveRequestUser } from '../../shared/requestAuth.js';
+import {
+  getStoryProjectById,
+  updateStoryProjectRecord,
+} from '../../shared/storyProjects.js';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
+
+const ACTIVE_CHECKOUT_WINDOW_MS = 30 * 60 * 1000;
+const ALLOW_MOCK_CHECKOUT =
+  process.env.NODE_ENV !== 'production' &&
+  process.env.ALLOW_MOCK_STRIPE_CHECKOUT === 'true';
 
 const STRIPE_ALLOWED_SHIPPING_COUNTRIES = [
   'US',
@@ -88,50 +100,108 @@ function isIndiaCheckout(country, currency) {
   );
 }
 
+function readCheckoutSessionState(project) {
+  const checkoutSession = project?.photo_metadata?.checkoutSession;
+  return checkoutSession && typeof checkoutSession === 'object'
+    ? checkoutSession
+    : null;
+}
+
+function buildCheckoutSessionMetadata(project, checkoutSession) {
+  return {
+    ...(project?.photo_metadata || {}),
+    checkoutSession,
+  };
+}
+
+function isReusableCheckoutSession(checkoutSession, { currency, country, pageCount }) {
+  if (!checkoutSession?.sessionId) {
+    return false;
+  }
+
+  const expiresAtMs = new Date(checkoutSession.expiresAt || 0).getTime();
+  if (!Number.isFinite(expiresAtMs) || expiresAtMs <= Date.now()) {
+    return false;
+  }
+
+  return (
+    String(checkoutSession.currency || '').toUpperCase() ===
+      String(currency || '').toUpperCase() &&
+    String(checkoutSession.country || '') === String(country || '') &&
+    Number(checkoutSession.pageCount || 0) === Number(pageCount || 0) &&
+    checkoutSession.status !== 'completed'
+  );
+}
+
+function buildCheckoutResponse(
+  sessionState,
+  amount,
+  currency,
+  country,
+  pageCount,
+  { reused = false, isTestMode = false } = {}
+) {
+  return NextResponse.json(
+    {
+      success: true,
+      message: reused
+        ? 'Reusing existing checkout session.'
+        : isTestMode
+          ? 'Mock checkout session created for development.'
+          : 'Checkout session created successfully',
+      sessionId: sessionState.sessionId,
+      checkoutUrl: sessionState.checkoutUrl,
+      projectId: sessionState.projectId,
+      amount,
+      currency,
+      country,
+      pageCount,
+      isTestMode,
+      reused,
+    },
+    { status: 200 }
+  );
+}
+
+function buildMockCheckoutState({
+  amount,
+  appBaseUrl,
+  country,
+  currency,
+  pageCount,
+  projectId,
+}) {
+  const sessionId = `mock_session_${Date.now()}_${Math.random()
+    .toString(36)
+    .substring(7)}`;
+
+  return {
+    sessionId,
+    checkoutUrl: `${appBaseUrl}/success?session_id=${encodeURIComponent(
+      sessionId
+    )}&project_id=${encodeURIComponent(projectId)}`,
+    projectId,
+    currency,
+    country,
+    pageCount,
+    amount,
+    mode: 'mock',
+    status: 'pending',
+    createdAt: new Date().toISOString(),
+    expiresAt: new Date(Date.now() + ACTIVE_CHECKOUT_WINDOW_MS).toISOString(),
+  };
+}
+
 export async function POST(request) {
   try {
     const appBaseUrl = resolveAppBaseUrl(request);
-    // Verify authentication
     const authHeader = request.headers.get('authorization');
     console.log('[CHECKOUT] Auth header:', authHeader ? 'Present' : 'Missing');
-    
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      console.log('[CHECKOUT] Missing or invalid auth header format');
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
+
+    const { error, authUser } = await resolveRequestUser(request);
+    if (error) {
+      return error;
     }
-
-    const token = authHeader.substring(7);
-    const jwtSecret = process.env.JWT_SECRET || 'kidz-story-magic-jwt-secret-key-2024-production-secure-random-12345';
-
-    let decoded;
-    try {
-      decoded = jwt.verify(token, jwtSecret);
-      console.log('[CHECKOUT] Token verified for user:', decoded.id || decoded.email);
-    } catch (err) {
-      console.log('[CHECKOUT] Token verification failed:', err.message);
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
-    }
-
-    // Trust the JWT token directly - it has been cryptographically verified
-    if (!decoded?.id) {
-      return NextResponse.json(
-        { error: 'Invalid token: missing user ID' },
-        { status: 401 }
-      );
-    }
-
-    // Create an authUser object from the decoded JWT
-    const authUser = {
-      id: decoded.id,
-      email: decoded.email,
-      name: decoded.name || decoded.email,
-    };
 
     const body = await request.json();
     const {
@@ -158,7 +228,6 @@ export async function POST(request) {
       normalizedPageCount
     );
 
-    // Validate required fields
     if (!projectId) {
       return NextResponse.json(
         { error: 'Missing required field: projectId' },
@@ -166,13 +235,11 @@ export async function POST(request) {
       );
     }
 
-    if (isGift) {
-      if (!giftData?.recipientName || !giftData?.recipientEmail) {
-        return NextResponse.json(
-          { error: 'Gift recipient name and email are required.' },
-          { status: 400 }
-        );
-      }
+    if (isGift && (!giftData?.recipientName || !giftData?.recipientEmail)) {
+      return NextResponse.json(
+        { error: 'Gift recipient name and email are required.' },
+        { status: 400 }
+      );
     }
 
     const {
@@ -182,37 +249,133 @@ export async function POST(request) {
     } = getConvertedStoryPrice(normalizedPageCount, currency);
     const amount = Math.round(convertedPrice * 100);
 
-    // Check if Stripe is configured
-    const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
-    const isStripeConfigured = stripeSecretKey && !stripeSecretKey.includes('sk_test_your');
+    const project = await getStoryProjectById(authUser.id, projectId);
+    if (!project) {
+      return NextResponse.json(
+        { error: 'Story project not found' },
+        { status: 404 }
+      );
+    }
+
+    if (project.status === 'published' || project.isPaid || project.is_paid) {
+      return NextResponse.json(
+        { error: 'This story is already unlocked.' },
+        { status: 409 }
+      );
+    }
+
+    const stripeSecretKey = String(process.env.STRIPE_SECRET_KEY || '').trim();
+    const isStripeConfigured =
+      Boolean(stripeSecretKey) && !stripeSecretKey.includes('sk_test_your');
 
     console.log('[CHECKOUT] Stripe configured:', isStripeConfigured);
     console.log('[CHECKOUT] Amount:', amount, normalizedCurrency);
 
-    // If Stripe is not configured, create a mock session
-    if (!isStripeConfigured) {
-      console.log('[CHECKOUT] ⚠️ Stripe not configured, creating mock session');
-      
-      const mockSessionId = `mock_session_${Date.now()}_${Math.random().toString(36).substring(7)}`;
-      
-      return NextResponse.json(
-        {
-          success: true,
-          message: 'Mock checkout session created (Stripe not configured)',
-          sessionId: mockSessionId,
-          projectId: projectId,
-          amount: amount,
-          currency: normalizedCurrency,
+    const existingCheckoutSession = readCheckoutSessionState(project);
+    if (
+      isReusableCheckoutSession(existingCheckoutSession, {
+        currency: normalizedCurrency,
+        country,
+        pageCount: normalizedPageCount,
+      })
+    ) {
+      if (existingCheckoutSession.mode === 'mock' && ALLOW_MOCK_CHECKOUT) {
+        return buildCheckoutResponse(
+          existingCheckoutSession,
+          amount,
+          normalizedCurrency,
           country,
-          pageCount: normalizedPageCount,
-          isGift,
-          isTestMode: true,
-        },
-        { status: 200 }
+          normalizedPageCount,
+          { reused: true, isTestMode: true }
+        );
+      }
+
+      if (existingCheckoutSession.mode === 'stripe' && isStripeConfigured) {
+        try {
+          const Stripe = require('stripe');
+          const stripe = new Stripe(stripeSecretKey, {
+            apiVersion: '2024-04-10',
+          });
+          const existingSession = await stripe.checkout.sessions.retrieve(
+            existingCheckoutSession.sessionId
+          );
+
+          if (
+            existingSession.payment_status === 'paid' ||
+            existingSession.status === 'complete'
+          ) {
+            return NextResponse.json(
+              { error: 'This story is already unlocked.' },
+              { status: 409 }
+            );
+          }
+
+          if (existingSession.status === 'open') {
+            const refreshedCheckoutSession = {
+              ...existingCheckoutSession,
+              checkoutUrl:
+                existingSession.url || existingCheckoutSession.checkoutUrl || null,
+            };
+
+            await updateStoryProjectRecord(authUser.id, projectId, {
+              photo_metadata: buildCheckoutSessionMetadata(
+                project,
+                refreshedCheckoutSession
+              ),
+            });
+
+            return buildCheckoutResponse(
+              refreshedCheckoutSession,
+              amount,
+              normalizedCurrency,
+              country,
+              normalizedPageCount,
+              { reused: true }
+            );
+          }
+        } catch (existingSessionError) {
+          console.warn(
+            '[CHECKOUT] Existing Stripe session could not be reused:',
+            existingSessionError.message
+          );
+        }
+      }
+    }
+
+    if (!isStripeConfigured) {
+      if (!ALLOW_MOCK_CHECKOUT) {
+        return NextResponse.json(
+          {
+            error: 'Stripe checkout is unavailable.',
+            details: 'STRIPE_SECRET_KEY is not configured for this environment.',
+          },
+          { status: 503 }
+        );
+      }
+
+      const mockCheckoutSession = buildMockCheckoutState({
+        amount,
+        appBaseUrl,
+        country,
+        currency: normalizedCurrency,
+        pageCount: normalizedPageCount,
+        projectId,
+      });
+
+      await updateStoryProjectRecord(authUser.id, projectId, {
+        photo_metadata: buildCheckoutSessionMetadata(project, mockCheckoutSession),
+      });
+
+      return buildCheckoutResponse(
+        mockCheckoutSession,
+        amount,
+        normalizedCurrency,
+        country,
+        normalizedPageCount,
+        { isTestMode: true }
       );
     }
 
-    // Use real Stripe
     try {
       const Stripe = require('stripe');
       const stripe = new Stripe(stripeSecretKey, {
@@ -227,11 +390,9 @@ export async function POST(request) {
             price_data: {
               currency: normalizedCurrency.toLowerCase(),
               product_data: {
-                name: `Kidz Story Magic - Story Book`,
+                name: 'Kidz Story Magic - Story Book',
                 description: `${normalizedPageCount}-page personalized story book for project ${projectId}`,
-                images: [
-                  'https://www.kidzstorymagic.org/logo.png'
-                ],
+                images: ['https://www.kidzstorymagic.org/logo.png'],
               },
               unit_amount: amount,
             },
@@ -246,13 +407,13 @@ export async function POST(request) {
         phone_number_collection: {
           enabled: true,
         },
-        customer_email: authUser.email || decoded.email || undefined,
+        customer_email: authUser.email || undefined,
         success_url: `${appBaseUrl}/success?session_id={CHECKOUT_SESSION_ID}&project_id=${encodeURIComponent(projectId)}`,
         cancel_url: `${appBaseUrl}/wizard?step=6&resume=checkout&projectId=${encodeURIComponent(projectId)}`,
         metadata: {
-          projectId: projectId,
+          projectId,
           userId: String(authUser.id),
-          userEmail: authUser.email || decoded.email || '',
+          userEmail: authUser.email || '',
           buyerName: buyerName || authUser.name || authUser.email || '',
           childName: childName || '',
           theme: theme || '',
@@ -286,43 +447,44 @@ export async function POST(request) {
         session = await stripe.checkout.sessions.create(baseSessionConfig);
       }
 
-      console.log('[CHECKOUT] ✅ Stripe session created:', session.id);
+      console.log('[CHECKOUT] Stripe session created:', session.id);
 
-      return NextResponse.json(
-        {
-          success: true,
-          message: 'Checkout session created successfully',
-          sessionId: session.id,
-          checkoutUrl: session.url,
-          projectId: projectId,
-          amount,
-          currency: normalizedCurrency,
-          country,
-          pageCount: normalizedPageCount,
-        },
-        { status: 200 }
+      const checkoutSessionState = {
+        sessionId: session.id,
+        checkoutUrl: session.url || null,
+        projectId,
+        currency: normalizedCurrency,
+        country,
+        pageCount: normalizedPageCount,
+        amount,
+        mode: 'stripe',
+        status: 'pending',
+        createdAt: new Date().toISOString(),
+        expiresAt: session.expires_at
+          ? new Date(Number(session.expires_at) * 1000).toISOString()
+          : new Date(Date.now() + ACTIVE_CHECKOUT_WINDOW_MS).toISOString(),
+      };
+
+      await updateStoryProjectRecord(authUser.id, projectId, {
+        photo_metadata: buildCheckoutSessionMetadata(project, checkoutSessionState),
+      });
+
+      return buildCheckoutResponse(
+        checkoutSessionState,
+        amount,
+        normalizedCurrency,
+        country,
+        normalizedPageCount
       );
     } catch (stripeError) {
       console.error('[CHECKOUT] Stripe error:', stripeError.message);
-      
-      // Fallback to mock session if Stripe fails
-      const mockSessionId = `mock_session_${Date.now()}_${Math.random().toString(36).substring(7)}`;
-      
       return NextResponse.json(
         {
-          success: true,
-          message: 'Mock checkout session created (Stripe unavailable)',
-          sessionId: mockSessionId,
-          projectId: projectId,
-          amount: amount,
-          currency: normalizedCurrency,
-          country,
-          pageCount: normalizedPageCount,
-          isGift,
-          isTestMode: true,
-          warning: 'Stripe is configured but unavailable, using test mode',
+          error: 'Failed to create checkout session',
+          details:
+            'Stripe checkout is unavailable right now. Please try again once Stripe credentials are working.',
         },
-        { status: 200 }
+        { status: 502 }
       );
     }
   } catch (error) {

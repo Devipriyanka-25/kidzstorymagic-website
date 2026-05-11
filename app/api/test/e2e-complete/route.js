@@ -11,11 +11,22 @@ const jwt = require('jsonwebtoken');
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
+function areTestRoutesEnabled() {
+  return (
+    process.env.NODE_ENV !== 'production' ||
+    process.env.ENABLE_TEST_ROUTES === 'true'
+  );
+}
+
 export async function GET(request) {
   const timestamp = new Date().toISOString();
   const tests = {};
 
   try {
+    if (!areTestRoutesEnabled()) {
+      return NextResponse.json({ error: 'Not found' }, { status: 404 });
+    }
+
     // Test 1: Password hashing
     try {
       const password = 'TestPass123!';
@@ -50,7 +61,8 @@ export async function GET(request) {
 
     // Test 3: Signup endpoint (mock request)
     try {
-      const signupResponse = await fetch('https://www.kidzstorymagic.org/api/auth/register', {
+      const siteOrigin = request.nextUrl?.origin || 'http://127.0.0.1:3000';
+      const signupResponse = await fetch(`${siteOrigin}/api/auth/register`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -73,7 +85,8 @@ export async function GET(request) {
 
     // Test 4: Image upload endpoint (GET documentation)
     try {
-      const uploadResponse = await fetch('https://www.kidzstorymagic.org/api/upload/photo');
+      const siteOrigin = request.nextUrl?.origin || 'http://127.0.0.1:3000';
+      const uploadResponse = await fetch(`${siteOrigin}/api/upload/photo`);
       tests.imageUploadEndpoint = {
         status: uploadResponse.status === 200 ? '✓ PASS' : '✗ FAIL',
         message: 'Image upload endpoint available',
@@ -86,7 +99,8 @@ export async function GET(request) {
 
     // Test 5: Story generation endpoint (GET documentation)
     try {
-      const storyResponse = await fetch('https://www.kidzstorymagic.org/api/story/generate');
+      const siteOrigin = request.nextUrl?.origin || 'http://127.0.0.1:3000';
+      const storyResponse = await fetch(`${siteOrigin}/api/story/generate`);
       tests.storyGenerationEndpoint = {
         status: storyResponse.status === 200 ? '✓ PASS' : '✗ FAIL',
         message: 'Story generation endpoint available',

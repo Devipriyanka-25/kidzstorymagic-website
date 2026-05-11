@@ -11,8 +11,19 @@ const jwt = require('jsonwebtoken');
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
+function areTestRoutesEnabled() {
+  return (
+    process.env.NODE_ENV !== 'production' ||
+    process.env.ENABLE_TEST_ROUTES === 'true'
+  );
+}
+
 export async function GET(request) {
   try {
+    if (!areTestRoutesEnabled()) {
+      return NextResponse.json({ error: 'Not found' }, { status: 404 });
+    }
+
     console.log('[E2E-TEST] Starting end-to-end validation...');
 
     const jwtSecret = process.env.JWT_SECRET;
@@ -41,14 +52,14 @@ export async function GET(request) {
     console.log('[E2E-TEST] Step 3: JWT Token Generation');
     const token = jwt.sign(
       { id: userData.id, email: userData.email },
-      jwtSecret || 'your-secret-key',
+      jwtSecret || 'test-secret',
       { expiresIn: '7d' }
     );
     console.log('[E2E-TEST] ✅ JWT token generated:', token.substring(0, 30) + '...');
 
     // Step 4: Verify JWT token
     console.log('[E2E-TEST] Step 4: JWT Token Verification');
-    const decoded = jwt.verify(token, jwtSecret || 'your-secret-key');
+    const decoded = jwt.verify(token, jwtSecret || 'test-secret');
     console.log('[E2E-TEST] ✅ JWT token verified for user:', decoded.id);
 
     // Step 5: Simulate payment processing

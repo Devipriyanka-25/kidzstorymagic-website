@@ -6,6 +6,7 @@
 
 import { NextResponse } from 'next/server';
 import { getBookTheme } from '@/utils/themes';
+import { getRequiredJwtSecret } from '../../shared/jwt.js';
 const jwt = require('jsonwebtoken');
 
 export const runtime = 'nodejs';
@@ -18,13 +19,26 @@ export async function POST(request) {
 
     // Verify authentication (optional for internal calls)
     const authHeader = request.headers.get('authorization');
-    const isInternalCall = request.headers.get('x-internal-call') === 'true';
+    const isInternalCall =
+      request.headers.get('x-internal-call') === 'true' &&
+      process.env.NODE_ENV !== 'production';
     
     let decoded = null;
     
     if (authHeader && authHeader.startsWith('Bearer ')) {
       const token = authHeader.substring(7);
-      const jwtSecret = process.env.JWT_SECRET || 'kidz-story-magic-jwt-secret-key-2024-production-secure-random-12345';
+      let jwtSecret;
+      try {
+        jwtSecret = getRequiredJwtSecret();
+      } catch (error) {
+        return NextResponse.json(
+          {
+            error: 'Authentication is not configured.',
+            details: error.message,
+          },
+          { status: 503 }
+        );
+      }
 
       try {
         decoded = jwt.verify(token, jwtSecret);
@@ -61,7 +75,7 @@ export async function POST(request) {
       originalTheme,
     } = body;
 
-    if (projectId) {
+    if (projectId && !isInternalCall) {
       const persistentGenerationUrl = new URL(
         `/api/story/${encodeURIComponent(projectId)}/generate-story`,
         request.url

@@ -10,13 +10,31 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 export async function POST(request) {
+  if (process.env.NODE_ENV === 'production') {
+    return NextResponse.json({ error: 'Not found' }, { status: 404 });
+  }
+
   const results = {
     timestamp: new Date().toISOString(),
     tests: [],
   };
 
-  const supabaseUrl = 'https://wwninqezevmxlvtjhruo.supabase.co';
-  const anonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind3bmlucWV6ZXZteGx2dGpocnVvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY0NTI0MjUsImV4cCI6MjA5MjAyODQyNX0.sUJDiz980D3q-Lpt_R-ndJcojZD4dOZZr1nnB5d5IvA';
+  const supabaseUrl = String(process.env.NEXT_PUBLIC_SUPABASE_URL || '').trim();
+  const supabaseKey = String(
+    process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_ANON_KEY || ''
+  ).trim();
+
+  if (!supabaseUrl || !supabaseKey) {
+    return NextResponse.json(
+      {
+        ...results,
+        summary: 'Missing Supabase environment variables',
+        error:
+          'NEXT_PUBLIC_SUPABASE_URL and a server-side Supabase key are required.',
+      },
+      { status: 503 }
+    );
+  }
 
   try {
     // Test 1: Query for our test user
@@ -27,8 +45,8 @@ export async function POST(request) {
         `${supabaseUrl}/rest/v1/auth_users?email=eq.${encodeURIComponent(testEmail)}`,
         {
           headers: {
-            'apikey': anonKey,
-            'Authorization': `Bearer ${anonKey}`,
+            apikey: supabaseKey,
+            Authorization: `Bearer ${supabaseKey}`,
           },
         }
       );
@@ -57,8 +75,8 @@ export async function POST(request) {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
-              'apikey': anonKey,
-              'Authorization': `Bearer ${anonKey}`,
+              apikey: supabaseKey,
+              Authorization: `Bearer ${supabaseKey}`,
             },
             body: JSON.stringify({
               name: 'Test User',
@@ -84,8 +102,8 @@ export async function POST(request) {
               `${supabaseUrl}/rest/v1/auth_users?email=eq.${encodeURIComponent(testEmail)}`,
               {
                 headers: {
-                  'apikey': anonKey,
-                  'Authorization': `Bearer ${anonKey}`,
+                  apikey: supabaseKey,
+                  Authorization: `Bearer ${supabaseKey}`,
                 },
               }
             );
@@ -122,8 +140,8 @@ export async function POST(request) {
         `${supabaseUrl}/rest/v1/auth_users?email=eq.${encodeURIComponent(userEmail)}`,
         {
           headers: {
-            'apikey': anonKey,
-            'Authorization': `Bearer ${anonKey}`,
+            apikey: supabaseKey,
+            Authorization: `Bearer ${supabaseKey}`,
           },
         }
       );

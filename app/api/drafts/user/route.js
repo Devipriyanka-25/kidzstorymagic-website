@@ -9,53 +9,10 @@ import {
   createStoryProjectRecord,
 } from '../../shared/storyProjects.js';
 import { purgeExpiredDraftsForUser } from '../../shared/storyDrafts.js';
-
-const jwt = require('jsonwebtoken');
+import { resolveRequestUser } from '../../shared/requestAuth.js';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
-
-function getJwtSecret() {
-  return (
-    process.env.JWT_SECRET ||
-    'kidz-story-magic-jwt-secret-key-2024-production-secure-random-12345'
-  );
-}
-
-async function resolveRequestUser(request) {
-  const authHeader = request.headers.get('authorization');
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    return { error: NextResponse.json({ error: 'Unauthorized' }, { status: 401 }) };
-  }
-
-  const token = authHeader.substring(7);
-
-  let decoded;
-  try {
-    decoded = jwt.verify(token, getJwtSecret());
-  } catch (error) {
-    return { error: NextResponse.json({ error: 'Unauthorized' }, { status: 401 }) };
-  }
-
-  // Trust the JWT token directly - it has been cryptographically verified
-  if (!decoded?.id) {
-    return {
-      error: NextResponse.json(
-        { error: 'Invalid token: missing user ID' },
-        { status: 401 }
-      ),
-    };
-  }
-
-  // Create an authUser object from the decoded JWT
-  const authUser = {
-    id: decoded.id,
-    email: decoded.email,
-    name: decoded.name || decoded.email,
-  };
-
-  return { authUser };
-}
 
 export async function GET(request) {
   try {

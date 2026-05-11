@@ -2,42 +2,74 @@ import { NextResponse } from 'next/server';
 import jwt from 'jsonwebtoken';
 
 import { resolveAuthenticatedStoryUser } from './storyProjects.js';
+import { getRequiredJwtSecret } from './jwt.js';
 
-export function getJwtSecret() {
-  return (
-    process.env.JWT_SECRET ||
-    'kidz-story-magic-jwt-secret-key-2024-production-secure-random-12345'
+function getBearerToken(request) {
+  const authHeader = request.headers.get('authorization');
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return '';
+  }
+
+  return authHeader.substring(7);
+}
+
+function buildFallbackAuthUser(decoded) {
+  if (!decoded?.id) {
+    return null;
+  }
+
+  return {
+    id: decoded.id,
+    email: decoded.email || '',
+    name: decoded.name || decoded.email || '',
+  };
+}
+
+async function resolveVerifiedUser(decoded) {
+  return (await resolveAuthenticatedStoryUser(decoded)) || buildFallbackAuthUser(decoded);
+}
+
+function buildAuthConfigurationError(error) {
+  return NextResponse.json(
+    {
+      error: 'Authentication is not configured.',
+      details: error?.message || 'JWT secret is missing.',
+    },
+    { status: 503 }
   );
 }
 
+function getConfiguredJwtSecretOrError() {
+  try {
+    return { jwtSecret: getRequiredJwtSecret() };
+  } catch (error) {
+    return { error: buildAuthConfigurationError(error) };
+  }
+}
+
 export async function resolveRequestUser(request) {
-  const authHeader = request.headers.get('authorization');
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+  const token = getBearerToken(request);
+  if (!token) {
     return {
       error: NextResponse.json({ error: 'Unauthorized' }, { status: 401 }),
     };
   }
 
-  const token = authHeader.substring(7);
+  const { jwtSecret, error: configurationError } = getConfiguredJwtSecretOrError();
+  if (configurationError) {
+    return { error: configurationError };
+  }
 
   let decoded;
   try {
-    decoded = jwt.verify(token, getJwtSecret());
+    decoded = jwt.verify(token, jwtSecret);
   } catch (error) {
     return {
       error: NextResponse.json({ error: 'Unauthorized' }, { status: 401 }),
     };
   }
 
-  const authUser =
-    (await resolveAuthenticatedStoryUser(decoded)) ||
-    (decoded?.id
-      ? {
-          id: decoded.id,
-          email: decoded.email || '',
-          name: decoded.name || decoded.email || '',
-        }
-      : null);
+  const authUser = await resolveVerifiedUser(decoded);
 
   if (!authUser?.id) {
     return {
@@ -49,4 +81,23 @@ export async function resolveRequestUser(request) {
   }
 
   return { authUser, decoded, token };
+}
+
+export async function resolveOptionalRequestUser(request) {
+  const token = getBearerToken(request);
+  if (!token) {
+    return null;
+  }
+
+  const { jwtSecret } = getConfiguredJwtSecretOrError();
+  if (!jwtSecret) {
+    return null;
+  }
+
+  try {
+    const decoded = jwt.verify(token, jwtSecret);
+    return await resolveVerifiedUser(decoded);
+  } catch (error) {
+    return null;
+  }
 }

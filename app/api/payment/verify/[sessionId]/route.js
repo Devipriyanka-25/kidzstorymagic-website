@@ -1,10 +1,9 @@
 import { NextResponse } from 'next/server';
-import jwt from 'jsonwebtoken';
 import { supabaseClient } from '../../../shared/supabaseClient.js';
+import { resolveRequestUser } from '../../../shared/requestAuth.js';
 import {
   getStoryProjectById,
   markStoryProjectPaid,
-  resolveAuthenticatedStoryUser,
 } from '../../../shared/storyProjects.js';
 import {
   buildOrderContactDetails,
@@ -16,45 +15,6 @@ export const dynamic = 'force-dynamic';
 
 const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
 const stripe = stripeSecretKey ? require('stripe')(stripeSecretKey) : null;
-
-function getJwtSecret() {
-  return (
-    process.env.JWT_SECRET ||
-    'kidz-story-magic-jwt-secret-key-2024-production-secure-random-12345'
-  );
-}
-
-async function resolveRequestUser(request) {
-  const authHeader = request.headers.get('authorization');
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    return {
-      error: NextResponse.json({ error: 'Unauthorized' }, { status: 401 }),
-    };
-  }
-
-  const token = authHeader.substring(7);
-
-  let decoded;
-  try {
-    decoded = jwt.verify(token, getJwtSecret());
-  } catch (error) {
-    return {
-      error: NextResponse.json({ error: 'Unauthorized' }, { status: 401 }),
-    };
-  }
-
-  const authUser = await resolveAuthenticatedStoryUser(decoded);
-  if (!authUser?.id) {
-    return {
-      error: NextResponse.json(
-        { error: 'Authenticated user could not be resolved.' },
-        { status: 401 }
-      ),
-    };
-  }
-
-  return { authUser, decoded };
-}
 
 async function getChildStoryCount(userId, childName) {
   if (!supabaseClient || !childName) {

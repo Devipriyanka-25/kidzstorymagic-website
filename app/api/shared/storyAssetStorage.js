@@ -1,6 +1,7 @@
 import { createHash, randomUUID } from 'node:crypto';
 
 import supabaseClient from './supabaseClient.js';
+import { isTemporaryPreviewIllustrationUrl } from '@/utils/storyPreviewSync';
 
 const BUCKET_NAME = 'story-assets';
 const STORY_ILLUSTRATION_PREFIX = 'story-illustrations';
@@ -199,6 +200,10 @@ export async function persistStoryIllustrationAsset({
     return normalizedSourceUrl || null;
   }
 
+  if (isTemporaryPreviewIllustrationUrl(normalizedSourceUrl)) {
+    return normalizedSourceUrl;
+  }
+
   if (!supabaseClient) {
     return normalizedSourceUrl;
   }
@@ -239,12 +244,29 @@ export async function persistStoryPreviewAssets(projectId, pages = []) {
   for (let index = 0; index < normalizedPages.length; index += 1) {
     const page = normalizedPages[index] || {};
     const pageNumber = Number(page.pageNumber || page.page_number || index + 1) || index + 1;
+    const illustrationCandidates = [
+      page.faceSwappedUrl,
+      page.illustrationUrl,
+      page.image_url,
+      page.image,
+    ]
+      .map((value) => normalizeUrl(value))
+      .filter(Boolean);
     const preferredIllustrationUrl =
-      page.faceSwappedUrl ||
-      page.illustrationUrl ||
-      page.image_url ||
-      page.image ||
+      illustrationCandidates.find(
+        (value) => !isTemporaryPreviewIllustrationUrl(value)
+      ) ||
+      illustrationCandidates[0] ||
       null;
+
+    if (
+      preferredIllustrationUrl &&
+      isTemporaryPreviewIllustrationUrl(preferredIllustrationUrl)
+    ) {
+      persistedPages.push(page);
+      continue;
+    }
+
     const durableIllustrationUrl = await persistStoryIllustrationAsset({
       projectId,
       pageNumber,

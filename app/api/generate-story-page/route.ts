@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import {
-  createFallbackStoryPageIllustration,
   createStoryPageIllustrationPrediction,
   DEFAULT_STORYBOOK_NEGATIVE_PROMPT,
   getReplicateRetryAfter,
@@ -101,26 +100,12 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     const message = getReplicateErrorMessage(error);
 
-    if (prompt && (subjectImage || referenceImages.length > 0) && isReplicateBillingError(error)) {
-      const fallback = createFallbackStoryPageIllustration({
-        prompt,
-        subjectImage,
-        referenceImages,
-        negativePrompt,
-      });
-
+    if (isReplicateBillingError(error)) {
       return NextResponse.json({
-        success: true,
-        imageUrl: fallback.imageUrl,
-        model: fallback.model,
-        predictionId: fallback.predictionId,
-        prompt: fallback.prompt,
-        negativePrompt,
-        version: fallback.version,
-        fallback: true,
-        warning:
-          "Replicate billing is unavailable. Showing a preview illustration placeholder instead.",
-      });
+        error:
+          "Illustration generation is temporarily unavailable. Please retry in a moment.",
+        details: message,
+      }, { status: 503 });
     }
 
     if (isReplicateRateLimitError(error)) {
@@ -152,7 +137,7 @@ export async function GET() {
       "POST a prompt plus one or more child reference images to start storybook illustration generation. Poll /api/generate-story-page/[predictionId] until the image is ready.",
     model:
       process.env.REPLICATE_STORYBOOK_MODEL?.trim() ||
-      "black-forest-labs/flux-kontext-pro",
+      "black-forest-labs/flux-kontext-max",
     expectedBody: {
       prompt: "A whimsical forest adventure scene featuring the child hero",
       subjectImage: "https://example.com/child-photo.png",

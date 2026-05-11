@@ -6,6 +6,7 @@ import {
   normalizeEmail,
 } from '../../shared/authUsers.js';
 import { buildClientAuthUser } from '../../shared/authRoles.js';
+import { getRequiredJwtSecret } from '../../shared/jwt.js';
 import { userStore } from '../../shared/userStore.js';
 
 const jwt = require('jsonwebtoken');
@@ -24,9 +25,18 @@ export async function GET(request) {
     }
 
     const token = authHeader.substring(7);
-    const jwtSecret =
-      process.env.JWT_SECRET ||
-      'kidz-story-magic-jwt-secret-key-2024-production-secure-random-12345';
+    let jwtSecret;
+    try {
+      jwtSecret = getRequiredJwtSecret();
+    } catch (error) {
+      return NextResponse.json(
+        {
+          error: 'Authentication is not configured.',
+          details: error.message,
+        },
+        { status: 503 }
+      );
+    }
 
     let decoded;
     try {

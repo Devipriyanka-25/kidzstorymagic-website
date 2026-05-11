@@ -5,9 +5,68 @@
  */
 
 import { NextResponse } from 'next/server';
+import sharp from 'sharp';
 import supabaseClient from '@/app/api/shared/supabaseClient';
+import { resolveRequestUser } from '../../../shared/requestAuth.js';
+import { getStoryProjectById } from '../../../shared/storyProjects.js';
 
 const BUCKET_NAME = 'story-assets';
+const ALLOWED_MIME_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);
+const ALLOWED_FORMATS = new Set(['jpeg', 'png', 'webp']);
+const MAX_UPLOAD_SIZE_BYTES = 15 * 1024 * 1024;
+
+function sanitizeStorageSegment(value, fallback = 'upload') {
+  const normalized = String(value || '')
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9_-]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+
+  return normalized || fallback;
+}
+
+function normalizeImageExtension(format) {
+  return format === 'jpeg' ? 'jpg' : format;
+}
+
+async function validateUploadedImage(photoFile, photoBuffer) {
+  const mimeType = String(photoFile?.type || '').trim().toLowerCase();
+
+  if (!ALLOWED_MIME_TYPES.has(mimeType)) {
+    throw new Error('Only JPEG, PNG, and WebP images are allowed.');
+  }
+
+  if (photoBuffer.length === 0) {
+    throw new Error('Uploaded image is empty.');
+  }
+
+  if (photoBuffer.length > MAX_UPLOAD_SIZE_BYTES) {
+    throw new Error('Uploaded image exceeds the 15MB server limit.');
+  }
+
+  let metadata;
+  try {
+    metadata = await sharp(photoBuffer).metadata();
+  } catch (error) {
+    throw new Error('Uploaded file is not a valid image.');
+  }
+
+  const normalizedFormat = String(metadata?.format || '').toLowerCase();
+  if (!ALLOWED_FORMATS.has(normalizedFormat)) {
+    throw new Error('Only JPEG, PNG, and WebP images are allowed.');
+  }
+
+  if (
+    !Number.isFinite(metadata?.width) ||
+    !Number.isFinite(metadata?.height) ||
+    metadata.width <= 0 ||
+    metadata.height <= 0
+  ) {
+    throw new Error('Uploaded image dimensions are invalid.');
+  }
+
+  return normalizeImageExtension(normalizedFormat);
+}
 
 async function ensureBucketExists() {
   if (!supabaseClient) return false;
@@ -47,6 +106,19 @@ export async function POST(request, { params }) {
     const { projectId } = params;
     console.log(`[UPLOAD_PHOTO] Processing photo upload for project: ${projectId}`);
 
+    const { error, authUser } = await resolveRequestUser(request);
+    if (error) {
+      return error;
+    }
+
+    const storyProject = await getStoryProjectById(authUser.id, projectId);
+    if (!storyProject) {
+      return NextResponse.json(
+        { error: 'Story project not found' },
+        { status: 404 }
+      );
+    }
+
     // Parse the multipart form data
     const formData = await request.formData();
 
@@ -66,6 +138,7 @@ export async function POST(request, { params }) {
     const buffer = await photoFile.arrayBuffer();
     const photoBuffer = Buffer.from(buffer);
     console.log(`[UPLOAD_PHOTO] Photo file: ${photoFile.name}, Size: ${photoBuffer.length} bytes`);
+    const fileExtension = await validateUploadedImage(photoFile, photoBuffer);
 
     // Verify Supabase client is initialized
     if (!supabaseClient) {
@@ -89,8 +162,11 @@ export async function POST(request, { params }) {
     }
 
     // Upload photo to Supabase storage
-    const fileName = `${projectId}/${Date.now()}_${photoFile.name}`;
-    const storagePath = `child-photos/${fileName}`;
+    const safeProjectId = sanitizeStorageSegment(projectId, 'project');
+    const safeUserId = sanitizeStorageSegment(authUser.id, 'user');
+    const storagePath = `child-photos/${safeUserId}/${safeProjectId}/${Date.now()}-${Math.random()
+      .toString(36)
+      .slice(2, 10)}.${fileExtension}`;
 
     console.log(`[UPLOAD_PHOTO] Uploading to Supabase storage: ${storagePath}`);
 

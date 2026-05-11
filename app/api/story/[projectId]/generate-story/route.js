@@ -9,11 +9,11 @@ import { getTranslatedStory } from '../../../lib/storyTranslations.js';
 import { getBookTheme } from '@/utils/themes';
 import { buildStorySceneBrief } from '@/lib/storybook/scenePlanning';
 import { sendPreviewReadyEmail } from '../../../../../lib/previewEmail.js';
+import { resolveRequestUser } from '../../../shared/requestAuth.js';
 import {
   getStoryProjectById,
   listStoryProjectPages,
   replaceStoryProjectPages,
-  resolveAuthenticatedStoryUser,
   updateStoryProjectRecord,
 } from '../../../shared/storyProjects.js';
 import {
@@ -21,8 +21,6 @@ import {
   getDraftFlowMetadata,
   mergeDraftFlowMetadata,
 } from '../../../shared/storyDrafts.js';
-const jwt = require('jsonwebtoken');
-
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
@@ -421,44 +419,22 @@ export async function POST(request, { params }) {
   };
 
   try {
-    // Verify authentication
     const authHeader = request.headers.get('authorization');
     console.log('[GENERATE_STORY] Auth header:', authHeader ? 'Present' : 'Missing');
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      console.log('[GENERATE_STORY] Missing or invalid auth header format');
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
-    }
-
-    const token = authHeader.substring(7);
-    console.log('[GENERATE_STORY] Token length:', token.length);
-    const jwtSecret = process.env.JWT_SECRET || 'kidz-story-magic-jwt-secret-key-2024-production-secure-random-12345';
-
-    let decoded;
-    try {
-      decoded = jwt.verify(token, jwtSecret);
-      console.log('[GENERATE_STORY] Token verified successfully');
-    } catch (err) {
-      console.log('[GENERATE_STORY] Token verification failed:', err.message);
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
-    }
-
-    const authUser = await resolveAuthenticatedStoryUser(decoded);
-    if (!authUser?.id) {
-      return NextResponse.json(
-        { error: 'Authenticated user could not be resolved.' },
-        { status: 401 }
-      );
+    const { error, authUser } = await resolveRequestUser(request);
+    if (error) {
+      console.log('[GENERATE_STORY] Authentication failed');
+      return error;
     }
     errorContext.authUser = authUser;
 
     const body = await request.json();
-    console.log('[GENERATE_STORY] Generating story for project:', projectId, 'by user:', decoded.id || decoded.email);
+    console.log(
+      '[GENERATE_STORY] Generating story for project:',
+      projectId,
+      'by user:',
+      authUser.id || authUser.email
+    );
     console.log('[GENERATE_STORY] Request body:', body);
 
     // Extract story parameters
