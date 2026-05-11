@@ -18,8 +18,9 @@ describe('storybook illustration prompt', () => {
     expect(prompt).toContain('2D illustrated');
     expect(prompt).toContain('IDENTITY REFERENCE RULE');
     expect(prompt).toContain('identity guidance only');
-    expect(prompt).toContain('redesign the outfit');
-    expect(prompt).toContain('Use no readable text');
+    expect(prompt).toContain('PAGE-SPECIFIC COSTUME DESIGN');
+    expect(prompt).toContain('REFERENCE SANITIZATION RULE');
+    expect(prompt).toContain('STORY OVERRIDE RULE');
     expect(prompt).toContain('not photorealistic');
     expect(prompt).toContain('SCENE BALANCE RULE');
     expect(prompt).toContain('WORLD SCALE RULE');

@@ -60,4 +60,28 @@ describe("storybook scene planning", () => {
     expect(brief).toContain("DON'T shrink the world");
     expect(brief).toContain("NOT centered portrait");
   });
+
+  it("prioritizes the exact story beat over generic personalization lines", () => {
+    const scene = extractStorySceneDetails({
+      pageTitle: "Animal Adventure - Page 2",
+      pageContent:
+        "Savi's favorite things, like animals, nature, exploring, sparkled through the adventure in little ways. The story also followed this special note about Savi: curious toddler with expressive smile and soft curly hair. A gentle elephant helps Savi cross a sparkling river on the way to a hidden safari trail.",
+      theme: "animal-adventure",
+      sceneGuide: {
+        setting:
+          "a bright sunrise adventure world with open skies, storybook mountains, golden grass, floating birds, and friendly safari-style animal companions",
+        interaction:
+          "exploring with a brave smile, walking beside a gentle animal friend, and discovering the next wonder in the world",
+        palette:
+          "sunrise gold, clear sky blue, warm sand, leafy green, and soft coral accents",
+      },
+    });
+
+    expect(scene.storyMoment).toContain("gentle elephant");
+    expect(scene.location).toContain("river");
+    expect(scene.objects.join(" ")).toContain("elephant");
+    expect(scene.objects.join(" ")).toContain("river");
+    expect(scene.action).toContain("crossing");
+    expect(scene.characterPose).toContain("stepping");
+  });
 });
