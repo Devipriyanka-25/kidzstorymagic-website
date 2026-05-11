@@ -15,14 +15,49 @@ export const dynamic = 'force-dynamic';
 export const maxDuration = 300; // 5 minutes for face swap processing
 
 export async function POST(request) {
+  let requestBody = null;
+
   try {
     console.log('[FACE_SWAP] Starting face swap...');
+
+    requestBody = await request.json();
+    const body = requestBody;
+    const {
+      faceImageUrl,
+      illustrationImageUrl,
+      storyId,
+      photoId,
+      pageNumber,
+      childName = 'Child',
+      allowOriginalFallback = false,
+    } = body;
 
     const replicateKey = process.env.REPLICATE_API_TOKEN?.trim();
     const deepaiKey = process.env.DEEPAI_API_KEY?.trim();
 
     if (!replicateKey && !deepaiKey) {
       console.error('[FACE_SWAP] No face swap provider configured');
+
+      if (allowOriginalFallback && illustrationImageUrl) {
+        return NextResponse.json(
+          {
+            success: true,
+            fallback: true,
+            message: 'Face swap unavailable, using original illustration.',
+            swappedUrl: illustrationImageUrl,
+            result: {
+              storyId,
+              photoId,
+              pageNumber,
+              childName,
+              swappedImageUrl: illustrationImageUrl,
+              provider: 'original-illustration',
+            },
+          },
+          { status: 200 }
+        );
+      }
+
       return NextResponse.json(
         {
           error: 'Face swap service not configured',
@@ -35,16 +70,6 @@ export async function POST(request) {
         { status: 503 }
       );
     }
-
-    const body = await request.json();
-    const {
-      faceImageUrl,
-      illustrationImageUrl,
-      storyId,
-      photoId,
-      pageNumber,
-      childName = 'Child',
-    } = body;
 
     if (!faceImageUrl || !illustrationImageUrl) {
       console.error('[FACE_SWAP] Missing required fields');
@@ -177,6 +202,26 @@ export async function POST(request) {
   } catch (error) {
     console.error('[FACE_SWAP] Error:', error.message);
     console.error('[FACE_SWAP] Stack:', error.stack);
+
+    if (requestBody?.allowOriginalFallback && requestBody?.illustrationImageUrl) {
+      return NextResponse.json(
+        {
+          success: true,
+          fallback: true,
+          message: 'Face swap failed, using original illustration.',
+          swappedUrl: requestBody.illustrationImageUrl,
+          result: {
+            storyId: requestBody.storyId,
+            photoId: requestBody.photoId,
+            pageNumber: requestBody.pageNumber,
+            childName: requestBody.childName || 'Child',
+            swappedImageUrl: requestBody.illustrationImageUrl,
+            provider: 'original-illustration',
+          },
+        },
+        { status: 200 }
+      );
+    }
 
     let statusCode = 500;
     let errorMessage = 'Face swap failed';

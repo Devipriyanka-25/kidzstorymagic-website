@@ -252,7 +252,7 @@ async function pollStoryPageIllustration(
   let consecutiveRateLimitErrors = 0;
   let currentPollIntervalMs = PREVIEW_POLL_INTERVAL_MS;
 
-  for (let attempt = 0; attempt < MAX_POLL_RETRIES; attempt += 1) {
+  for (let attempt = 0; ; attempt += 1) {
     if (attempt > 0) {
       // Use adaptive polling interval based on rate limiting
       await waitForDelay(currentPollIntervalMs, signal);
@@ -338,7 +338,9 @@ async function pollStoryPageIllustration(
         throw pollError;
       }
 
-      // Log the error and check if we should use fallback
+      const elapsedAfterErrorMs = Date.now() - startedAt;
+
+      // Log the error and check if we should keep waiting within the timeout window
       console.error('[POLL_ILLUSTRATION_ERROR]', {
         predictionId,
         attempt,
@@ -346,8 +348,7 @@ async function pollStoryPageIllustration(
         rateLimitErrors: consecutiveRateLimitErrors,
       });
 
-      // If we have more retries left, continue
-      if (attempt < MAX_POLL_RETRIES - 1 && elapsedMs < timeoutMs) {
+      if (elapsedAfterErrorMs < timeoutMs) {
         continue;
       }
 
@@ -355,8 +356,6 @@ async function pollStoryPageIllustration(
       throw pollError;
     }
   }
-
-  throw new Error(`Failed to generate illustration after ${MAX_POLL_RETRIES} attempts. Please try again.`);
 }
 async function createStoryPageIllustration({
   prompt,
@@ -475,6 +474,7 @@ async function applyOptionalFaceSwap({
       body: JSON.stringify({
         faceImageUrl,
         illustrationImageUrl,
+        allowOriginalFallback: true,
       }),
     });
     const payload = await response.json().catch(() => null);
