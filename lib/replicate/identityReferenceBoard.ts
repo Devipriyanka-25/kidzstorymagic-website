@@ -13,8 +13,8 @@ function buildLowerFadeMask(size: number): Buffer {
       <defs>
         <linearGradient id="fade" x1="0" y1="0" x2="0" y2="1">
           <stop offset="0%" stop-color="white" stop-opacity="1"/>
-          <stop offset="68%" stop-color="white" stop-opacity="1"/>
-          <stop offset="86%" stop-color="white" stop-opacity="0.42"/>
+          <stop offset="56%" stop-color="white" stop-opacity="1"/>
+          <stop offset="78%" stop-color="white" stop-opacity="0.28"/>
           <stop offset="100%" stop-color="white" stop-opacity="0"/>
         </linearGradient>
       </defs>
@@ -61,12 +61,12 @@ function getFocusedCrop(
   height: number
 ): { left: number; top: number; width: number; height: number } {
   if (height >= width) {
-    const cropHeight = Math.min(height, Math.round(height * 0.34));
-    const cropWidth = Math.min(width, Math.round(cropHeight * 0.78));
+    const cropHeight = Math.min(height, Math.round(height * 0.3));
+    const cropWidth = Math.min(width, Math.round(cropHeight * 0.82));
     const left = Math.max(0, Math.round((width - cropWidth) / 2));
     const top = Math.max(
       0,
-      Math.min(height - cropHeight, Math.round(height * 0.04))
+      Math.min(height - cropHeight, Math.round(height * 0.02))
     );
 
     return {
@@ -77,12 +77,12 @@ function getFocusedCrop(
     };
   }
 
-  const cropHeight = Math.min(height, Math.round(height * 0.46));
-  const cropWidth = Math.min(width, Math.round(cropHeight * 0.74));
+  const cropHeight = Math.min(height, Math.round(height * 0.38));
+  const cropWidth = Math.min(width, Math.round(cropHeight * 0.8));
   const left = Math.max(0, Math.round((width - cropWidth) / 2));
   const top = Math.max(
     0,
-    Math.min(height - cropHeight, Math.round(height * 0.03))
+    Math.min(height - cropHeight, Math.round(height * 0.02))
   );
 
   return {

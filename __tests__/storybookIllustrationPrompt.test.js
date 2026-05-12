@@ -25,6 +25,8 @@ describe('storybook illustration prompt', () => {
     expect(prompt).toContain('NON-NEGOTIABLE SCENE RULE');
     expect(prompt).toContain('OUTFIT OVERRIDE RULE');
     expect(prompt).toContain('FACE VIEW RULE');
+    expect(prompt).toContain('FRONT-FACE PRIORITY');
+    expect(prompt).toContain('PRINTED STORYBOOK RULE');
     expect(prompt).toContain('STYLE OVERRIDE RULE');
     expect(prompt).toContain('COMPLIANCE CHECK');
     expect(prompt).toContain('not photorealistic');
