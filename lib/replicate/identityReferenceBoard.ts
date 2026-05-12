@@ -9,6 +9,7 @@ const BOARD_BACKGROUND = { r: 247, g: 243, b: 236 };
 const FACE_TILE_VARIANTS = [
   { kind: "tight-face", cropScalePortrait: 0.22, cropScaleLandscape: 0.24, topBias: 0.015, fadeLowerBody: false },
   { kind: "head-and-shoulders", cropScalePortrait: 0.3, cropScaleLandscape: 0.38, topBias: 0.02, fadeLowerBody: true },
+  { kind: "upper-body-outfit", cropScalePortrait: 0.56, cropScaleLandscape: 0.78, topBias: 0.02, fadeLowerBody: false },
 ];
 
 function buildLowerFadeMask(size: number): Buffer {

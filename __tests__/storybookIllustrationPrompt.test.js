@@ -21,8 +21,8 @@ describe('storybook illustration prompt', () => {
     expect(prompt).toContain('FACIAL FEATURE MATCHING');
     expect(prompt).toContain('HAIR IDENTITY PRESERVATION');
     expect(prompt).toContain('IMAGITIME-LEVEL IDENTITY STANDARD');
-    expect(prompt).toContain('identity blueprint');
-    expect(prompt).toContain('PAGE-SPECIFIC COSTUME DESIGN');
+    expect(prompt).toContain('identity and wardrobe blueprint');
+    expect(prompt).toContain('WARDROBE PRESERVATION RULE');
     expect(prompt).toContain('REFERENCE SANITIZATION RULE');
     expect(prompt).toContain('REFERENCE IMAGE FILTER');
     expect(prompt).toContain('STORY OVERRIDE RULE');
@@ -36,7 +36,12 @@ describe('storybook illustration prompt', () => {
     expect(prompt).toContain('not photorealistic');
     expect(prompt).toContain('SCENE BALANCE RULE');
     expect(prompt).toContain('WORLD SCALE RULE');
+    expect(prompt).toContain('EXACT LIKENESS RULE');
+    expect(prompt).toContain('HERO OF THE PAGE RULE');
+    expect(prompt).toContain('MAGICAL REALISM RULE');
     expect(prompt).toContain('not a face swap');
+    expect(prompt).toContain('current outfit');
+    expect(prompt).not.toContain('Change the child\'s clothing');
     expect(prompt).not.toContain('semi-realistic');
     expect(prompt.indexOf('SCENE BLUEPRINT:')).toBeLessThan(
       prompt.indexOf('CHARACTER CREATION:')

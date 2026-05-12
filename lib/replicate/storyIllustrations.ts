@@ -152,30 +152,14 @@ function buildCostumeDirection(scenePrompt: string): string {
   const source = scenePrompt.toLowerCase();
 
   if (
-    /\banimal\b|\bjungle\b|\bsafari\b|\bvalley\b|\beagle\b|\belephant\b|\bzebra\b|\bgrasslands?\b|\btrail\b/.test(
+    /\bunderwater\b|\breef\b|\bturtle\b|\bocean\b|\bseaweed\b|\bspace\b|\brocket\b|\bplanet\b|\bmoon\b/.test(
       source
     )
   ) {
-    return "Dress the child in a freshly designed explorer-style storybook outfit with simple safari details, earthy or sun-washed colors, and no copied shirt print from the references.";
+    return "Preserve the child's current outfit as the wardrobe anchor. If the story world truly requires adaptation, convert that same outfit into a storybook-styled version that keeps the recognizable garment type, neckline, sleeve shape, silhouette, and key colors instead of inventing unrelated clothing.";
   }
 
-  if (/\bunderwater\b|\breef\b|\bturtle\b|\bocean\b|\bseaweed\b/.test(source)) {
-    return "Dress the child in a newly designed undersea adventure outfit or wetsuit-like story costume, never the uploaded everyday clothes.";
-  }
-
-  if (/\bgarage\b|\btruck\b|\bglass door\b|\bworkshop\b/.test(source)) {
-    return "Dress the child in a freshly designed garage-adventure outfit or overalls with playful mechanic details, never the uploaded shirt graphics.";
-  }
-
-  if (/\bspace\b|\brocket\b|\bplanet\b|\bstars?\b|\bmoon\b/.test(source)) {
-    return "Dress the child in a newly designed space-adventure outfit or cozy astronaut-inspired costume, not the uploaded home clothes.";
-  }
-
-  if (/\bunicorn\b|\bcastle\b|\bfairy\b|\bmagic\b|\benchanted\b/.test(source)) {
-    return "Dress the child in a freshly designed magical-adventure outfit with premium storybook styling, never the uploaded shirt pattern.";
-  }
-
-  return "Dress the child in a newly designed premium storybook outfit that fits the scene and page action, and never reuse the uploaded shirt colors, graphics, or everyday clothing.";
+  return "Preserve the child's current outfit as a recognizable signature look across the storybook. Keep the same garment type, silhouette, major colors, and overall wardrobe impression from the uploaded child photo, while simplifying logos or tiny shirt graphics into storybook-safe painted shapes if needed.";
 }
 
 export function buildStorybookPrompt(
@@ -194,28 +178,31 @@ export function buildStorybookPrompt(
     "NON-NEGOTIABLE SCENE RULE: Illustrate the exact page scene from the blueprint above. The location, action, important story objects, time of day, and emotional beat must be visible at a glance even if the page text is hidden.",
     "FORMAT: premium 2D illustrated children's storybook art with soft painterly rendering, cinematic storytelling, warm emotional lighting, volumetric glow, depth of field, expressive eyes, realistic child proportions, magical atmosphere, and detailed environments. It must be not photorealistic and never resemble a real photo.",
     "PRINTED STORYBOOK RULE: The result should feel like a premium printed picture-book illustration on first glance, with clearly stylized painterly treatment instead of realistic animal photography or live-action rendering.",
+    "MAGICAL REALISM RULE: Use painterly magical-realism texture, warm golden tones, luminous atmosphere, and premium children's-book polish so the scene feels enchanted but still clearly illustrated.",
     "VIBRANT COLOR PALETTE: Use rich, saturated, vibrant colors throughout the entire scene. Employ warm glowing yellows, turquoises, corals, oranges, pinks, and soft purples. Colors should feel alive and joyful with excellent saturation and luminosity. Avoid muted, washed-out, or desaturated colors.",
     "LIGHTING & ATMOSPHERE: Soft volumetric lighting, warm color cast, subtle lighting gradients, glowing highlights, and atmospheric depth. Use lighting to create emotional warmth and magical mood. Include subtle light rays, soft shadows, and luminous glows around key elements.",
     "ENVIRONMENTAL RICHNESS: Build densely detailed backgrounds with multiple layers of foreground, midground, and background elements. Add intricate textures, decorative details, natural elements (plants, water, rocks), and visual storytelling elements that enhance the world and create depth without overwhelming the child character.",
     "TEXTURE & MATERIAL DETAIL: Include visible texture on fabrics, surfaces, and natural elements. Render clothing with fabric textures and folds. Add depth to water, plants, wood, stone, and other materials. Use material variety to create visual interest and premium quality.",
     "SCENE-FIRST GENERATION: Build the complete environment first. The location, objects, action, emotional beat, time of day, lighting, and cinematic mood from the page must all be visible in the final image. The child should be one of the primary storytelling anchors inside the scene, but the world and page action stay visually rich and essential.",
     "IDENTITY PRESERVATION PRIORITY: The child's unique facial identity is the primary anchor for the entire storybook. Every illustrated page must preserve this specific child's distinctive features so a parent immediately recognizes their child as the protagonist. This takes priority over generic beauty, generic baby styling, or random character design drift.",
+    "EXACT LIKENESS RULE: The illustrated hero should feel like the same real child from the uploaded photo, not merely a similar generic toddler. Parents should recognize the child immediately from face, hair, expression style, and wardrobe cues.",
     "FACIAL FEATURE MATCHING: Preserve the child's exact eye shape, eyelid shape, eyebrow shape, nose bridge and tip, mouth shape, smile structure, cheek fullness, chin shape, jawline softness, ear placement, and overall face proportions. Keep those features specific and recognizable in every page.",
     "HAIR IDENTITY PRESERVATION: Match the child's exact hairstyle, hairline, hair texture, curl pattern, volume, bangs shape, and hair color so the hairstyle remains immediately recognizable across pages.",
     "SKIN TONE & COMPLEXION ACCURACY: Match the child's exact skin tone and undertone, and preserve the natural complexion feeling that makes this child look like the uploaded child rather than a generic AI toddler.",
     "EXPRESSION CONSISTENCY: Preserve the child's natural expression style and smile feeling while adapting emotion to the page scene.",
     "CHARACTER CREATION: Create an illustrated child character from the uploaded reference photo. Match the child's hairstyle, face shape, eye color, skin tone, and age appearance to create a recognizable character version.",
     "IMAGITIME-LEVEL IDENTITY STANDARD: Aim for professional storybook identity preservation. The illustrated child must be unmistakably the same person on every page, not just a similar toddler.",
-    "IDENTITY REFERENCE RULE: Use the uploaded child photo as the identity blueprint. Match hairstyle, face shape, eye shape, skin tone, smile structure, and age appearance, but do not copy the original photo framing, room, clothing graphics, lighting, or pose.",
-    "REFERENCE IMAGE FILTER: Treat every uploaded photo like a face-and-hair identity card only. Never copy shirt prints, sleeves, necklaces, bracelets, cups, chairs, sofas, walls, floors, furniture, door frames, room layouts, or household clutter from the reference images.",
+    "IDENTITY REFERENCE RULE: Use the uploaded child photo as the identity and wardrobe blueprint. Match hairstyle, face shape, eye shape, skin tone, smile structure, age appearance, and the child's current recognizable outfit silhouette and key colors, but do not copy the original photo framing, room, or household clutter.",
+    "REFERENCE IMAGE FILTER: Treat every uploaded photo like a child-identity and wardrobe reference card. Keep the child, hairstyle, and outfit cues. Ignore cups, chairs, sofas, walls, floors, furniture, door frames, room layouts, handheld clutter, and household background details from the reference images.",
     "FACE VIEW RULE: Never show the child from behind or with the face hidden. Use a frontal or three-quarter facial view so the child remains recognizable while still integrated into the action. Face clarity is essential for identity preservation.",
     "COMPLIANCE CHECK: The output is wrong if the child's face is hidden, if the child is shown mainly from the back, if facial features drift away from the uploaded child, if an uploaded shirt pattern reappears, if the character looks like a different child, or if the scene looks like a realistic wildlife photo.",
-    "CHARACTER CONSISTENCY: Keep the child's face, identity, and facial features unmistakably recognizable across the full book. The child's face should remain consistent and identifiable, while clothing, costume, and accessories change per page to match the exact story beat, setting, and adventure context.",
-    "PAGE-SPECIFIC COSTUME DESIGN: Each page must have unique costume and outfit design that matches the story's environmental setting and page action. Change the child's clothing, accessories, and costume between pages to reflect the story progression and specific location. Examples: indoor explorer scene = indoor adventure outfit, jungle/safari scene = explorer vest and khaki colors, underwater scene = wetsuit/scuba gear, forest scene = nature-appropriate clothing, etc. Costumes should be context-specific and thematically appropriate. The face must remain distinctly the same child.",
+    "CHARACTER CONSISTENCY: Keep the child's face, identity, hair, facial features, and recognizable wardrobe impression unmistakably consistent across the full book. Poses, camera angle, and expressions may change page to page, but the child should still look like the same hero in the same signature look.",
+    "WARDROBE PRESERVATION RULE: Preserve the child's current outfit or a very close illustrated adaptation of it. Keep the recognizable garment type, silhouette, main colors, and overall outfit identity instead of redesigning a completely different costume for each page.",
     `OUTFIT OVERRIDE RULE: ${costumeDirection}`,
     "REFERENCE SANITIZATION RULE: Ignore all props and surroundings from the uploaded child photo, especially cups, furniture, walls, indoor room backgrounds, jewelry details, clothing slogans, and household objects.",
     "STORY OVERRIDE RULE: The page story beat always overrides the uploaded photo context. If the story mentions an elephant, eagle, river, jungle, zebra, birds, or another page object, those story elements must appear clearly in the illustration.",
     "PROMINENCE RULE: The child must be clearly identifiable as this specific uploaded child and appear as the active protagonist experiencing the adventure. Child identity preservation outweighs generic composition choices.",
+    "HERO OF THE PAGE RULE: The child must read as the hero of the full illustration on every story page. Do not reduce the child to a tiny extra or background bystander. The viewer should instantly understand that this child is the main character of the scene.",
     "COMPOSITION RULE: Fill most of the page with a cinematic story scene. Create clear foreground, midground, and background depth, and leave clean breathing room for printed story text without shrinking the world into a plain backdrop. The child's face must remain clearly readable inside that composition.",
     "SCENE BALANCE RULE: The illustrated child must be clearly recognizable and emotionally readable, but should not dominate the frame like a portrait, passport photo, sticker, or pasted face. The story world and action should carry visual weight while the child's distinctive face remains unmistakably identifiable.",
     "WORLD SCALE RULE: Keep the child at natural story scale inside the environment. Use medium-wide to wide cinematic framing with the child acting within the setting, not oversized as a giant face or floating close-up unless the story beat truly requires it. The child's face must remain clearly visible within natural scene proportions.",
