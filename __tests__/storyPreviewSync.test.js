@@ -1,4 +1,5 @@
 const {
+  getSavedPageImageUrl,
   getStoryPreviewMetrics,
   hasCompletedPageIllustration,
   isTemporaryPreviewIllustrationUrl,
@@ -67,6 +68,21 @@ describe('storyPreviewSync', () => {
     expect(selectBestStoryPreview([serverPreview, localPreview])).toBe(
       localPreview
     );
+  });
+
+  it('prefers a face-swapped illustration when both raw and refined page images exist', () => {
+    const previewPage = {
+      pageNumber: 2,
+      pageType: 'story',
+      text: 'Page 2 text',
+      illustrationUrl: 'https://cdn.example.com/page-2-generic.png',
+      faceSwappedUrl: 'https://cdn.example.com/page-2-child-match.png',
+    };
+
+    expect(getSavedPageImageUrl(previewPage)).toBe(
+      'https://cdn.example.com/page-2-child-match.png'
+    );
+    expect(hasCompletedPageIllustration(previewPage)).toBe(true);
   });
 
   it('counts ready story illustrations separately from text-only pages', () => {

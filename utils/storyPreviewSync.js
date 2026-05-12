@@ -19,8 +19,8 @@ export function isTemporaryPreviewIllustrationUrl(value) {
 
 export function getSavedPageImageUrl(page) {
   return (
-    page?.illustrationUrl ||
     page?.faceSwappedUrl ||
+    page?.illustrationUrl ||
     page?.image_url ||
     page?.image ||
     null

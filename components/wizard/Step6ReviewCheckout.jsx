@@ -122,14 +122,14 @@ function normalizeStoryPreviewPages(pages = [], cachedPages = []) {
     const pageNumber = Number(page?.pageNumber || page?.page_number || index + 1) || index + 1;
     const cachedPage = cachedPagesByNumber.get(pageNumber) || cachedPages[index] || null;
     const illustrationUrl =
+      page?.faceSwappedUrl ||
+      cachedPage?.faceSwappedUrl ||
       page?.illustrationUrl ||
       page?.image_url ||
       page?.image ||
       cachedPage?.illustrationUrl ||
       cachedPage?.image_url ||
       cachedPage?.image ||
-      page?.faceSwappedUrl ||
-      cachedPage?.faceSwappedUrl ||
       null;
     const faceSwappedUrl =
       cachedPage?.faceSwappedUrl ||
@@ -166,11 +166,13 @@ function normalizeStoryPreviewPages(pages = [], cachedPages = []) {
         null,
       illustrationUrl,
       image_url:
+        faceSwappedUrl ||
         page?.image_url ||
         page?.illustrationUrl ||
         page?.image ||
         illustrationUrl,
       image:
+        faceSwappedUrl ||
         page?.image ||
         page?.illustrationUrl ||
         page?.image_url ||
