@@ -17,7 +17,11 @@ describe('storybook illustration prompt', () => {
 
     expect(prompt).toContain('2D illustrated');
     expect(prompt).toContain('IDENTITY REFERENCE RULE');
-    expect(prompt).toContain('identity guidance only');
+    expect(prompt).toContain('IDENTITY PRESERVATION PRIORITY');
+    expect(prompt).toContain('FACIAL FEATURE MATCHING');
+    expect(prompt).toContain('HAIR IDENTITY PRESERVATION');
+    expect(prompt).toContain('IMAGITIME-LEVEL IDENTITY STANDARD');
+    expect(prompt).toContain('identity blueprint');
     expect(prompt).toContain('PAGE-SPECIFIC COSTUME DESIGN');
     expect(prompt).toContain('REFERENCE SANITIZATION RULE');
     expect(prompt).toContain('REFERENCE IMAGE FILTER');
@@ -55,6 +59,6 @@ describe('storybook illustration prompt', () => {
     expect(prompt.match(/=== SCENE-FIRST STORY ILLUSTRATION ===/g)).toHaveLength(1);
     expect(prompt).toContain('SCENE BALANCE RULE');
     expect(prompt).toContain('READABILITY RULE');
-    expect(prompt).toContain('world and action should carry at least half of the visual storytelling weight');
+    expect(prompt).toContain('story world and action should carry visual weight while the child\'s distinctive face remains unmistakably identifiable');
   });
 });

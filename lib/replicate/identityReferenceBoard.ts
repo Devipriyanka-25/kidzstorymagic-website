@@ -6,6 +6,10 @@ const TILE_SUBJECT_SIZE = 520;
 const TILE_GAP = 24;
 const TILE_PADDING = 28;
 const BOARD_BACKGROUND = { r: 247, g: 243, b: 236 };
+const FACE_TILE_VARIANTS = [
+  { kind: "tight-face", cropScalePortrait: 0.22, cropScaleLandscape: 0.24, topBias: 0.015, fadeLowerBody: false },
+  { kind: "head-and-shoulders", cropScalePortrait: 0.3, cropScaleLandscape: 0.38, topBias: 0.02, fadeLowerBody: true },
+];
 
 function buildLowerFadeMask(size: number): Buffer {
   return Buffer.from(
@@ -58,15 +62,19 @@ async function fetchReferenceBuffer(referenceImage: string): Promise<Buffer> {
 
 function getFocusedCrop(
   width: number,
-  height: number
+  height: number,
+  variant = FACE_TILE_VARIANTS[0]
 ): { left: number; top: number; width: number; height: number } {
   if (height >= width) {
-    const cropHeight = Math.min(height, Math.round(height * 0.3));
+    const cropHeight = Math.min(
+      height,
+      Math.round(height * variant.cropScalePortrait)
+    );
     const cropWidth = Math.min(width, Math.round(cropHeight * 0.82));
     const left = Math.max(0, Math.round((width - cropWidth) / 2));
     const top = Math.max(
       0,
-      Math.min(height - cropHeight, Math.round(height * 0.02))
+      Math.min(height - cropHeight, Math.round(height * variant.topBias))
     );
 
     return {
@@ -77,12 +85,15 @@ function getFocusedCrop(
     };
   }
 
-  const cropHeight = Math.min(height, Math.round(height * 0.38));
+  const cropHeight = Math.min(
+    height,
+    Math.round(height * variant.cropScaleLandscape)
+  );
   const cropWidth = Math.min(width, Math.round(cropHeight * 0.8));
   const left = Math.max(0, Math.round((width - cropWidth) / 2));
   const top = Math.max(
     0,
-    Math.min(height - cropHeight, Math.round(height * 0.02))
+    Math.min(height - cropHeight, Math.round(height * variant.topBias))
   );
 
   return {
@@ -93,12 +104,15 @@ function getFocusedCrop(
   };
 }
 
-async function buildReferenceTile(referenceBuffer: Buffer): Promise<Buffer> {
+async function buildReferenceTile(
+  referenceBuffer: Buffer,
+  variant = FACE_TILE_VARIANTS[0]
+): Promise<Buffer> {
   const normalized = sharp(referenceBuffer, { failOn: "none" }).rotate();
   const metadata = await normalized.metadata();
   const width = metadata.width || TILE_SIZE;
   const height = metadata.height || TILE_SIZE;
-  const crop = getFocusedCrop(width, height);
+  const crop = getFocusedCrop(width, height, variant);
   const centeredPortrait = await normalized
     .extract(crop)
     .resize(TILE_SUBJECT_SIZE, TILE_SUBJECT_SIZE, {
@@ -108,15 +122,17 @@ async function buildReferenceTile(referenceBuffer: Buffer): Promise<Buffer> {
     })
     .png()
     .toBuffer();
-  const maskedPortrait = await sharp(centeredPortrait)
-    .composite([
-      {
-        input: buildLowerFadeMask(TILE_SUBJECT_SIZE),
-        blend: "dest-in",
-      },
-    ])
-    .png()
-    .toBuffer();
+  const maskedPortrait = variant.fadeLowerBody
+    ? await sharp(centeredPortrait)
+        .composite([
+          {
+            input: buildLowerFadeMask(TILE_SUBJECT_SIZE),
+            blend: "dest-in",
+          },
+        ])
+        .png()
+        .toBuffer()
+    : centeredPortrait;
 
   return sharp({
     create: {
@@ -193,11 +209,15 @@ export async function buildIdentityReferenceBoard(
     throw new Error("At least one child reference image is required.");
   }
 
-  const tiles = await Promise.all(
-    normalizedImages.map(async (referenceImage) =>
-      buildReferenceTile(await fetchReferenceBuffer(referenceImage))
-    )
-  );
+  const tiles: Buffer[] = [];
+
+  for (const referenceImage of normalizedImages) {
+    const referenceBuffer = await fetchReferenceBuffer(referenceImage);
+
+    for (const variant of FACE_TILE_VARIANTS) {
+      tiles.push(await buildReferenceTile(referenceBuffer, variant));
+    }
+  }
 
   if (tiles.length === 1) {
     return tiles[0];
