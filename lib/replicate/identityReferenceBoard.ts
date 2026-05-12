@@ -1,6 +1,6 @@
 import sharp from "sharp";
 
-const MAX_REFERENCE_IMAGES = 4;
+const MAX_REFERENCE_IMAGES = 2;
 const TILE_SIZE = 640;
 const TILE_SUBJECT_SIZE = 520;
 const TILE_GAP = 24;
