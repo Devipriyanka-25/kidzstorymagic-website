@@ -7,6 +7,22 @@ const TILE_GAP = 24;
 const TILE_PADDING = 28;
 const BOARD_BACKGROUND = { r: 247, g: 243, b: 236 };
 
+function buildLowerFadeMask(size: number): Buffer {
+  return Buffer.from(
+    `<svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <linearGradient id="fade" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="white" stop-opacity="1"/>
+          <stop offset="68%" stop-color="white" stop-opacity="1"/>
+          <stop offset="86%" stop-color="white" stop-opacity="0.42"/>
+          <stop offset="100%" stop-color="white" stop-opacity="0"/>
+        </linearGradient>
+      </defs>
+      <rect width="${size}" height="${size}" fill="url(#fade)"/>
+    </svg>`
+  );
+}
+
 function isDataUrl(value: string): boolean {
   return /^data:image\//i.test(String(value || "").trim());
 }
@@ -92,6 +108,15 @@ async function buildReferenceTile(referenceBuffer: Buffer): Promise<Buffer> {
     })
     .png()
     .toBuffer();
+  const maskedPortrait = await sharp(centeredPortrait)
+    .composite([
+      {
+        input: buildLowerFadeMask(TILE_SUBJECT_SIZE),
+        blend: "dest-in",
+      },
+    ])
+    .png()
+    .toBuffer();
 
   return sharp({
     create: {
@@ -103,7 +128,7 @@ async function buildReferenceTile(referenceBuffer: Buffer): Promise<Buffer> {
   })
     .composite([
       {
-        input: centeredPortrait,
+        input: maskedPortrait,
         left: Math.round((TILE_SIZE - TILE_SUBJECT_SIZE) / 2),
         top: Math.round((TILE_SIZE - TILE_SUBJECT_SIZE) / 2),
       },

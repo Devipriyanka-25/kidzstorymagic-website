@@ -38,7 +38,7 @@ const FLUX_STORYBOOK_MODEL_PREFIX = "black-forest-labs/flux-2-";
 const KONTEXT_STORYBOOK_MODEL_PREFIX = "black-forest-labs/flux-kontext-";
 
 export const DEFAULT_STORYBOOK_NEGATIVE_PROMPT =
-  "realistic, photorealistic, photo, photograph, DSLR, camera, real photo, filtered photo, photo edit, photo filter, photo composite, photo overlay, realistic rendering, CGI, 3D render, realistic 3D, hyperrealistic, overly detailed realism, portrait photo, headshot photo, selfie photo, polaroid, instagram photo, social media photo, real world, live action, film still, movie still, documentary, photojournalism, professional photography, studio lighting real, portrait only, centered character, empty background, plain background, random pose, sticker look, emoji face, flat cartoon, cheap cartoon style, face-focused composition, low-detail environment, generic AI child, different child, different person, different face, different facial features, different face shape, different cheekbones, different jawline, changed hair type, changed hair color, changed hair style, aged child, older child, younger child, baby face, adult face, distorted face, asymmetrical face, unrecognizable child, unrecognizable face, face swap, deepfake, pasted face, face composite, face splice, facial features mismatch, photographic face on cartoon body, blurry, low resolution, washed out colors, pale, desaturated, low contrast, muddy, gloomy lighting, dark mood, horror, scary, nighttime, completely different child";
+  "realistic, photorealistic, photo, photograph, DSLR, camera, real photo, wildlife photography, nature documentary, stock landscape photo, filtered photo, photo edit, photo filter, photo composite, photo overlay, realistic rendering, CGI, 3D render, realistic 3D, hyperrealistic, overly detailed realism, portrait photo, headshot photo, selfie photo, polaroid, instagram photo, social media photo, real world, live action, film still, movie still, documentary, photojournalism, professional photography, studio lighting real, portrait only, centered character, empty background, plain background, random pose, sticker look, emoji face, flat cartoon, cheap cartoon style, face-focused composition, low-detail environment, generic AI child, different child, different person, different face, different facial features, different face shape, different cheekbones, different jawline, changed hair type, changed hair color, changed hair style, aged child, older child, younger child, baby face, adult face, distorted face, asymmetrical face, unrecognizable child, unrecognizable face, face swap, deepfake, pasted face, face composite, face splice, facial features mismatch, photographic face on cartoon body, blurry, low resolution, washed out colors, pale, desaturated, low contrast, muddy, gloomy lighting, dark mood, horror, scary, nighttime, completely different child";
 
 export type StoryPageGenerationInput = {
   prompt: string;
@@ -113,7 +113,7 @@ function buildPositiveAvoidanceInstructions(negativePrompt: string): string {
     .split(",")
     .map((value) => value.trim())
     .filter(Boolean)
-    .slice(0, 18);
+    .slice(0, 28);
 
   if (cleaned.length === 0) {
     return "";
@@ -148,6 +148,36 @@ function normalizeSceneBlueprint(prompt: string): string {
   });
 }
 
+function buildCostumeDirection(scenePrompt: string): string {
+  const source = scenePrompt.toLowerCase();
+
+  if (
+    /\banimal\b|\bjungle\b|\bsafari\b|\bvalley\b|\beagle\b|\belephant\b|\bzebra\b|\bgrasslands?\b|\btrail\b/.test(
+      source
+    )
+  ) {
+    return "Dress the child in a freshly designed explorer-style storybook outfit with simple safari details, earthy or sun-washed colors, and no copied shirt print from the references.";
+  }
+
+  if (/\bunderwater\b|\breef\b|\bturtle\b|\bocean\b|\bseaweed\b/.test(source)) {
+    return "Dress the child in a newly designed undersea adventure outfit or wetsuit-like story costume, never the uploaded everyday clothes.";
+  }
+
+  if (/\bgarage\b|\btruck\b|\bglass door\b|\bworkshop\b/.test(source)) {
+    return "Dress the child in a freshly designed garage-adventure outfit or overalls with playful mechanic details, never the uploaded shirt graphics.";
+  }
+
+  if (/\bspace\b|\brocket\b|\bplanet\b|\bstars?\b|\bmoon\b/.test(source)) {
+    return "Dress the child in a newly designed space-adventure outfit or cozy astronaut-inspired costume, not the uploaded home clothes.";
+  }
+
+  if (/\bunicorn\b|\bcastle\b|\bfairy\b|\bmagic\b|\benchanted\b/.test(source)) {
+    return "Dress the child in a freshly designed magical-adventure outfit with premium storybook styling, never the uploaded shirt pattern.";
+  }
+
+  return "Dress the child in a newly designed premium storybook outfit that fits the scene and page action, and never reuse the uploaded shirt colors, graphics, or everyday clothing.";
+}
+
 export function buildStorybookPrompt(
   prompt: string,
   negativePrompt = DEFAULT_STORYBOOK_NEGATIVE_PROMPT
@@ -155,6 +185,7 @@ export function buildStorybookPrompt(
   const normalizedScenePrompt = normalizeSceneBlueprint(prompt);
   const avoidanceInstruction =
     buildPositiveAvoidanceInstructions(negativePrompt);
+  const costumeDirection = buildCostumeDirection(normalizedScenePrompt);
 
   return [
     "PRIMARY GOAL: The story scene is the primary focus. The finished image must read like a movie frame from the story, not like a child portrait with a random background.",
@@ -169,14 +200,17 @@ export function buildStorybookPrompt(
     "CHARACTER CREATION: Create an illustrated child character from the uploaded reference photo. Match the child's hairstyle, face shape, eye color, skin tone, and age appearance to create a recognizable character version.",
     "IDENTITY REFERENCE RULE: Use the uploaded child photo as identity guidance only. Match hairstyle, face shape, eye shape, skin tone, and age appearance, but do not copy the original photo framing, room, clothing graphics, lighting, or pose.",
     "REFERENCE IMAGE FILTER: Treat every uploaded photo like a face-and-hair identity card only. Never copy shirt prints, sleeves, necklaces, bracelets, cups, chairs, sofas, walls, floors, furniture, door frames, room layouts, or household clutter from the reference images.",
+    "FACE VIEW RULE: Never show the child from behind or with the face hidden. Use a frontal or three-quarter facial view so the child remains recognizable while still integrated into the action.",
     "CHARACTER CONSISTENCY: Keep the child's face, identity, and facial features recognizable across the full book. The child's face should remain consistent and identifiable. However, the clothing, costume, and accessories should change per page to match the exact story beat, setting, and adventure context of each page.",
     "PAGE-SPECIFIC COSTUME DESIGN: Each page must have unique costume and outfit design that matches the story's environmental setting and page action. Change the child's clothing, accessories, and costume between pages to reflect the story progression and specific location. Examples: indoor explorer scene = indoor adventure outfit, jungle/safari scene = explorer vest and khaki colors, underwater scene = wetsuit/scuba gear, forest scene = nature-appropriate clothing, etc. Costumes should be context-specific and thematically appropriate.",
+    `OUTFIT OVERRIDE RULE: ${costumeDirection}`,
     "REFERENCE SANITIZATION RULE: Ignore all props and surroundings from the uploaded child photo, especially cups, furniture, walls, indoor room backgrounds, jewelry details, clothing slogans, and household objects.",
     "STORY OVERRIDE RULE: The page story beat always overrides the uploaded photo context. If the story mentions an elephant, eagle, river, jungle, zebra, birds, or another page object, those story elements must appear clearly in the illustration.",
     "PROMINENCE RULE: Child should be easily identifiable and appear as the active protagonist experiencing the adventure. Child's face must be clearly visible and recognizable from the uploaded photo.",
     "COMPOSITION RULE: Fill most of the page with a cinematic story scene. Create clear foreground, midground, and background depth, and leave clean breathing room for printed story text without shrinking the world into a plain backdrop.",
     "SCENE BALANCE RULE: The illustrated child must be clearly recognizable and emotionally readable, but should not dominate the frame like a portrait, passport photo, sticker, or pasted face. The story world and action should carry at least half of the visual storytelling weight.",
     "WORLD SCALE RULE: Keep the child at natural story scale inside the environment. Use medium-wide to wide cinematic framing with the child acting within the setting, not oversized as a giant face or floating close-up unless the story beat truly requires it.",
+    "STYLE OVERRIDE RULE: Render the entire page as premium painted storybook art with visible illustration styling, stylized shapes, and child-friendly brushwork. Never let the result resemble wildlife photography, a stock landscape, or a realistic movie still.",
     "CAMERA RULE: Prefer child-height or gently dynamic camera angles that help the viewer understand the page action and the surrounding world in one glance.",
     "ACTIVE PARTICIPATION: Child should be shown as an active participant - moving, interacting, exploring, discovering, or engaging with the story environment and characters rather than standing passively.",
     "FACE VISIBILITY: Child's face must be clearly visible and recognizable. Ensure facial expressions are expressive and match the emotional beat of the story page.",

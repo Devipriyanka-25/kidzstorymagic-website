@@ -23,6 +23,9 @@ describe('storybook illustration prompt', () => {
     expect(prompt).toContain('REFERENCE IMAGE FILTER');
     expect(prompt).toContain('STORY OVERRIDE RULE');
     expect(prompt).toContain('NON-NEGOTIABLE SCENE RULE');
+    expect(prompt).toContain('OUTFIT OVERRIDE RULE');
+    expect(prompt).toContain('FACE VIEW RULE');
+    expect(prompt).toContain('STYLE OVERRIDE RULE');
     expect(prompt).toContain('not photorealistic');
     expect(prompt).toContain('SCENE BALANCE RULE');
     expect(prompt).toContain('WORLD SCALE RULE');
