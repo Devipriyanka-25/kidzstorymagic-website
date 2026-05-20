@@ -8,7 +8,6 @@ import { STORAGE_KEYS } from '@/utils/constants';
 import { isLocalDraftExpired } from '@/utils/draftExpiry';
 import { selectBestStoryPreview } from '@/utils/storyPreviewSync';
 import { useEffect, useState } from 'react';
-import LanguageSelector from '@/components/i18n/LanguageSelector';
 import AgeGateModal from '@/components/wizard/AgeGateModal';
 import ChildSafetyVerificationModal from '@/components/wizard/ChildSafetyVerificationModal';
 import AdultUserFormModal from '@/components/wizard/AdultUserFormModal';
@@ -21,7 +20,7 @@ const Step2ThemeSelection = dynamic(() =>
   import('@/components/wizard/Step2ThemeSelection')
 );
 const Step3PageCount = dynamic(() =>
-  import('@/components/wizard/Step3PageCount')
+  import('../../components/wizard/Step3PageCount')
 );
 const Step4ChildDetails = dynamic(() =>
   import('@/components/wizard/Step4ChildDetails')
@@ -185,7 +184,6 @@ export default function WizardPage() {
   const [pendingServerDraft, setPendingServerDraft] = useState(null);
   const [isInitializingWizard, setIsInitializingWizard] = useState(true);
   const [error, setError] = useState(null);
-  const [languageChanged, setLanguageChanged] = useState(false);
   const [selectedAge, setSelectedAge] = useState(null);
 
   const applyQueryPrefill = () => {
@@ -656,19 +654,6 @@ export default function WizardPage() {
     window.location.href = '/';
   };
 
-  const handleLanguageChange = (newLanguage) => {
-    console.log('[WIZARD] Language changed to:', newLanguage);
-    // Update form data with new language
-    updateFormData('storyLanguage', newLanguage);
-    setLanguageChanged(true);
-    
-    // Emit event for story components to listen to
-    const event = new CustomEvent('storyLanguageChanged', { 
-      detail: { language: newLanguage } 
-    });
-    window.dispatchEvent(event);
-  };
-
   const Step = steps[currentStep - 1]?.component;
 
   if (isInitializingWizard) {
@@ -734,14 +719,6 @@ export default function WizardPage() {
             Personalized, AI-powered storybooks for children
           </p>
           
-          {/* Language Selector */}
-          <div className="flex justify-center mb-4">
-            <LanguageSelector 
-              size="md" 
-              showLabel={true}
-              onLanguageChange={handleLanguageChange}
-            />
-          </div>
         </div>
 
         {/* Progress bar */}

@@ -11,6 +11,19 @@ export default function Navbar() {
   const router = useRouter();
   const { user, logout } = useAuthStore();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [showSignInRoleModal, setShowSignInRoleModal] = useState(false);
+
+  const handleSignInClick = () => {
+    setMobileMenuOpen(false);
+    setShowSignInRoleModal(true);
+  };
+
+  const handleRoleSelection = (role) => {
+    setShowSignInRoleModal(false);
+    const nextPath = role === 'admin' ? '/admin-dashboard' : '/dashboard';
+    router.push(`/auth/login?next=${encodeURIComponent(nextPath)}`);
+  };
+
   const handleLogout = () => {
     logout();
     setMobileMenuOpen(false);
@@ -81,9 +94,13 @@ export default function Navbar() {
           ) : (
             <>
               <motion.div whileHover={{ scale: 1.05 }}>
-                <Link href="/auth/login" className="text-gray-700 hover:text-blue-600 font-semibold transition-colors">
+                <button
+                  type="button"
+                  onClick={handleSignInClick}
+                  className="text-gray-700 hover:text-blue-600 font-semibold transition-colors"
+                >
                   Sign In
-                </Link>
+                </button>
               </motion.div>
               <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
                 <Link
@@ -140,9 +157,13 @@ export default function Navbar() {
               </>
             ) : (
               <>
-                <Link href="/auth/login" className="text-gray-700 hover:text-blue-600 font-semibold py-2">
+                <button
+                  type="button"
+                  onClick={handleSignInClick}
+                  className="text-left text-gray-700 hover:text-blue-600 font-semibold py-2"
+                >
                   Sign In
-                </Link>
+                </button>
                 <Link
                   href="/auth/signup"
                   className="px-4 py-2 bg-blue-600 text-white rounded-lg font-semibold text-center"
@@ -153,6 +174,42 @@ export default function Navbar() {
             )}
           </nav>
         </motion.div>
+      )}
+
+      {showSignInRoleModal && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl">
+            <h3 className="text-xl font-bold text-gray-900">Choose Sign In Type</h3>
+            <p className="mt-2 text-sm text-gray-600">
+              Select where you want to continue after signing in.
+            </p>
+
+            <div className="mt-5 grid grid-cols-1 gap-3">
+              <button
+                type="button"
+                onClick={() => handleRoleSelection('admin')}
+                className="w-full rounded-xl border border-purple-200 bg-purple-50 px-4 py-3 text-left font-semibold text-purple-800 transition-colors hover:bg-purple-100"
+              >
+                Admin
+              </button>
+              <button
+                type="button"
+                onClick={() => handleRoleSelection('customer')}
+                className="w-full rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-left font-semibold text-blue-800 transition-colors hover:bg-blue-100"
+              >
+                Customer
+              </button>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setShowSignInRoleModal(false)}
+              className="mt-5 w-full rounded-xl border border-gray-300 px-4 py-2 font-semibold text-gray-700 hover:bg-gray-50"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
       )}
     </motion.header>
   );

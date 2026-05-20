@@ -4,7 +4,6 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import PDFPreviewModal from './PDFPreviewModal';
 import GiftStory from './GiftStory';
 import CharacterConsistentStoryPage from '@/components/story/CharacterConsistentStoryPage';
-import { useLanguage } from '@/hooks/useLanguage';
 import { storyAPI, paymentAPI } from '@/utils/api';
 import {
   useWizardStore,
@@ -546,7 +545,6 @@ export default function Step6ReviewCheckout() {
     setCurrency,
   } = useCurrencyStore();
   const authUser = useAuthStore((state) => state.user);
-  const { currentLanguage } = useLanguage();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   // Initialize from saved preview if it exists, otherwise null
@@ -600,6 +598,7 @@ export default function Step6ReviewCheckout() {
     currency,
   } = getConvertedStoryPrice(formData.pageCount, selectedCurrency, exchangeRates);
   const price = convertedPrice.toFixed(2);
+  const formattedPrice = `${CURRENCY_SYMBOLS[currency]}${price}`;
   const selectedCountryOption =
     getCountryCurrencyOption(selectedCountry) ||
     getCountryOptionByCurrency(currency) ||
@@ -1575,11 +1574,13 @@ export default function Step6ReviewCheckout() {
   };
 
   const handleGenerateStory = async (
-    languageOverride = currentLanguage,
+    languageOverride = formData.storyLanguage || 'en',
     { forceRegenerate = false } = {}
   ) => {
     const resolvedLanguage =
-      typeof languageOverride === 'string' ? languageOverride : currentLanguage;
+      typeof languageOverride === 'string'
+        ? languageOverride
+        : formData.storyLanguage || 'en';
 
     // Check if photo selection changed
     const photoChanged = selectedPhotoIndex !== lastGeneratedPhotoIndex;
@@ -2131,27 +2132,6 @@ export default function Step6ReviewCheckout() {
     window.addEventListener('keydown', handleKeyPress);
     return () => window.removeEventListener('keydown', handleKeyPress);
   }, [canMoveToNextPage, currentPage, storyPreview]);
-
-  useEffect(() => {
-    const handleLanguageChange = (event) => {
-      const nextLanguage =
-        event?.detail?.language || formData.storyLanguage || currentLanguage;
-
-      if (storyPreview) {
-        setPreviewEmailStatus('idle');
-        setPreviewEmailFeedback(
-          'Language updated for future edits. Use Regenerate Preview if you want to rebuild this saved story in the new language.'
-        );
-      }
-    };
-
-    window.addEventListener('languageChanged', handleLanguageChange);
-    window.addEventListener('storyLanguageChanged', handleLanguageChange);
-    return () => {
-      window.removeEventListener('languageChanged', handleLanguageChange);
-      window.removeEventListener('storyLanguageChanged', handleLanguageChange);
-    };
-  }, [storyPreview, currentLanguage, formData.storyLanguage]);
 
   const handleCheckout = async () => {
     if (!allIllustratedPagesReady) {
@@ -2709,129 +2689,6 @@ export default function Step6ReviewCheckout() {
                     </div>
                   </div>
 
-                  <div
-                    className="mb-4 rounded-2xl border bg-white/90 p-4 shadow-sm"
-                    style={{ borderColor: `${currentTheme.primary}25` }}
-                  >
-                    <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
-                      <div>
-                        <p
-                          className="text-xs font-black uppercase tracking-[0.24em]"
-                          style={{ color: currentTheme.primary }}
-                        >
-                          Pricing Region
-                        </p>
-                        <p className="mt-1 text-sm text-gray-600">
-                          Choose the checkout country and we will update the
-                          currency and preview price instantly.
-                        </p>
-                      </div>
-
-                      <div className="w-full md:max-w-sm">
-                        <label
-                          htmlFor="checkout-country"
-                          className="mb-2 block text-xs font-bold text-gray-600"
-                        >
-                          Country
-                        </label>
-                        <select
-                          id="checkout-country"
-                          value={selectedCountryOption.country}
-                          onChange={handleCountryChange}
-                          className="w-full rounded-xl border bg-white px-4 py-3 text-sm font-semibold text-gray-900 shadow-sm outline-none transition-all focus:ring-2"
-                          style={{
-                            borderColor: `${currentTheme.primary}40`,
-                            boxShadow: `0 0 0 0 ${currentTheme.primary}`,
-                          }}
-                        >
-                          {COUNTRY_CURRENCY_OPTIONS.map((option) => (
-                            <option key={option.country} value={option.country}>
-                              {option.country} ({option.currency})
-                            </option>
-                          ))}
-                        </select>
-                        <p className="mt-2 text-xs text-gray-500">
-                          Billing preview: {CURRENCY_SYMBOLS[currency]}
-                          {price} for {formData.pageCount} pages
-                        </p>
-                        {selectedCountryOption.country === 'India' ? (
-                          <p className="mt-1 text-xs font-semibold text-emerald-700">
-                            India checkout will prioritize UPI when it is available on your Stripe account.
-                          </p>
-                        ) : null}
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="mb-4 grid grid-cols-2 gap-2 text-sm md:grid-cols-5">
-                    <div
-                      className="rounded-lg p-2"
-                      style={{ background: currentTheme.light }}
-                    >
-                      <p className="mb-1 text-xs font-bold text-gray-600">Child</p>
-                      <p
-                        className="text-sm font-black"
-                        style={{ color: currentTheme.primary }}
-                      >
-                        {formData.childName}
-                      </p>
-                    </div>
-
-                    <div
-                      className="rounded-lg p-2"
-                      style={{ background: currentTheme.light }}
-                    >
-                      <p className="mb-1 text-xs font-bold text-gray-600">Age</p>
-                      <p
-                        className="text-sm font-black"
-                        style={{ color: currentTheme.primary }}
-                      >
-                        {formData.ageGroup}
-                      </p>
-                    </div>
-
-                    <div
-                      className="rounded-lg p-2"
-                      style={{ background: currentTheme.light }}
-                    >
-                      <p className="mb-1 text-xs font-bold text-gray-600">Theme</p>
-                      <p
-                        className="text-sm font-black"
-                        style={{ color: currentTheme.primary }}
-                      >
-                        {selectedThemeLabel}
-                      </p>
-                    </div>
-
-                    <div
-                      className="rounded-lg p-2"
-                      style={{ background: currentTheme.light }}
-                    >
-                      <p className="mb-1 text-xs font-bold text-gray-600">Country</p>
-                      <p
-                        className="text-sm font-black"
-                        style={{ color: currentTheme.primary }}
-                      >
-                        {selectedCountryOption.country}
-                      </p>
-                    </div>
-
-                    <div
-                      className="rounded-lg p-2"
-                      style={{ background: currentTheme.light }}
-                    >
-                      <p className="mb-1 text-xs font-bold text-gray-600">Price</p>
-                      <p
-                        className="text-sm font-black"
-                        style={{ color: currentTheme.primary }}
-                      >
-                        {CURRENCY_SYMBOLS[currency]}
-                        {price}
-                      </p>
-                      <p className="mt-1 text-xs text-gray-500">{currency}</p>
-                    </div>
-                  </div>
-
                   {(formData.milestoneTitle || formData.isSeries) && (
                     <div className="mb-4 flex flex-wrap gap-2">
                       {formData.milestoneTitle ? (
@@ -2941,6 +2798,18 @@ export default function Step6ReviewCheckout() {
                     </div>
                   )}
 
+                  <div className="mb-6 rounded-2xl border border-green-100 bg-green-50 px-5 py-4 text-center">
+                    <p className="text-sm font-semibold uppercase tracking-wide text-green-700">
+                      Page Count Pricing
+                    </p>
+                    <p className="mt-2 text-lg font-black text-green-900">
+                      {formData.pageCount} pages - {formattedPrice}
+                    </p>
+                    <p className="mt-1 text-sm text-green-700">
+                      Checkout updates automatically when the page count or currency changes.
+                    </p>
+                  </div>
+
                   <div className="flex flex-wrap justify-center gap-3">
                     <button
                       onClick={prevStep}
@@ -3014,7 +2883,7 @@ export default function Step6ReviewCheckout() {
                     >
                       {loading
                         ? 'Processing...'
-                        : `${CURRENCY_SYMBOLS[currency]}${price} - Checkout`}
+                        : `${formattedPrice} - Checkout (${formData.pageCount} pages)`}
                     </button>
                   </div>
 
