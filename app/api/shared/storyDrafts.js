@@ -19,6 +19,93 @@ const DEFAULT_DRAFT_AGE_GROUP = '5-8';
 const DEFAULT_DRAFT_PAGE_COUNT = 10;
 const DRAFT_FLOW_METADATA_KEY = 'draftFlow';
 
+// ─── Consistency lock helpers ─────────────────────────────────────────────────
+
+/**
+ * Build a story-level consistency lock from a child identity profile and
+ * optional generation settings.  Every page in the story reuses this lock
+ * so all illustrations stay visually consistent.
+ *
+ * @param {object} opts
+ * @param {object}   opts.characterProfile     – from /api/photos/validate-identity
+ * @param {string}   [opts.illustrationStyle]  – e.g. "soft magical storybook"
+ * @param {string[]} [opts.outfitPalette]      – colour tokens, e.g. ["#FFD700", "#FFA07A"]
+ * @param {string[]} [opts.referenceImageIds]  – storage keys / URLs of reference photos
+ * @param {number}   [opts.seed]               – fixed seed for reproducible generation
+ * @param {string}   [opts.modelProvider]      – e.g. "REPLICATE_IDENTITY"
+ * @param {string}   [opts.modelVersion]       – e.g. "photomaker"
+ * @returns {object} consistencyLock
+ */
+export function buildConsistencyLock({
+  characterProfile = null,
+  illustrationStyle = 'soft magical storybook',
+  outfitPalette = [],
+  referenceImageIds = [],
+  seed = null,
+  modelProvider = process.env.IMAGE_PROVIDER || 'REPLICATE_IDENTITY',
+  modelVersion = process.env.REPLICATE_IDENTITY_MODEL || 'photomaker',
+} = {}) {
+  return {
+    characterProfile,
+    illustrationStyle,
+    outfitPalette: Array.isArray(outfitPalette) ? outfitPalette : [],
+    referenceImageIds: Array.isArray(referenceImageIds) ? referenceImageIds : [],
+    seed: seed != null ? Number(seed) : null,
+    modelProvider,
+    modelVersion,
+    createdAt: new Date().toISOString(),
+  };
+}
+
+/**
+ * Extract the consistency lock stored inside a project's photo_metadata.
+ * Returns null if none has been set.
+ */
+export function getConsistencyLock(project = {}) {
+  const metadata =
+    project?.photo_metadata && typeof project.photo_metadata === 'object'
+      ? project.photo_metadata
+      : {};
+  return metadata.consistencyLock && typeof metadata.consistencyLock === 'object'
+    ? metadata.consistencyLock
+    : null;
+}
+
+/**
+ * Extract the child identity profile stored inside a project's photo_metadata.
+ * Returns null if none has been set.
+ */
+export function getChildIdentityProfile(project = {}) {
+  const metadata =
+    project?.photo_metadata && typeof project.photo_metadata === 'object'
+      ? project.photo_metadata
+      : {};
+  return metadata.childIdentityProfile && typeof metadata.childIdentityProfile === 'object'
+    ? metadata.childIdentityProfile
+    : null;
+}
+
+/**
+ * Merge a consistency lock and/or child identity profile into the project's
+ * photo_metadata, preserving existing metadata keys.
+ */
+export function mergeIdentityMetadata(project, { consistencyLock, childIdentityProfile } = {}) {
+  const metadata =
+    project?.photo_metadata && typeof project.photo_metadata === 'object'
+      ? project.photo_metadata
+      : {};
+
+  const patch = {};
+  if (consistencyLock) {
+    patch.consistencyLock = consistencyLock;
+  }
+  if (childIdentityProfile) {
+    patch.childIdentityProfile = childIdentityProfile;
+  }
+
+  return { ...metadata, ...patch };
+}
+
 function clampWizardStep(step) {
   const parsed = Number(step);
   if (!Number.isFinite(parsed)) {
@@ -203,6 +290,10 @@ export function buildDraftResponse(draft, pages = []) {
   const isGenerated = Boolean(flow.isGenerated || pages.length > 0);
   const isPaid = Boolean(flow.isPaid || draft?.isPaid || draft?.is_paid);
 
+  // Surface Phase 1 identity fields from photo_metadata
+  const childIdentityProfile = getChildIdentityProfile(draft);
+  const consistencyLock = getConsistencyLock(draft);
+
   return {
     ...draft,
     pages,
@@ -218,6 +309,11 @@ export function buildDraftResponse(draft, pages = []) {
     draft_expires_at: draftExpiresAt,
     expired,
     formData: buildDraftFormData(draft, pages),
+    // Phase 1: identity pipeline fields – null when not yet collected
+    childIdentityProfile,
+    consistencyLock,
+    hasIdentityProfile: childIdentityProfile !== null,
+    hasConsistencyLock: consistencyLock !== null,
   };
 }
 
@@ -308,6 +404,16 @@ export async function saveDraftForUser(userId, payload = {}) {
     payload.projectId || formData.projectId || formData.id || '';
   const pages = normalizeStoryPagesFromFormData(formData);
 
+  // Phase 1: capture identity profile and consistency lock when provided
+  const incomingChildIdentityProfile =
+    payload.childIdentityProfile ||
+    formData.childIdentityProfile ||
+    null;
+  const incomingConsistencyLock =
+    payload.consistencyLock ||
+    formData.consistencyLock ||
+    null;
+
   if (payload.startNew) {
     await markUserDraftsInactive(userId);
   }
@@ -346,20 +452,29 @@ export async function saveDraftForUser(userId, payload = {}) {
   );
 
   if (!draft) {
+    // Build initial photo_metadata including optional identity fields
+    const initialMetadata = mergeIdentityMetadata(
+      { photo_metadata: { [DRAFT_FLOW_METADATA_KEY]: generationPatch } },
+      { consistencyLock: incomingConsistencyLock, childIdentityProfile: incomingChildIdentityProfile }
+    );
     draft = await createStoryProjectRecord(userId, {
       ...projectPayload,
       is_generated: isGeneratedForColumns,
       draft_expires_at: expiresAt,
-      photo_metadata: {
-        [DRAFT_FLOW_METADATA_KEY]: generationPatch,
-      },
+      photo_metadata: initialMetadata,
     });
   } else {
+    // Merge draftFlow metadata then overlay identity fields
+    const mergedWithFlow = mergeDraftFlowMetadata(draft, generationPatch);
+    const mergedWithIdentity = mergeIdentityMetadata(
+      { photo_metadata: mergedWithFlow },
+      { consistencyLock: incomingConsistencyLock, childIdentityProfile: incomingChildIdentityProfile }
+    );
     draft = await updateStoryProjectRecord(userId, draft.id, {
       ...projectPayload,
       is_generated: isGeneratedForColumns,
       draft_expires_at: expiresAt,
-      photo_metadata: mergeDraftFlowMetadata(draft, generationPatch),
+      photo_metadata: mergedWithIdentity,
     });
   }
 
