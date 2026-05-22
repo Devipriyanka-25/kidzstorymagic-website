@@ -15,9 +15,13 @@ describe('🔒 Child Safety Verification Tests', () => {
 
   beforeAll(async () => {
     // Setup express app with routes
-    app = require('../src/index.js');
+    app = require('../index.js');
     pool = new Pool({
-      connectionString: process.env.DATABASE_URL || 'postgresql://...',
+      host: process.env.DB_HOST || 'localhost',
+      port: Number(process.env.DB_PORT || 5432),
+      database: process.env.DB_NAME,
+      user: process.env.DB_USER,
+      password: process.env.DB_PASSWORD,
     });
 
     // Create test user
@@ -25,7 +29,7 @@ describe('🔒 Child Safety Verification Tests', () => {
   });
 
   afterAll(async () => {
-    await pool.end();
+    if (pool) await pool.end();
   });
 
   describe('1️⃣ CRITICAL: Parent Consent Enforcement', () => {

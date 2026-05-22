@@ -181,43 +181,6 @@ const validateLanguageStrict = (req, res, next) => {
     });
   }
 };
-  try {
-    const language = req.body?.storyLanguage || req.query?.language;
-
-    if (!language) {
-      // No language provided, use default
-      req.validatedLanguage = DEFAULT_LANGUAGE;
-      req.body.storyLanguage = DEFAULT_LANGUAGE;
-      return next();
-    }
-
-    const normalizedLanguage = language.toLowerCase().trim();
-
-    if (!SUPPORTED_LANGUAGES.includes(normalizedLanguage)) {
-      return res.status(400).json({
-        success: false,
-        error: {
-          code: 'INVALID_LANGUAGE',
-          message: `Unsupported language: ${language}. Supported languages: ${SUPPORTED_LANGUAGES.join(', ')}`,
-        },
-      });
-    }
-
-    req.validatedLanguage = normalizedLanguage;
-    req.body.storyLanguage = normalizedLanguage;
-
-    next();
-  } catch (error) {
-    console.error('[Language Validation Strict Error]', error);
-    return res.status(500).json({
-      success: false,
-      error: {
-        code: 'LANGUAGE_VALIDATION_ERROR',
-        message: 'Error validating language',
-      },
-    });
-  }
-};
 
 /**
  * Get all supported languages
