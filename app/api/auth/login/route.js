@@ -61,7 +61,11 @@ export async function POST(request) {
         preferredCurrency: 'USD',
         createdAt: new Date().toISOString(),
       });
-      userStore.addUser(DEMO_USER.email, demoUser);
+      const demoPasswordHash = await bcrypt.hash(DEMO_USER.password, 10);
+      userStore.addUser(DEMO_USER.email, {
+        ...demoUser,
+        passwordHash: demoPasswordHash,
+      });
 
       const token = jwt.sign(
         { id: DEMO_USER.id, email: DEMO_USER.email, name: DEMO_USER.name },
@@ -113,7 +117,10 @@ export async function POST(request) {
           preferredCurrency: user.preferred_currency,
           createdAt: user.created_at,
         });
-        userStore.addUser(normalizedEmail, clientUser);
+        userStore.addUser(normalizedEmail, {
+          ...clientUser,
+          passwordHash: user.password_hash,
+        });
 
         return NextResponse.json(
           {

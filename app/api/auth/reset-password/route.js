@@ -3,15 +3,28 @@ import bcrypt from 'bcryptjs';
 import {
   findAuthUserByResetTokenHash,
   isPersistentAuthAvailable,
+  normalizeEmail,
   updateAuthUserPassword,
 } from '../../shared/authUsers.js';
+import { userStore } from '../../shared/userStore.js';
+import { consumeEphemeralResetToken } from '../../shared/resetTokenStore.js';
 import crypto from 'crypto';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
+const RESET_TOKEN_HASH_SALT =
+  process.env.RESET_TOKEN_HASH_SALT || 'kidz-reset-token-salt';
 
-function hashResetToken(token) {
-  return crypto.createHash('sha256').update(String(token || '')).digest('hex');
+function createResetTokenDigest(rawToken) {
+  return crypto
+    .pbkdf2Sync(
+      String(rawToken || ''),
+      RESET_TOKEN_HASH_SALT,
+      100000,
+      32,
+      'sha256'
+    )
+    .toString('hex');
 }
 
 function isMissingResetColumnsError(error) {
@@ -42,20 +55,13 @@ export async function POST(request) {
       );
     }
 
-    if (!isPersistentAuthAvailable()) {
-      return NextResponse.json(
-        {
-          error: 'Password reset is temporarily unavailable.',
-          details: 'Persistent auth storage is not configured for this environment.',
-        },
-        { status: 503 }
-      );
-    }
+    const resetTokenHash = createResetTokenDigest(token);
+    const isPersistentAuth = isPersistentAuthAvailable();
+    const user = isPersistentAuth
+      ? await findAuthUserByResetTokenHash(resetTokenHash)
+      : { email: consumeEphemeralResetToken(resetTokenHash) };
 
-    const resetTokenHash = hashResetToken(token);
-    const user = await findAuthUserByResetTokenHash(resetTokenHash);
-
-    if (!user?.id) {
+    if ((isPersistentAuth && !user?.id) || (!isPersistentAuth && !user?.email)) {
       return NextResponse.json(
         { error: 'Invalid or expired reset token.' },
         { status: 400 }
@@ -64,10 +70,22 @@ export async function POST(request) {
 
     const passwordHash = await bcrypt.hash(password, 10);
 
-    await updateAuthUserPassword({
-      userId: user.id,
-      passwordHash,
-    });
+    if (isPersistentAuth) {
+      await updateAuthUserPassword({
+        userId: user.id,
+        passwordHash,
+      });
+    } else {
+      const normalizedEmail = normalizeEmail(user.email);
+      const storedUser = userStore.getUser(normalizedEmail);
+      if (!storedUser) {
+        return NextResponse.json(
+          { error: 'Invalid or expired reset token.' },
+          { status: 400 }
+        );
+      }
+      userStore.updateUser(normalizedEmail, { ...storedUser, passwordHash });
+    }
 
     return NextResponse.json(
       {

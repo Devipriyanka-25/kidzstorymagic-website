@@ -6,6 +6,8 @@ import {
   normalizeEmail,
   saveAuthUserResetToken,
 } from '../../shared/authUsers.js';
+import { userStore } from '../../shared/userStore.js';
+import { saveEphemeralResetToken } from '../../shared/resetTokenStore.js';
 import {
   getEmailFromAddress,
   isAutomatedEmailConfigured,
@@ -17,13 +19,21 @@ export const dynamic = 'force-dynamic';
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const RESET_TOKEN_WINDOW_MS = 60 * 60 * 1000;
+const RESET_TOKEN_HASH_SALT =
+  process.env.RESET_TOKEN_HASH_SALT || 'kidz-reset-token-salt';
 
 function isValidEmail(email) {
   return EMAIL_PATTERN.test(String(email || '').trim());
 }
 
-function hashResetToken(token) {
-  return crypto.createHash('sha256').update(String(token || '')).digest('hex');
+function createResetTokenDigest(token) {
+  return crypto
+    .pbkdf2Sync(String(token || ''), RESET_TOKEN_HASH_SALT, 100000, 32, 'sha256')
+    .toString('hex');
+}
+
+function hashIdentifier(value) {
+  return crypto.createHash('sha256').update(String(value || '')).digest('hex');
 }
 
 function getSiteBaseUrl(request) {
@@ -132,17 +142,22 @@ export async function POST(request) {
       );
     }
 
-    if (!isPersistentAuthAvailable()) {
-      return NextResponse.json(
-        {
-          error: 'Password reset is temporarily unavailable.',
-          details: 'Persistent auth storage is not configured for this environment.',
-        },
-        { status: 503 }
-      );
-    }
+    const message = 'If an account exists, a reset link has been sent.';
+    const isPersistentAuth = isPersistentAuthAvailable();
+    const storedUser = isPersistentAuth
+      ? await findAuthUserByEmail(email)
+      : userStore.getUser(email);
+    const user =
+      storedUser && (isPersistentAuth || storedUser.passwordHash)
+        ? storedUser
+        : null;
+    const resetToken = crypto.randomBytes(32).toString('hex');
+    const resetTokenHash = createResetTokenDigest(resetToken);
+    const resetTokenExpiry = new Date(Date.now() + RESET_TOKEN_WINDOW_MS).toISOString();
+    const siteBaseUrl = getSiteBaseUrl(request);
+    const resetUrl = `${siteBaseUrl}/auth/reset-password?token=${resetToken}`;
 
-    if (!isAutomatedEmailConfigured()) {
+    if (isPersistentAuth && !isAutomatedEmailConfigured()) {
       return NextResponse.json(
         {
           error: 'Password reset email is not configured yet.',
@@ -152,37 +167,37 @@ export async function POST(request) {
       );
     }
 
-    const user = await findAuthUserByEmail(email);
-    const message = 'If an account exists, a reset link has been sent.';
+    if (user) {
+      if (isPersistentAuth) {
+        await saveAuthUserResetToken({
+          userId: user.id,
+          resetTokenHash,
+          resetTokenExpiry,
+        });
+      } else {
+        saveEphemeralResetToken({
+          email: user.email,
+          resetTokenHash,
+          resetTokenExpiry,
+        });
+      }
 
-    if (!user) {
-      return NextResponse.json({ success: true, message }, { status: 200 });
+      const emailContent = buildForgotPasswordEmail({
+        recipientName: user.name,
+        resetUrl,
+      });
+
+      if (isAutomatedEmailConfigured()) {
+        const recipientKey = user.id || hashIdentifier(user.email);
+        await sendTransactionalEmail({
+          to: user.email,
+          subject: emailContent.subject,
+          html: emailContent.html,
+          text: emailContent.text,
+          idempotencyKey: `forgot-password-${recipientKey}-${resetTokenHash}`,
+        });
+      }
     }
-
-    const resetToken = crypto.randomBytes(32).toString('hex');
-    const resetTokenHash = hashResetToken(resetToken);
-    const resetTokenExpiry = new Date(Date.now() + RESET_TOKEN_WINDOW_MS).toISOString();
-    const siteBaseUrl = getSiteBaseUrl(request);
-    const resetUrl = `${siteBaseUrl}/auth/reset-password?token=${resetToken}`;
-
-    await saveAuthUserResetToken({
-      userId: user.id,
-      resetTokenHash,
-      resetTokenExpiry,
-    });
-
-    const emailContent = buildForgotPasswordEmail({
-      recipientName: user.name,
-      resetUrl,
-    });
-
-    await sendTransactionalEmail({
-      to: user.email,
-      subject: emailContent.subject,
-      html: emailContent.html,
-      text: emailContent.text,
-      idempotencyKey: `forgot-password-${user.id}-${resetTokenHash}`,
-    });
 
     const response = {
       success: true,
@@ -191,6 +206,7 @@ export async function POST(request) {
 
     if (
       process.env.NODE_ENV !== 'production' ||
+      !isAutomatedEmailConfigured() ||
       getEmailFromAddress().includes('resend.dev')
     ) {
       response.resetUrl = resetUrl;

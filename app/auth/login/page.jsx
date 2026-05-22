@@ -21,6 +21,22 @@ function resolveSafeRedirectTarget(value, fallbackPath) {
   return fallbackPath;
 }
 
+function resolveLoginErrorMessage(error) {
+  if (error?.response?.data?.error) {
+    return error.response.data.error;
+  }
+
+  if (error?.response?.data?.details) {
+    return error.response.data.details;
+  }
+
+  if (error?.response?.status === 401) {
+    return 'Invalid email or password';
+  }
+
+  return error?.message || 'Login failed';
+}
+
 export default function LoginPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -106,7 +122,7 @@ export default function LoginPage() {
       console.log('[LOGIN_REDIRECT] Redirecting to:', redirectTarget);
       router.push(redirectTarget);
     } catch (error) {
-      setGeneralError(error.message || 'Login failed');
+      setGeneralError(resolveLoginErrorMessage(error));
     } finally {
       setLoading(false);
     }

@@ -31,6 +31,24 @@ function buildLoginRedirectUrl() {
   return `/auth/login?next=${encodeURIComponent(nextPath)}`;
 }
 
+export function shouldRedirectToLoginOnUnauthorized(error) {
+  if (error?.response?.status !== 401) {
+    return false;
+  }
+
+  const requestUrl = String(error?.config?.url || '');
+  const LOGIN_ENDPOINT_PATHS = new Set(['/auth/login', '/api/auth/login']);
+  const normalizePath = (path) => String(path || '').replace(/\/+$/, '');
+
+  try {
+    // "http://localhost" is only a parsing base for relative URLs; we compare pathname only.
+    const parsedUrl = new URL(requestUrl, 'http://localhost');
+    return !LOGIN_ENDPOINT_PATHS.has(normalizePath(parsedUrl.pathname));
+  } catch {
+    return !LOGIN_ENDPOINT_PATHS.has(normalizePath(requestUrl));
+  }
+}
+
 // Create API client dynamically at runtime
 function createAPIClient() {
   const baseURL = getAPIBaseURL();
@@ -82,7 +100,7 @@ function createAPIClient() {
       }
       
       // Handle 401 (Unauthorized) - redirect to login
-      if (error.response?.status === 401) {
+      if (shouldRedirectToLoginOnUnauthorized(error)) {
         if (typeof window !== 'undefined') {
           localStorage.removeItem('authToken');
           window.location.href = buildLoginRedirectUrl();

@@ -14,6 +14,91 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 export const maxDuration = 300; // 5 minutes for face swap processing
 
+const PRIVATE_HOST_PATTERNS = [
+  /^localhost$/i,
+  /^127\./,
+  /^10\./,
+  /^192\.168\./,
+  /^172\.(1[6-9]|2\d|3[0-1])\./,
+  /^::1$/,
+];
+
+/**
+ * Normalize provider errors to safe, plain-text messages for logs/responses.
+ * This avoids returning raw error objects while still preserving actionable context.
+ */
+function sanitizeProviderError(error) {
+  return error instanceof Error ? error.message : String(error);
+}
+
+function isDataImageUrl(value) {
+  return typeof value === 'string' && value.startsWith('data:image/');
+}
+
+function isLikelyPrivateHost(hostname) {
+  return PRIVATE_HOST_PATTERNS.some((pattern) => pattern.test(hostname));
+}
+
+export function isPublicHttpUrl(value) {
+  if (typeof value !== 'string') {
+    return false;
+  }
+
+  try {
+    const parsed = new URL(value);
+    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+      return false;
+    }
+
+    return !isLikelyPrivateHost(parsed.hostname);
+  } catch (error) {
+    console.warn(
+      '[FACE_SWAP] Invalid URL input received:',
+      sanitizeProviderError(error)
+    );
+    return false;
+  }
+}
+
+function classifyImageInput(value) {
+  if (isDataImageUrl(value)) {
+    return 'data-url';
+  }
+
+  if (isPublicHttpUrl(value)) {
+    return 'public-http-url';
+  }
+
+  return 'unsupported';
+}
+
+/**
+ * Build DeepAI-compatible inputs.
+ * DeepAI accepts only public HTTP(S) URLs, so data URLs are converted to hosted URLs
+ * while unsupported/private inputs are rejected with a controlled error.
+ */
+async function prepareInputsForDeepAI(faceImageUrl, illustrationImageUrl, host) {
+  const faceType = classifyImageInput(faceImageUrl);
+  const illustrationType = classifyImageInput(illustrationImageUrl);
+
+  if (faceType === 'unsupported' || illustrationType === 'unsupported') {
+    throw new Error(
+      'DeepAI requires publicly accessible image URLs or data:image URLs.'
+    );
+  }
+
+  const sourceImageUrl =
+    faceType === 'data-url'
+      ? await convertDataUrlToHttpUrl(faceImageUrl, host)
+      : faceImageUrl;
+  const targetImageUrl =
+    illustrationType === 'data-url'
+      ? await convertDataUrlToHttpUrl(illustrationImageUrl, host)
+      : illustrationImageUrl;
+
+  return { sourceImageUrl, targetImageUrl };
+}
+
 export async function POST(request) {
   let requestBody = null;
 
@@ -98,71 +183,105 @@ export async function POST(request) {
     });
 
     const host = request.headers.get('host') || 'www.kidzstorymagic.org';
-    let httpFaceUrl = faceImageUrl;
-    let httpIllustrationUrl = illustrationImageUrl;
+    const faceInputType = classifyImageInput(faceImageUrl);
+    const illustrationInputType = classifyImageInput(illustrationImageUrl);
 
-    if (faceImageUrl.startsWith('data:image/')) {
-      console.log('[FACE_SWAP] Converting face image data URL to HTTP URL...');
-      httpFaceUrl = await convertDataUrlToHttpUrl(faceImageUrl, host);
-      console.log(
-        '[FACE_SWAP] Face image converted:',
-        httpFaceUrl.substring(0, 60) + '...'
-      );
-    }
-
-    if (illustrationImageUrl.startsWith('data:image/')) {
-      console.log(
-        '[FACE_SWAP] Converting illustration data URL to HTTP URL...'
-      );
-      httpIllustrationUrl = await convertDataUrlToHttpUrl(
-        illustrationImageUrl,
-        host
-      );
-      console.log(
-        '[FACE_SWAP] Illustration converted:',
-        httpIllustrationUrl.substring(0, 60) + '...'
+    if (faceInputType === 'unsupported' || illustrationInputType === 'unsupported') {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Unsupported image input',
+          message:
+            'Use either a public http(s) URL or a data:image URL for face swap inputs.',
+          swappedUrl: illustrationImageUrl,
+          result: {
+            storyId,
+            photoId,
+            pageNumber,
+            childName,
+            swappedImageUrl: illustrationImageUrl,
+            provider: 'fallback',
+            fallback: true,
+          },
+          metadata: {
+            source: 'input-validation',
+            faceInputType,
+            illustrationInputType,
+          },
+        },
+        { status: 422 }
       );
     }
 
     let swapResult = null;
-    let lastProviderError = null;
+    const providerErrors = [];
 
     if (replicateKey) {
       try {
         console.log('[FACE_SWAP] Calling Replicate for face swap...');
         swapResult = await faceSwapWithReplicate(
-          httpFaceUrl,
-          httpIllustrationUrl
+          faceImageUrl,
+          illustrationImageUrl
         );
       } catch (replicateError) {
-        lastProviderError = replicateError;
+        providerErrors.push({
+          provider: 'replicate',
+          error: sanitizeProviderError(replicateError),
+        });
         console.warn(
           '[FACE_SWAP] Replicate face swap failed:',
-          replicateError.message
+          sanitizeProviderError(replicateError)
         );
       }
     }
 
     if (!swapResult && deepaiKey) {
       try {
-        console.log('[FACE_SWAP] Calling DeepAI for face swap...');
-        swapResult = await faceSwapWithDeepAI(
-          httpFaceUrl,
-          httpIllustrationUrl
+        const { sourceImageUrl, targetImageUrl } = await prepareInputsForDeepAI(
+          faceImageUrl,
+          illustrationImageUrl,
+          host
         );
+
+        console.log('[FACE_SWAP] Calling DeepAI for face swap...');
+        swapResult = await faceSwapWithDeepAI(sourceImageUrl, targetImageUrl);
       } catch (deepaiError) {
-        lastProviderError = deepaiError;
+        providerErrors.push({
+          provider: 'deepai',
+          error: sanitizeProviderError(deepaiError),
+        });
         console.warn(
           '[FACE_SWAP] DeepAI face swap failed:',
-          deepaiError.message
+          sanitizeProviderError(deepaiError)
         );
       }
     }
 
     if (!swapResult) {
-      throw (
-        lastProviderError ||
-        new Error('No configured face swap provider completed successfully.')
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Face swap unavailable',
+          message:
+            'No configured face swap provider completed successfully for the provided inputs.',
+          swappedUrl: illustrationImageUrl,
+          result: {
+            storyId,
+            photoId,
+            pageNumber,
+            childName,
+            swappedImageUrl: illustrationImageUrl,
+            provider: 'fallback',
+            fallback: true,
+          },
+          providerErrors,
+          metadata: {
+            source: 'provider-fallback',
+            faceInputType,
+            illustrationInputType,
+          },
+        },
+        { status: 502 }
       );
     }
 
